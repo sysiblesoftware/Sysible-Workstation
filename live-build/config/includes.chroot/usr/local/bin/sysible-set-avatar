@@ -1,0 +1,43 @@
+#!/bin/sh
+# Seed the Sysible avatar into AccountsService for every human user, so the
+# GDM login/lock screen shows the Sysible mark instead of the generic
+# silhouette. GNOME reads the avatar from AccountsService (not ~/.face), so
+# shipping ~/.face alone is not enough.
+#
+# Idempotent and non-destructive: only sets an icon for a user that does not
+# already have a custom one, so a user who picks their own avatar keeps it.
+set -eu
+
+FACE=/usr/share/pixmaps/sysible-face.png
+ICONDIR=/var/lib/AccountsService/icons
+USERDIR=/var/lib/AccountsService/users
+[ -f "$FACE" ] || exit 0
+mkdir -p "$ICONDIR" "$USERDIR"
+
+# Human accounts live in the normal login UID range.
+MINUID=$(awk -F= '/^UID_MIN/{print $2}' /etc/login.defs 2>/dev/null | tr -dc 0-9)
+MAXUID=$(awk -F= '/^UID_MAX/{print $2}' /etc/login.defs 2>/dev/null | tr -dc 0-9)
+: "${MINUID:=1000}"
+: "${MAXUID:=60000}"
+
+while IFS=: read -r name _ uid _ _ _ _; do
+  [ "$uid" -ge "$MINUID" ] 2>/dev/null || continue
+  [ "$uid" -le "$MAXUID" ] 2>/dev/null || continue
+
+  af="$USERDIR/$name"
+  # Skip if the user already chose a non-Sysible avatar.
+  if [ -f "$af" ] && grep -q '^Icon=' "$af" && ! grep -q '^Icon=.*sysible' "$af" \
+     && ! grep -q "^Icon=$ICONDIR/$name" "$af"; then
+    continue
+  fi
+
+  cp -f "$FACE" "$ICONDIR/$name"
+  chmod 0644 "$ICONDIR/$name"
+  if [ -f "$af" ] && grep -q '^Icon=' "$af"; then
+    sed -i "s|^Icon=.*|Icon=$ICONDIR/$name|" "$af"
+  elif [ -f "$af" ]; then
+    printf 'Icon=%s\n' "$ICONDIR/$name" >> "$af"
+  else
+    printf '[User]\nIcon=%s\nSystemAccount=false\n' "$ICONDIR/$name" > "$af"
+  fi
+done < /etc/passwd

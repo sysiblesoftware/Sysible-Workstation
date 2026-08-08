@@ -1,0 +1,15 @@
+[Unit]
+Description=Seed the Sysible avatar into AccountsService for human users
+# Run before the display manager so the login screen shows the avatar on first
+# draw. accounts-daemon picks up the files on demand, so no ordering vs. it is
+# required.
+Before=gdm.service display-manager.service
+ConditionPathExists=/usr/share/pixmaps/sysible-face.png
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/sysible-set-avatar
+RemainAfterExit=yes
+
+[Install]
+WantedBy=multi-user.target
