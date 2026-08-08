@@ -1,5 +1,16 @@
 # Adds "Open in SysTerm" to the Nautilus right-click menu (on folders and on the
 # folder background), launching SysTerm in that directory.
+import gi
+
+# Bookworm's Nautilus is GTK4 (Nautilus 4.0); pin the version so the import
+# resolves regardless of loader defaults, falling back to 3.0 on older systems.
+for _ver in ("4.0", "3.0"):
+    try:
+        gi.require_version("Nautilus", _ver)
+        break
+    except (ValueError, AttributeError):
+        continue
+
 from gi.repository import Nautilus, GObject
 import subprocess
 
