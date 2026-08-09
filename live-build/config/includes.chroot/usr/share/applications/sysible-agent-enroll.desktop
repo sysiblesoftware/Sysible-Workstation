@@ -1,0 +1,12 @@
+[Desktop Entry]
+Type=Application
+Version=1.0
+Name=Enroll with Sysible Controller
+GenericName=Agent Enrollment
+Comment=Install the Sysible agent and enroll this host with a Sysible Controller
+Exec=sysible-agent-enroll
+Icon=sysible-agent-enroll
+Terminal=false
+Categories=System;Settings;
+Keywords=sysible;controller;agent;enroll;fleet;
+StartupNotify=true

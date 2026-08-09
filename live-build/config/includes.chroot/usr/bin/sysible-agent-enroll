@@ -1,0 +1,198 @@
+#!/usr/bin/env python3
+"""Sysible Agent Enrollment — a small GTK front end that enrolls this host with a
+Sysible Controller. Enter the controller's Webserver Portal address + credentials
+and it runs the same install the console hands out:
+
+    curl -k -sS -f -u USER:PASS -o bundle.zip https://HOST:PORT/cli/bundle
+      && unzip … && cd sysible-agent-bundle && ./run_agent.sh [--unprivileged]
+
+run_agent.sh needs root, so the chain runs under pkexec (a polkit prompt)."""
+
+import os
+import shlex
+import shutil
+import tempfile
+import threading
+import subprocess
+
+import gi
+
+gi.require_version("Gtk", "3.0")
+from gi.repository import Gtk, GLib  # noqa: E402
+
+APP_ID = "io.sysible.AgentEnroll"
+DEFAULT_PORT = "8090"
+
+
+class EnrollWindow(Gtk.ApplicationWindow):
+    def __init__(self, app):
+        super().__init__(application=app, title="Enroll with Sysible Controller")
+        self.set_default_size(580, 560)
+        self._running = False
+
+        outer = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
+        self.add(outer)
+
+        header = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=14, border_width=16)
+        header.pack_start(Gtk.Image.new_from_icon_name("sysible-agent-enroll",
+                                                       Gtk.IconSize.DIALOG), False, False, 0)
+        tbox = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=2)
+        title = Gtk.Label(xalign=0)
+        title.set_markup("<b>Enroll this host with a Sysible Controller</b>")
+        sub = Gtk.Label(xalign=0, wrap=True)
+        sub.get_style_context().add_class("dim-label")
+        sub.set_text("Enter the controller's Webserver Portal address and credentials. "
+                     "This installs the Sysible agent so the controller can manage this machine.")
+        tbox.pack_start(title, False, False, 0)
+        tbox.pack_start(sub, False, False, 0)
+        header.pack_start(tbox, True, True, 0)
+        outer.pack_start(header, False, False, 0)
+        outer.pack_start(Gtk.Separator(), False, False, 0)
+
+        grid = Gtk.Grid(row_spacing=10, column_spacing=12, border_width=16)
+
+        def row(r, label, widget):
+            lab = Gtk.Label(label=label, xalign=1.0)
+            lab.get_style_context().add_class("dim-label")
+            grid.attach(lab, 0, r, 1, 1)
+            grid.attach(widget, 1, r, 1, 1)
+
+        self.e_host = Gtk.Entry(hexpand=True,
+                                placeholder_text="controller.example.com  or  10.0.0.5")
+        self.e_port = Gtk.Entry(text=DEFAULT_PORT, width_chars=8)
+        self.e_user = Gtk.Entry(hexpand=True, placeholder_text="portal username")
+        self.e_pass = Gtk.Entry(hexpand=True, visibility=False,
+                                input_purpose=Gtk.InputPurpose.PASSWORD)
+        self.e_pass.set_activates_default(True)
+        self.c_unpriv = Gtk.CheckButton(
+            label="Run the agent unprivileged (dedicated, locked 'sysible' user)")
+        row(0, "Controller address", self.e_host)
+        row(1, "Portal port", self.e_port)
+        row(2, "Portal username", self.e_user)
+        row(3, "Portal password", self.e_pass)
+        grid.attach(self.c_unpriv, 1, 4, 1, 1)
+        outer.pack_start(grid, False, False, 0)
+
+        self.buf = Gtk.TextBuffer()
+        tv = Gtk.TextView(buffer=self.buf, editable=False, monospace=True,
+                          wrap_mode=Gtk.WrapMode.WORD_CHAR, left_margin=8, right_margin=8,
+                          top_margin=6)
+        sw = Gtk.ScrolledWindow(vexpand=True)
+        sw.set_policy(Gtk.PolicyType.AUTOMATIC, Gtk.PolicyType.AUTOMATIC)
+        sw.add(tv)
+        frame = Gtk.Frame(border_width=16)
+        frame.set_margin_top(0)
+        frame.add(sw)
+        outer.pack_start(frame, True, True, 0)
+
+        bar = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8, border_width=16)
+        self.status = Gtk.Label(xalign=0)
+        self.status.get_style_context().add_class("dim-label")
+        bar.pack_start(self.status, True, True, 0)
+        close = Gtk.Button(label="Close")
+        close.connect("clicked", lambda *_: self.get_application().quit())
+        self.enroll = Gtk.Button(label="Enroll")
+        self.enroll.get_style_context().add_class("suggested-action")
+        self.enroll.connect("clicked", self._on_enroll)
+        self.set_default(self.enroll)
+        bar.pack_end(self.enroll, False, False, 0)
+        bar.pack_end(close, False, False, 0)
+        outer.pack_start(bar, False, False, 0)
+
+    # ----- logging helpers (thread-safe) -----
+    def _append(self, text):
+        def do():
+            self.buf.insert(self.buf.get_end_iter(), text)
+        GLib.idle_add(do)
+
+    def _set_status(self, text):
+        GLib.idle_add(self.status.set_text, text)
+
+    # ----- enroll -----
+    def _on_enroll(self, _btn):
+        if self._running:
+            return
+        host = self.e_host.get_text().strip()
+        port = self.e_port.get_text().strip() or DEFAULT_PORT
+        user = self.e_user.get_text().strip()
+        pw = self.e_pass.get_text()
+        if not (host and user and pw):
+            self.status.set_text("Fill in the controller address, username, and password.")
+            return
+        self._running = True
+        self.enroll.set_sensitive(False)
+        self.buf.set_text("")
+        self._set_status("Enrolling…")
+        threading.Thread(target=self._run, args=(host, port, user, pw,
+                         self.c_unpriv.get_active()), daemon=True).start()
+
+    def _run(self, host, port, user, pw, unpriv):
+        wd = None
+        try:
+            wd = tempfile.mkdtemp(prefix="sysible-enroll-")
+            os.chmod(wd, 0o700)
+            cfg = os.path.join(wd, "curl.cfg")
+            with open(cfg, "w") as f:               # keep the password out of argv/ps
+                f.write('user = "%s:%s"\n' % (user, pw))
+            os.chmod(cfg, 0o600)
+            url = "https://%s:%s/cli/bundle" % (host, port)
+            flag = " --unprivileged" if unpriv else ""
+            script = os.path.join(wd, "enroll.sh")
+            with open(script, "w") as f:
+                f.write(
+                    "#!/bin/sh\nset -e\ncd %s\n" % shlex.quote(wd)
+                    + "echo '== downloading agent bundle =='\n"
+                    + "curl -k -sS -f -K %s -o bundle.zip %s\n" % (shlex.quote(cfg), shlex.quote(url))
+                    + "echo '== unpacking =='\n"
+                    + "rm -rf sysible-agent-bundle\n"
+                    + "unzip -o bundle.zip -d sysible-agent-bundle\n"
+                    + "cd sysible-agent-bundle\nchmod +x run_agent.sh\n"
+                    + "echo '== installing agent (this needs root) =='\n"
+                    + "./run_agent.sh%s\n" % flag
+                    + "echo '== done =='\n")
+            os.chmod(script, 0o755)
+            self._append("Contacting %s …\n" % url)
+            proc = subprocess.Popen(["pkexec", "/bin/sh", script],
+                                    stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+                                    text=True, bufsize=1)
+            for line in proc.stdout:
+                self._append(line)
+            rc = proc.wait()
+            if rc == 0:
+                self._append("\nEnrollment complete — this host should now appear in the "
+                             "controller's host list.\n")
+                self._set_status("Done — host enrolled.")
+            elif rc in (126, 127):
+                self._append("\nAdministrator authorization was cancelled or denied.\n")
+                self._set_status("Cancelled.")
+            else:
+                self._append("\nEnrollment failed (exit %d). Check the address, port, and "
+                             "portal credentials, then try again.\n" % rc)
+                self._set_status("Failed — see the log above.")
+        except Exception as exc:  # noqa: BLE001
+            self._append("\nError: %s\n" % exc)
+            self._set_status("Error.")
+        finally:
+            if wd:
+                shutil.rmtree(wd, ignore_errors=True)
+            GLib.idle_add(self.enroll.set_sensitive, True)
+            self._running = False
+
+
+class EnrollApp(Gtk.Application):
+    def __init__(self):
+        super().__init__(application_id=APP_ID)
+
+    def do_activate(self):
+        win = EnrollWindow(self)
+        win.show_all()
+        win.present()
+
+
+def main():
+    import sys
+    return EnrollApp().run(sys.argv)
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

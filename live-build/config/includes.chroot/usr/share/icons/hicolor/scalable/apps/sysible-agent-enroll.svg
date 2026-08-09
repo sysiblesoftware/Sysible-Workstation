@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48">
+ <defs>
+  <linearGradient id="g" x1="7" y1="4" x2="41" y2="44" gradientUnits="userSpaceOnUse">
+   <stop offset="0" stop-color="#63c869"/><stop offset="1" stop-color="#5580ee"/></linearGradient>
+  <linearGradient id="c" x1="12" y1="24" x2="35" y2="24" gradientUnits="userSpaceOnUse">
+   <stop offset="0" stop-color="#63c869"/><stop offset="1" stop-color="#5580ee"/></linearGradient>
+ </defs>
+ <!-- Sysible hexagon -->
+ <path d="M24,4 L41,14 L41,34 L24,44 L7,34 L7,14 Z" fill="none" stroke="url(#g)"
+       stroke-width="2.6" stroke-linejoin="round"/>
+ <!-- controller topology: one node -> hub -> two (enrollment) -->
+ <path d="M13,24 L24,24 M24,24 L34,16 M24,24 L34,32" stroke="url(#c)" stroke-width="2"
+       fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+ <circle cx="13" cy="24" r="3.2" fill="#63c869"/>
+ <circle cx="24" cy="24" r="3.4" fill="#57b090"/>
+ <circle cx="34" cy="16" r="3.2" fill="#5580ee"/>
+ <circle cx="34" cy="32" r="3.2" fill="#5580ee"/>
+</svg>

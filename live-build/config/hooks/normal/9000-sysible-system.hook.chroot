@@ -26,7 +26,9 @@ ID_LIKE=debian
 VERSION="0.1 (Ignition)"
 VERSION_ID="0.1"
 VERSION_CODENAME=ignition
-HOME_URL="https://sysible.io"
+HOME_URL="https://sysible.com"
+SUPPORT_URL="https://sysible.com/controller"
+LOGO=sysible-logo
 OSREL
 printf 'Sysible Linux \\n \\l\n\n' > /etc/issue
 echo "Sysible Linux" > /etc/issue.net
