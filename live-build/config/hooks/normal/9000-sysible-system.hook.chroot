@@ -35,6 +35,16 @@ echo "Sysible Linux" > /etc/issue.net
 for svc in gdm3 ssh libvirtd docker; do systemctl enable "$svc" 2>/dev/null || true; done
 for grp in sudo kvm libvirt docker wireshark; do groupadd -f "$grp" 2>/dev/null || true; done
 
+# Never auto-suspend — a workstation/VM going to sleep on idle reads as a "freeze"
+# (especially in a VM, whose virtual display may not wake). Mask the sleep targets
+# at the systemd level so nothing can suspend/hibernate the machine, regardless of
+# GNOME's power settings (belt-and-suspenders with 16_sysible-power.gschema.override,
+# which also stops the screen blank/dim/lock). Done by hand (ln -> /dev/null) so it
+# works inside the build chroot where `systemctl mask` may be a no-op.
+for t in sleep.target suspend.target hibernate.target hybrid-sleep.target suspend-then-hibernate.target; do
+    ln -sf /dev/null "/etc/systemd/system/$t"
+done
+
 # Drop Debian's (and GNOME's stock) default wallpapers — Sysible ships its own
 # set (sysible-artwork, under /usr/share/backgrounds/sysible) and sets Mesh-dark
 # as the default via gschema. Remove every background-chooser registration except
