@@ -196,6 +196,12 @@ cat > /etc/dconf/db/gdm.d/10-sysible-background <<'DCONF'
 picture-uri='file:///usr/share/backgrounds/sysible/sysible-login.png'
 picture-uri-dark='file:///usr/share/backgrounds/sysible/sysible-login.png'
 picture-options='zoom'
+
+# Remove the stock Debian logo ("debian 12") from the bottom of the GDM greeter,
+# so only the Sysible background + wordmark show.
+[org/gnome/login-screen]
+logo=''
+banner-message-enable=false
 DCONF
 dconf update 2>/dev/null || true
 

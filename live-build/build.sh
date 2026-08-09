@@ -133,9 +133,17 @@ if m:
     inst = re.sub(r'menuentry\s+"[^"]*"', 'menuentry "Install Sysible Linux"', m.group(0), count=1)
     inst = re.sub(r'(\n\s*linux\s+\S+[^\n]*)', r'\1 sysible.install', inst, count=1)
     s = s + "\n" + inst + "\n"
-hdr = ('insmod png\nif background_image /boot/grub/sysible-splash.png; then true; fi\n'
-       'set color_normal=light-gray/black\nset menu_color_normal=cyan/black\n'
-       'set menu_color_highlight=white/blue\n')
+# arm64 UEFI needs the EFI framebuffer (efi_gop/efi_uga) + gfxterm brought up
+# BEFORE background_image, or GRUB has no video mode and drops the splash (the
+# default-blue menu the user saw on arm64 while amd64 rendered fine). These
+# insmods are harmless no-ops where they don't apply. Highlight is Sysible green
+# so the menu never reads as stock Debian, even if the PNG can't load.
+hdr = ('insmod efi_gop\ninsmod efi_uga\ninsmod all_video\ninsmod gfxterm\ninsmod png\n'
+       'set gfxmode=auto\nterminal_output gfxterm\n'
+       'if background_image /boot/grub/sysible-splash.png; then true; fi\n'
+       'set color_normal=light-gray/black\n'
+       'set menu_color_normal=light-gray/black\n'
+       'set menu_color_highlight=black/light-green\n')
 open(p, 'w').write(hdr + s)
 PY
         # isolinux (BIOS): rebrand the entry labels + clone an install entry.
