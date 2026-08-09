@@ -191,11 +191,13 @@ fi
 # GDM greeter branding via the gdm dconf profile. Two things here:
 #  * background — harmless belt-and-suspenders (the gresource rebuild above is
 #    what actually paints the greeter background on Debian).
-#  * logo — REPLACE Debian's "debian 12" watermark at the bottom of the login
-#    screen with the Sysible "SYSIBLE LINUX" lockup. Pointing the key at a real
-#    file is far more reliable than logo='' (which some GDM builds treat as
-#    "unset → fall back"). A high-numbered keyfile wins keyfile ordering, and the
-#    lock makes our value authoritative so nothing else can flip it back.
+#  * logo — remove Debian's "debian 12" watermark from the bottom of the login
+#    screen. Pointing the key at a real (transparent) file is far more reliable
+#    than logo='' (which some GDM builds treat as "unset → fall back"): GDM draws
+#    our transparent image, i.e. nothing, so the branding is just the subtle
+#    "SYSIBLE LINUX" wordmark baked into the background — one sleek element, not a
+#    huge GDM-scaled lockup. A high-numbered keyfile wins keyfile ordering and the
+#    lock makes our value authoritative so nothing can flip it back.
 mkdir -p /etc/dconf/db/gdm.d /etc/dconf/db/gdm.d/locks
 cat > /etc/dconf/db/gdm.d/95-sysible-login <<'DCONF'
 [org/gnome/desktop/background]

@@ -158,25 +158,25 @@ if m:
     inst = re.sub(r'menuentry\s+"[^"]*"', 'menuentry "Install Sysible Linux"', m.group(0), count=1)
     inst = re.sub(r'(\n\s*linux\s+\S+[^\n]*)', r'\1 sysible.install', inst, count=1)
     s = s + "\n" + inst + "\n"
-# Brand the live GRUB menu. This MUST be APPENDED, not prepended: live-build's
-# generated grub.cfg sets its own background/colors (and on some arches a theme)
-# as it is sourced, and GRUB honours the LAST directive when it renders the menu.
-# A prepended block is silently overridden — that is why arm64 kept showing the
-# stock Debian-blue menu even though our background_image was present. Appended,
-# our directives run last and win. The block is self-contained: bring up the EFI
-# framebuffer (efi_gop/efi_uga) + gfxterm FIRST (arm64 UEFI has no video mode
-# otherwise, which drops the splash), clear any theme (a theme would override
-# background_image), then set the Sysible background + green highlight so the menu
-# never reads as stock Debian even if the PNG can't load.
+# Brand the live GRUB menu with the Sysible THEME (dark hex background, centered
+# mark, GREEN TEXT highlight — not a solid bar — and the "GNU GRUB version" line
+# hidden). This MUST be APPENDED, not prepended: live-build's generated grub.cfg
+# sets its own background/colours/theme as it is sourced, and GRUB honours the
+# LAST directive when it renders the menu, so a prepended block is silently
+# overridden (why arm64 kept the stock blue menu). Appended, ours win. gfxterm +
+# a font are already up by this point (the stock menu renders text), so the theme
+# has what it needs; we re-assert them for safety. The colour lines are only a
+# fallback if the theme file can't load — light-green/black is green text on a
+# transparent background (no garish highlight bar), never stock blue.
 vis = ('\n\n# --- Sysible branding (appended last so it wins) ---\n'
-       'insmod efi_gop\ninsmod efi_uga\ninsmod all_video\ninsmod gfxterm\ninsmod png\n'
+       'insmod all_video\ninsmod efi_gop\ninsmod efi_uga\ninsmod gfxterm\ninsmod png\n'
        'set gfxmode=auto\nterminal_output gfxterm\n'
-       'unset theme\n'
-       'if background_image /boot/grub/sysible-splash.png; then true; fi\n'
+       'loadfont ($root)/boot/grub/fonts/unicode.pf2\n'
        'set color_normal=light-gray/black\n'
-       'set color_highlight=black/light-green\n'
        'set menu_color_normal=light-gray/black\n'
-       'set menu_color_highlight=black/light-green\n')
+       'set menu_color_highlight=light-green/black\n'
+       'set theme=($root)/boot/grub/themes/sysible/theme.txt\n'
+       'export theme\n')
 open(p, 'w').write(s + vis)
 PY
         # isolinux (BIOS): rebrand the entry labels + clone an install entry.
@@ -200,9 +200,16 @@ open(p, 'w').write(s)
 PY
             MAP_LIVE="-map $WORK/live.cfg /isolinux/live.cfg"
         fi
+        # Ship the Sysible GRUB theme onto the ISO's own boot filesystem so the
+        # live menu (set theme=... above) can load it. The same theme dir is also
+        # in the installed system via includes.chroot, so live + installed match.
+        THEME_SRC="$PWD/config/includes.chroot/boot/grub/themes/sysible"
+        MAP_THEME=""
+        [ -d "$THEME_SRC" ] && MAP_THEME="-map $THEME_SRC /boot/grub/themes/sysible"
         $SUDO xorriso -boot_image any keep -dev "$ISO" \
             -map "$WORK/grub.cfg" /boot/grub/grub.cfg \
             -map "$WORK/sysible-splash.png" /boot/grub/sysible-splash.png \
+            $MAP_THEME \
             $MAP_LIVE \
             -commit 2>&1 | tail -4
         # Post-commit verification is debug-only and MUST NOT fail the build.
