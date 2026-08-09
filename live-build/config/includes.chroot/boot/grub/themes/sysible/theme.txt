@@ -1,0 +1,42 @@
+# Sysible Linux — GRUB theme
+# Dark hex-mesh background with the Sysible mark; green highlight for the
+# selected entry. Fonts are left as the GRUB default so no .pf2 is required.
+
+title-text: ""
+desktop-image: "background.png"
+desktop-color: "#0d1117"
+message-color: "#a7b4cc"
+message-bg-color: "#0d1117"
+
+# Sysible mark + wordmark, centered near the top.
++ image {
+    file = "logo.png"
+    left = 50%-260
+    top = 11%
+    width = 520
+    height = 150
+}
+
+# The boot entries.
++ boot_menu {
+    left = 24%
+    width = 52%
+    top = 40%
+    height = 46%
+    item_color = "#c7d2e0"
+    selected_item_color = "#5cc746"
+    item_height = 32
+    item_padding = 6
+    item_spacing = 9
+    scrollbar = false
+}
+
+# Footer tagline.
++ label {
+    top = 89%
+    left = 0
+    width = 100%
+    align = "center"
+    color = "#6f7d94"
+    text = "Sysible Linux — engineering & automation workstation"
+}
