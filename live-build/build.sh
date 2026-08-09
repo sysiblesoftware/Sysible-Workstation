@@ -39,20 +39,29 @@ mkdir -p config/packages.chroot
 cp "$ROOT"/dist/*.deb config/packages.chroot/ 2>/dev/null || true
 echo "Included $(ls config/packages.chroot/*.deb 2>/dev/null | wc -l) Sysible package(s) directly."
 
-# --- build SysTerm from its own public repo and include the .deb -----------
+# --- build SysTerm fresh from its own public repo and include the .deb ------
 # SysTerm ships full debian/ packaging; build it here (needs a real Debian
 # toolchain, which CI provides) so the terminal is installed on the ISO.
-if ! ls config/packages.chroot/systerm_*.deb >/dev/null 2>&1; then
-    echo "== building SysTerm =="
-    $SUDO apt-get install -y --no-install-recommends \
-        git build-essential debhelper dh-python pybuild-plugin-pyproject \
-        python3-all python3-setuptools || true
-    rm -rf /tmp/systerm-src
-    git clone --depth 1 https://github.com/sysiblesoftware/SysTerm /tmp/systerm-src
-    ( cd /tmp/systerm-src && dpkg-buildpackage -us -uc -b )
-    cp /tmp/systerm_*.deb config/packages.chroot/
-    echo "Included SysTerm: $(ls config/packages.chroot/systerm_*.deb)"
-fi
+# ALWAYS rebuild from the `dev` branch (pinned explicitly, not relying on the
+# remote default) and drop any stale copy first, so the ISO can never ship an
+# old terminal. Fail the build outright if the result is pre-0.1.9 (which would
+# be missing the -e/Open-in-terminal fix and the Run Command menu).
+echo "== building SysTerm (dev) =="
+rm -f config/packages.chroot/systerm_*.deb
+$SUDO apt-get install -y --no-install-recommends \
+    git build-essential debhelper dh-python pybuild-plugin-pyproject \
+    python3-all python3-setuptools dpkg-dev || true
+rm -rf /tmp/systerm-src
+git clone --depth 1 --branch dev https://github.com/sysiblesoftware/SysTerm /tmp/systerm-src
+( cd /tmp/systerm-src && dpkg-buildpackage -us -uc -b )
+cp /tmp/systerm_*.deb config/packages.chroot/
+STVER=$(dpkg-deb -f config/packages.chroot/systerm_*.deb Version 2>/dev/null || echo '?')
+echo "Included SysTerm: $(ls config/packages.chroot/systerm_*.deb) (version $STVER)"
+case "$STVER" in
+    0.1.[0-8]|0.0.*|'?')
+        echo "ERROR: built a stale SysTerm ($STVER); expected >= 0.1.9. Aborting." >&2
+        exit 1 ;;
+esac
 
 # --- expand the metapackage into the Debian-native toolkit -----------------
 # Every package in sysible-workstation's Depends/Recommends/Suggests EXCEPT the

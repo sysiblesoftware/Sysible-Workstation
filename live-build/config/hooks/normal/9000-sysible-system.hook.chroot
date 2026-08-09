@@ -81,8 +81,14 @@ fi
 # so shim those names to the SysTerm wrapper. /usr/local/bin precedes /usr/bin
 # on PATH, so these win even if a real one is ever installed.
 chmod +x /usr/local/bin/sysible-term 2>/dev/null || true
+# Shim the well-known terminal names in BOTH /usr/local/bin and /usr/bin. GNOME's
+# Files/desktop "Open Terminal" (nautilus-extension-gnome-terminal, DING) spawns
+# `gnome-terminal` via the standard PATH, which on Wayland often omits
+# /usr/local/bin — so without the /usr/bin shim it finds nothing and silently
+# does nothing. The real gnome-terminal app isn't installed, so /usr/bin is free.
 for t in gnome-terminal kgx gnome-console; do
     ln -sf /usr/local/bin/sysible-term "/usr/local/bin/$t" 2>/dev/null || true
+    [ -e "/usr/bin/$t" ] || ln -sf /usr/local/bin/sysible-term "/usr/bin/$t" 2>/dev/null || true
 done
 
 # User avatar: GNOME's polkit dialog (e.g. the installer's "Authentication
