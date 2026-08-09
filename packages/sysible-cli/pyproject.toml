@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "sysible-cli"
-version = "0.1.0"
+version = "0.2.0"
 description = "The `sysible` command for Sysible Linux — system verification and platform tooling."
 readme = "README.md"
 license = { text = "MIT" }

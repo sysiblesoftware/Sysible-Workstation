@@ -73,8 +73,15 @@ def main(argv=None) -> int:
         pv.add_argument(f"--{flag}", action="store_true", help=f"Run only the {flag} checks.")
     pv.set_defaults(func=_cmd_verify)
 
+    # `sysible ai` (alias `sysible explain`) — local-model error companion.
+    from . import ai as _ai
+    _ai.add_parser(sub)
+
     args = p.parse_args(argv)
-    if not getattr(args, "command", None):
+    # Dispatch on the resolved handler, not the subparser name: argparse leaves
+    # the subparsers `dest` (command) as None when an ALIAS is used (e.g.
+    # `sysible explain`), but still applies that subparser's set_defaults(func=…).
+    if not hasattr(args, "func"):
         p.print_help()
         return 0
     return args.func(args)

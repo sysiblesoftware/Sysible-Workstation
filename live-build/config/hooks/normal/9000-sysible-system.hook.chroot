@@ -237,5 +237,19 @@ if [ -f /etc/gdm3/greeter.dconf-defaults ]; then
 fi
 dconf update 2>/dev/null || true
 
+# Sysible AI shell helper: /etc/profile.d is only read by LOGIN shells, but
+# terminals (SysTerm, gnome-terminal) start interactive NON-login shells that
+# read /etc/bash.bashrc. Source our helper from there too so `sai` and the
+# failed-command hint are available in a terminal, not just a login shell.
+if [ -f /etc/bash.bashrc ] && ! grep -q 'profile.d/sysible-ai.sh' /etc/bash.bashrc; then
+    cat >> /etc/bash.bashrc <<'BRC'
+
+# Sysible AI terminal companion (interactive shells).
+if [ -n "$PS1" ] && [ -f /etc/profile.d/sysible-ai.sh ]; then
+    . /etc/profile.d/sysible-ai.sh
+fi
+BRC
+fi
+
 # Compile the shipped gschema override (enables desktop icons + SysTerm terminal).
 glib-compile-schemas /usr/share/glib-2.0/schemas 2>/dev/null || true
