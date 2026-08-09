@@ -1,0 +1,13 @@
+# Applied by live-build (debconf-set-selections) BEFORE the package lists are
+# configured. We install grub-efi-<arch>/grub-pc-bin into the live chroot only so
+# the .debs land in the ISO pool (so Calamares can install GRUB into the target
+# offline). We do NOT want grub's own postinst to run grub-install against a disk
+# inside the build chroot — there is no target device, and a failure there would
+# abort the whole ISO build. These selections make the postinst a safe no-op:
+# pick no install device, don't touch EFI NVRAM.
+grub-pc	grub-pc/install_devices_empty	boolean	true
+grub-pc	grub-pc/install_devices	multiselect
+grub-pc	grub2/update_nvram	boolean	false
+grub-efi	grub2/update_nvram	boolean	false
+grub-efi-amd64	grub2/update_nvram	boolean	false
+grub-efi-arm64	grub2/update_nvram	boolean	false

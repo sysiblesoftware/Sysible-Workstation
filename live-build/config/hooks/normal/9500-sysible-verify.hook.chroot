@@ -23,4 +23,28 @@ ICON=/usr/share/icons/hicolor/scalable/apps/io.systerm.SysTerm.svg
 grep -q '5cc746' "$ICON" 2>/dev/null \
     || fail "new SysTerm icon not installed ($ICON)"
 
+# 4) The target bootloader is installable offline. grub must be INSTALLED in the
+# live chroot so its .deb is in the ISO pool and already in the unpacked target;
+# otherwise Calamares dies with "grub-efi-amd64 has no installation candidate"
+# and "update-grub: No such file or directory". Assert both the arch grub-efi
+# package and update-grub are actually here.
+ARCH=$(dpkg --print-architecture 2>/dev/null || echo unknown)
+case "$ARCH" in
+    arm64) GRUB_PKG=grub-efi-arm64 ;;
+    amd64) GRUB_PKG=grub-efi-amd64 ;;
+    *)     GRUB_PKG=grub-efi-amd64 ;;
+esac
+dpkg-query -W -f='${Status}' "$GRUB_PKG" 2>/dev/null | grep -q 'install ok installed' \
+    || fail "$GRUB_PKG not installed — Calamares cannot install GRUB into the target offline"
+[ -x /usr/sbin/update-grub ] || fail "/usr/sbin/update-grub missing — grub-common not installed"
+echo "sysible-verify: OK — $GRUB_PKG installed, update-grub present (target install can bootload)."
+
+# 5) GDM greeter is de-Debianised: our login watermark is installed and wired as
+# the login-screen logo (replacing "debian 12").
+[ -f /usr/share/pixmaps/sysible-login-logo.png ] \
+    || fail "Sysible login watermark missing (/usr/share/pixmaps/sysible-login-logo.png)"
+grep -rqs "sysible-login-logo.png" /etc/dconf/db/gdm.d/ \
+    || fail "GDM login-screen logo not pointed at the Sysible watermark"
+echo "sysible-verify: OK — GDM login watermark installed and wired."
+
 echo "sysible-verify: OK — SysTerm $V, Run Command menu, and new icon all present."

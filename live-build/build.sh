@@ -90,6 +90,31 @@ awk '
     > config/package-lists/sysible-toolkit.list.chroot
 echo "Debian toolkit: $(grep -c . config/package-lists/sysible-toolkit.list.chroot) packages (vendor tools via hook)."
 
+# --- make the TARGET bootloader installable (fixes "Installation Failed") ---
+# Calamares installs GRUB into the freshly-partitioned target with apt. On an
+# offline install it can only pull .debs from the ISO's own pool, and that pool
+# contains ONLY packages that are installed in the live chroot. live-build's
+# `--bootloaders grub-efi` sets up the ISO's *own* EFI boot but does NOT install
+# the grub-efi-<arch> package in the filesystem — so neither the unpacked target
+# nor the pool has it. The result is exactly the failure users hit:
+#   E: Package 'grub-efi-amd64' has no installation candidate
+#   chroot: failed to run command '/usr/sbin/update-grub': No such file or dir
+# Install the correct grub flavour into the live system so it is (a) already
+# present in the target after unpackfs and (b) available in the offline pool for
+# Calamares' apt step. Arch-selected here (the list is shared across arches, and
+# grub-efi-amd64 has no arm64 candidate / vice-versa, which would abort the build).
+if [ "$ARCH" = "arm64" ]; then
+    printf '%s\n' grub-efi-arm64 grub-efi-arm64-bin grub-common \
+        > config/package-lists/sysible-grub.list.chroot
+else
+    # amd64: grub-efi-amd64 covers UEFI targets (the common case, incl. VMs and
+    # Apple-silicon guests). grub-pc-bin coexists with grub-efi (only the grub-pc
+    # metapackage conflicts) so BIOS grub-install has its modules in the pool too.
+    printf '%s\n' grub-efi-amd64 grub-efi-amd64-bin grub-pc-bin grub-common \
+        > config/package-lists/sysible-grub.list.chroot
+fi
+echo "Target bootloader packages: $(tr '\n' ' ' < config/package-lists/sysible-grub.list.chroot)"
+
 # --- assemble -------------------------------------------------------------
 # Boot branding is done with source-level bootloader overrides that live-build
 # consumes while building the ISO: config/bootloaders/isolinux/ (BIOS menu title
@@ -133,18 +158,26 @@ if m:
     inst = re.sub(r'menuentry\s+"[^"]*"', 'menuentry "Install Sysible Linux"', m.group(0), count=1)
     inst = re.sub(r'(\n\s*linux\s+\S+[^\n]*)', r'\1 sysible.install', inst, count=1)
     s = s + "\n" + inst + "\n"
-# arm64 UEFI needs the EFI framebuffer (efi_gop/efi_uga) + gfxterm brought up
-# BEFORE background_image, or GRUB has no video mode and drops the splash (the
-# default-blue menu the user saw on arm64 while amd64 rendered fine). These
-# insmods are harmless no-ops where they don't apply. Highlight is Sysible green
-# so the menu never reads as stock Debian, even if the PNG can't load.
-hdr = ('insmod efi_gop\ninsmod efi_uga\ninsmod all_video\ninsmod gfxterm\ninsmod png\n'
+# Brand the live GRUB menu. This MUST be APPENDED, not prepended: live-build's
+# generated grub.cfg sets its own background/colors (and on some arches a theme)
+# as it is sourced, and GRUB honours the LAST directive when it renders the menu.
+# A prepended block is silently overridden — that is why arm64 kept showing the
+# stock Debian-blue menu even though our background_image was present. Appended,
+# our directives run last and win. The block is self-contained: bring up the EFI
+# framebuffer (efi_gop/efi_uga) + gfxterm FIRST (arm64 UEFI has no video mode
+# otherwise, which drops the splash), clear any theme (a theme would override
+# background_image), then set the Sysible background + green highlight so the menu
+# never reads as stock Debian even if the PNG can't load.
+vis = ('\n\n# --- Sysible branding (appended last so it wins) ---\n'
+       'insmod efi_gop\ninsmod efi_uga\ninsmod all_video\ninsmod gfxterm\ninsmod png\n'
        'set gfxmode=auto\nterminal_output gfxterm\n'
+       'unset theme\n'
        'if background_image /boot/grub/sysible-splash.png; then true; fi\n'
        'set color_normal=light-gray/black\n'
+       'set color_highlight=black/light-green\n'
        'set menu_color_normal=light-gray/black\n'
        'set menu_color_highlight=black/light-green\n')
-open(p, 'w').write(hdr + s)
+open(p, 'w').write(s + vis)
 PY
         # isolinux (BIOS): rebrand the entry labels + clone an install entry.
         MAP_LIVE=""
