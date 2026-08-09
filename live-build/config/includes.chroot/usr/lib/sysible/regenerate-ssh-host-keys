@@ -1,0 +1,14 @@
+#!/bin/sh
+# Generate fresh OpenSSH host keys the first time a machine boots.
+#
+# The build strips the host keys that openssh-server's postinst created in the
+# chroot, so they are NOT baked into the squashfs. Without this, every Sysible
+# install (and the public ISO) would ship identical host keys — letting anyone
+# with the image impersonate any Sysible box over SSH (MITM). Running ssh-keygen
+# -A here gives each machine (live session and each installed system) its own
+# unique identity on first boot. Idempotent: the unit's ConditionPathExists
+# gates it, and we re-check so a manual run is harmless.
+set -e
+[ -e /etc/ssh/ssh_host_ed25519_key ] && exit 0
+ssh-keygen -A
+exit 0

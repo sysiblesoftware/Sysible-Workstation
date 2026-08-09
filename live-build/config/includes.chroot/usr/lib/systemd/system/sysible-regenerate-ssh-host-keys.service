@@ -1,0 +1,16 @@
+[Unit]
+Description=Regenerate OpenSSH host keys for a unique per-machine identity
+Documentation=https://sysible.io
+# Only on first boot, when the image-stripped host keys are absent. Once keys
+# exist this condition is false and the unit is skipped on every later boot.
+ConditionPathExists=!/etc/ssh/ssh_host_ed25519_key
+# Host keys must exist before sshd accepts connections (service or socket).
+Before=ssh.service ssh.socket
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/usr/lib/sysible/regenerate-ssh-host-keys
+
+[Install]
+WantedBy=multi-user.target

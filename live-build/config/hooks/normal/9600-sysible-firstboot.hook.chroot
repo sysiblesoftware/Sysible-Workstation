@@ -1,0 +1,15 @@
+#!/bin/sh
+# First-boot hardening, applied last in the chroot.
+set -e
+
+# --- unique per-machine SSH host keys --------------------------------------
+# openssh-server's postinst generated host keys inside the build chroot; if left
+# in place they would be baked into the squashfs and SHARED by every Sysible
+# install and the public ISO (SSH impersonation / MITM). Remove them here so the
+# image ships with NO host keys, and enable the oneshot that regenerates unique
+# keys on first boot (before sshd starts). Applies to both the live session and
+# every Calamares-installed system (which inherits this stripped rootfs).
+chmod 0755 /usr/lib/sysible/regenerate-ssh-host-keys 2>/dev/null || true
+systemctl enable sysible-regenerate-ssh-host-keys.service 2>/dev/null || true
+rm -f /etc/ssh/ssh_host_*key /etc/ssh/ssh_host_*key.pub 2>/dev/null || true
+echo "sysible-firstboot: stripped baked SSH host keys; first-boot regen enabled"

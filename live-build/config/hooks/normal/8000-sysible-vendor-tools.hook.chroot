@@ -10,6 +10,31 @@ echo "== Sysible: installing vendor tools =="
 # fails fast (and retries) instead of hanging the whole ISO build indefinitely.
 CURL="curl -fsSL --connect-timeout 20 --max-time 600 --retry 3 --retry-delay 3"
 
+# Verify a downloaded artifact against the checksum its upstream publishes for
+# that exact release. FAIL CLOSED on a mismatch (the artifact was tampered with
+# in transit or at the CDN). If the checksum file itself can't be fetched, WARN
+# and continue — that's an availability hiccup, and TLS already protected the
+# download. Usage: verify_sha256 <file> <checksum_url> [<filename_in_sumfile>]
+#   - with a filename: match that line in a multi-entry SHA256SUMS file
+#   - without: take the first 64-hex token (single-hash files, e.g. helm)
+verify_sha256() {
+    _f="$1"; _url="$2"; _name="$3"
+    _sums=$($CURL "$_url" 2>/dev/null) || { echo "   WARN: checksum $_url unfetchable — skipping integrity check for $_f"; return 0; }
+    if [ -n "$_name" ]; then
+        _want=$(printf '%s\n' "$_sums" | grep -E "[[:space:]]\*?${_name}\$" | grep -oE '^[0-9a-fA-F]{64}' | head -1)
+    else
+        _want=$(printf '%s\n' "$_sums" | grep -oE '[0-9a-fA-F]{64}' | head -1)
+    fi
+    [ -n "$_want" ] || { echo "   WARN: no checksum for ${_name:-$_f} in $_url — skipping"; return 0; }
+    _got=$(sha256sum "$_f" | awk '{print $1}')
+    if [ "$_got" = "$_want" ]; then
+        echo "   sha256 OK: $_got"
+    else
+        echo "FATAL: checksum mismatch for $_f (got $_got, want $_want) — refusing to install" >&2
+        exit 1
+    fi
+}
+
 # Architecture-aware naming for the direct-download tools. dpkg's arch name
 # (amd64/arm64) is what helm, opentofu, k9s and sops use; eza uses the GNU
 # machine name (x86_64/aarch64).
@@ -61,8 +86,10 @@ echo "== helm (official binary) =="
 helm_ver=$($CURL https://api.github.com/repos/helm/helm/releases/latest \
     | grep -oE '"tag_name": *"v[0-9.]+"' | grep -oE 'v[0-9.]+' | head -1)
 [ -n "$helm_ver" ] || helm_ver=v3.16.3
-$CURL "https://get.helm.sh/helm-${helm_ver}-linux-${ARCH}.tar.gz" \
-    | tar xz -C /tmp "linux-${ARCH}/helm"
+helm_tgz="https://get.helm.sh/helm-${helm_ver}-linux-${ARCH}.tar.gz"
+$CURL "$helm_tgz" -o /tmp/helm.tgz
+verify_sha256 /tmp/helm.tgz "${helm_tgz}.sha256sum"
+tar xz -C /tmp -f /tmp/helm.tgz "linux-${ARCH}/helm"
 install -m0755 "/tmp/linux-${ARCH}/helm" /usr/local/bin/helm
 helm version --short || true
 
@@ -71,16 +98,30 @@ echo "== opentofu (official binary) =="
 tofu_ver=$($CURL https://api.github.com/repos/opentofu/opentofu/releases/latest \
     | grep -oE '"tag_name": *"v[0-9.]+"' | grep -oE '[0-9]+\.[0-9]+\.[0-9]+' | head -1)
 [ -n "$tofu_ver" ] || tofu_ver=1.8.5
-$CURL "https://github.com/opentofu/opentofu/releases/download/v${tofu_ver}/tofu_${tofu_ver}_linux_${ARCH}.tar.gz" \
-    | tar xz -C /usr/local/bin tofu
+tofu_base="https://github.com/opentofu/opentofu/releases/download/v${tofu_ver}"
+$CURL "${tofu_base}/tofu_${tofu_ver}_linux_${ARCH}.tar.gz" -o /tmp/tofu.tgz
+verify_sha256 /tmp/tofu.tgz "${tofu_base}/tofu_${tofu_ver}_SHA256SUMS" "tofu_${tofu_ver}_linux_${ARCH}.tar.gz"
+tar xz -C /usr/local/bin -f /tmp/tofu.tgz tofu
 chmod 0755 /usr/local/bin/tofu
 tofu version || true
 
 # GitHub-release binaries (no apt repo): k9s, eza, sops. Best-effort — a hiccup
 # fetching one must not fail the whole ISO.
 echo "== GitHub-release binaries =="
-( $CURL "https://github.com/derailed/k9s/releases/latest/download/k9s_Linux_${ARCH}.tar.gz" \
-    | tar xz -C /usr/local/bin k9s ) 2>/dev/null && echo "k9s ok" || echo "k9s skipped"
+# k9s (best-effort): download, verify against the release checksums, then extract.
+# On a checksum mismatch we do NOT install the unverified binary, but we also
+# don't fail the ISO (k9s is optional) — we just skip it with a loud note.
+if $CURL "https://github.com/derailed/k9s/releases/latest/download/k9s_Linux_${ARCH}.tar.gz" -o /tmp/k9s.tgz 2>/dev/null; then
+    k9s_sum=$($CURL "https://github.com/derailed/k9s/releases/latest/download/checksums.sha256" 2>/dev/null \
+        | grep -E "[[:space:]]\*?k9s_Linux_${ARCH}\.tar\.gz\$" | grep -oE '^[0-9a-fA-F]{64}' | head -1)
+    if [ -z "$k9s_sum" ] || [ "$(sha256sum /tmp/k9s.tgz | awk '{print $1}')" = "$k9s_sum" ]; then
+        tar xz -C /usr/local/bin -f /tmp/k9s.tgz k9s 2>/dev/null && echo "k9s ok" || echo "k9s skipped (extract)"
+    else
+        echo "k9s SKIPPED — checksum mismatch, not installing unverified binary"
+    fi
+else
+    echo "k9s skipped (download)"
+fi
 ( $CURL "https://github.com/eza-community/eza/releases/latest/download/eza_${GNU_ARCH}-unknown-linux-gnu.tar.gz" \
     | tar xz -C /usr/local/bin ) 2>/dev/null && echo "eza ok" || echo "eza skipped"
 sops_url=$($CURL https://api.github.com/repos/getsops/sops/releases/latest \
