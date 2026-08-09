@@ -16,11 +16,16 @@ import subprocess
 
 
 def _launch(path):
-    for cmd in (["systerm"], ["x-terminal-emulator"]):
+    # Pass the directory both ways (explicit flag + cwd) and fall back through the
+    # SysTerm wrapper and the generic terminal alternative, so a missing binary
+    # name never leaves the menu item doing nothing.
+    for cmd in (["systerm", "--working-directory", path],
+                ["sysible-term", "--working-directory", path],
+                ["x-terminal-emulator"]):
         try:
             subprocess.Popen(cmd, cwd=path)
             return
-        except FileNotFoundError:
+        except (FileNotFoundError, OSError):
             continue
 
 
