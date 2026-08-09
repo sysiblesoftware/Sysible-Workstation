@@ -129,6 +129,17 @@ if [ -f /etc/calamares/settings.conf ]; then
         printf '\nbranding: sysible\n' >> /etc/calamares/settings.conf
 fi
 
+# GRUB entry titles: "Sysible Linux", not "Sysible GNU/Linux". grub-mkconfig's
+# /etc/grub.d/10_linux hard-codes the title as "${GRUB_DISTRIBUTOR} GNU/Linux";
+# rewrite that one construct to "${GRUB_DISTRIBUTOR} Linux" (Ubuntu does the same
+# special-casing for its own entries). Idempotent, and only touches that exact
+# string. Calamares copies this patched file to the target and runs update-grub
+# there, so the installed system's menu reads "Sysible Linux" everywhere
+# (main entry, "Advanced options for …", recovery).
+if [ -f /etc/grub.d/10_linux ]; then
+    sed -i 's|${GRUB_DISTRIBUTOR} GNU/Linux|${GRUB_DISTRIBUTOR} Linux|g' /etc/grub.d/10_linux
+fi
+
 # Boot/shutdown splash: make the shipped Sysible Plymouth theme the default so
 # boot and reboot show the Sysible mark, not Debian's "debian 12" splash. This
 # writes the default into the live rootfs; the installer copies it to disk and
