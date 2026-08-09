@@ -1,0 +1,26 @@
+#!/bin/sh
+# Build-time guarantee. Runs after packages are installed and FAILS the whole ISO
+# build if the image didn't actually get the fixed SysTerm. This closes the gap
+# where we build 0.1.9 but the image could still install something older — a
+# green build now proves 0.1.9 + the Run Command menu + the new icon are present.
+set -e
+
+fail() { echo "SYSIBLE-VERIFY FATAL: $1" >&2; exit 1; }
+
+# 1) SysTerm package version actually INSTALLED (not just the .deb we built).
+V=$(dpkg-query -W -f='${Version}' systerm 2>/dev/null || echo none)
+echo "sysible-verify: installed systerm = $V"
+[ "$V" != none ] || fail "systerm is not installed"
+dpkg --compare-versions "$V" ge 0.1.9 || fail "systerm $V installed, need >= 0.1.9"
+
+# 2) The Run Command right-click menu is in the installed code.
+WIN=$(dpkg -L systerm 2>/dev/null | grep '/systerm/window\.py$' | head -1)
+{ [ -n "$WIN" ] && [ -f "$WIN" ] && grep -q 'Run Command' "$WIN"; } \
+    || fail "Run Command menu missing from installed SysTerm ($WIN)"
+
+# 3) The new hollow-cursor icon (its accent colour #5cc746) is the installed icon.
+ICON=/usr/share/icons/hicolor/scalable/apps/io.systerm.SysTerm.svg
+grep -q '5cc746' "$ICON" 2>/dev/null \
+    || fail "new SysTerm icon not installed ($ICON)"
+
+echo "sysible-verify: OK — SysTerm $V, Run Command menu, and new icon all present."
