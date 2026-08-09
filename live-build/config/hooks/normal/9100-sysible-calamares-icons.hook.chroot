@@ -1,0 +1,16 @@
+#!/bin/sh
+# Rebrand Calamares' compiled-in partition/status icons with the Sysible set.
+# Calamares loads those glyphs from its Qt resource bundle (no filesystem
+# override), so the only way to change them is to rebuild the package — done here
+# inside the chroot. Strictly best-effort: if the rebuild fails for any reason,
+# the stock Calamares stays and the ISO build continues.
+set -e
+
+if [ -x /usr/share/sysible/brand-calamares.sh ]; then
+    /usr/share/sysible/brand-calamares.sh \
+        || echo "sysible: Calamares rebrand failed — keeping stock icons (non-fatal)." >&2
+fi
+
+# Drop the staging files from the final image either way.
+rm -rf /usr/share/sysible/calamares-icons /usr/share/sysible/brand-calamares.sh 2>/dev/null || true
+exit 0
