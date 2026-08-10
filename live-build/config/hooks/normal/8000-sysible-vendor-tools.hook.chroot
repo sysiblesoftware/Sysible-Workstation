@@ -132,4 +132,53 @@ else
     echo "sops skipped"
 fi
 
+# Ollama runtime (NOT a model) — the local LLM server behind `sysible ai` and the
+# AI companion terminal. Bundle the engine so the feature works offline out of the
+# box; users pull whatever model they want (`ollama pull …` / `sysible ai --pull`).
+# Best-effort on a download hiccup (it's a large asset), but FAIL CLOSED on a
+# checksum mismatch. We prune the GPU runner libs (cuda*/rocm*) to keep the ISO
+# lean — CPU inference works everywhere; GPU users can reinstall upstream Ollama.
+echo "== ollama runtime (engine only, no model) =="
+oll_tag=$($CURL https://api.github.com/repos/ollama/ollama/releases/latest 2>/dev/null \
+    | grep -oE '"tag_name": *"[^"]+"' | grep -oE 'v[0-9][0-9.]*' | head -1)
+[ -n "$oll_tag" ] || oll_tag=v0.5.7
+oll_base="https://github.com/ollama/ollama/releases/download/${oll_tag}"
+if $CURL "${oll_base}/ollama-linux-${ARCH}.tgz" -o /tmp/ollama.tgz 2>/dev/null; then
+    verify_sha256 /tmp/ollama.tgz "${oll_base}/sha256sum.txt" "ollama-linux-${ARCH}.tgz"
+    tar -C /usr/local -xzf /tmp/ollama.tgz
+    rm -f /tmp/ollama.tgz
+    # Trim GPU runners to keep the image lean (kept: CPU runner).
+    rm -rf /usr/local/lib/ollama/cuda* /usr/local/lib/ollama/rocm* 2>/dev/null || true
+    # Dedicated service account, like upstream's installer.
+    groupadd -f ollama 2>/dev/null || true
+    id ollama >/dev/null 2>&1 || useradd -r -g ollama -s /usr/sbin/nologin \
+        -d /usr/share/ollama -m ollama 2>/dev/null || true
+    usermod -aG ollama sysible 2>/dev/null || true
+    cat > /etc/systemd/system/ollama.service <<'UNIT'
+[Unit]
+Description=Ollama local model server
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+ExecStart=/usr/local/bin/ollama serve
+User=ollama
+Group=ollama
+Restart=always
+RestartSec=3
+Environment=HOME=/usr/share/ollama
+Environment=OLLAMA_MODELS=/usr/share/ollama/.ollama/models
+# Local only — the model server never listens off-box.
+Environment=OLLAMA_HOST=127.0.0.1:11434
+
+[Install]
+WantedBy=multi-user.target
+UNIT
+    systemctl enable ollama.service 2>/dev/null || true
+    /usr/local/bin/ollama --version 2>/dev/null || true
+    echo "ollama ${oll_tag} bundled (engine only; pull a model with: sysible ai --pull)"
+else
+    echo "ollama skipped (download) — sysible ai will guide install on first use"
+fi
+
 echo "== Sysible vendor tools done =="

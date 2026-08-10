@@ -86,9 +86,8 @@ def _ensure_ready(url, model, backend, auto_pull, out):
     if models is None:
         raise AIError(
             f"No local model server answered at {url}.\n"
-            "  Start it:   ollama serve   (or: systemctl --user start ollama)\n"
-            "  Install it: https://ollama.com/download   (Debian: curl -fsSL "
-            "https://ollama.com/install.sh | sh)\n"
+            "  Sysible bundles Ollama — start it: sudo systemctl start ollama\n"
+            "  Check it:  systemctl status ollama   ·   ollama --version\n"
             "  Point elsewhere: export SYSIBLE_AI_URL=http://host:port"
         )
     # Ollama tags carry a :tag; match with or without an explicit :latest.
