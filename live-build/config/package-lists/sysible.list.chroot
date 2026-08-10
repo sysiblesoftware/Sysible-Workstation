@@ -34,3 +34,8 @@ libglib2.0-dev-bin
 python3-gi
 gir1.2-gtk-3.0
 gir1.2-vte-2.91
+# Fallback terminal backstop. Every "Open Terminal" on Sysible routes through
+# the sysible-term shim to SysTerm; if a bad SysTerm update ever fails to launch,
+# the shim falls back to xterm so the user is never locked out of all terminals.
+# Tiny, dependency-light, and guaranteed present for exactly this reason.
+xterm

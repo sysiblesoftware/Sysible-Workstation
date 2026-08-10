@@ -4,6 +4,11 @@
 # x-terminal-emulator — opens SysTerm in the current directory. Accepts and
 # ignores the usual terminal options; if a command is passed (-e/-x/--command/--)
 # it is run inside SysTerm.
+#
+# RESILIENCE: every terminal on Sysible routes here, so a SysTerm bug must never
+# lock the user out of *all* terminals. If SysTerm fails to launch (bad update,
+# crash on startup), fall back to the first working stock terminal we can find —
+# xterm ships in the base image precisely as this guaranteed backstop.
 dir=""; cmd=""
 while [ $# -gt 0 ]; do
   case "$1" in
@@ -16,5 +21,31 @@ while [ $# -gt 0 ]; do
   shift
 done
 [ -n "$dir" ] && cd "$dir" 2>/dev/null
-[ -n "$cmd" ] && exec systerm -e sh -c "$cmd"
-exec systerm
+
+# Prove SysTerm can at least import before we hand the session to it — a broken
+# update (ImportError, syntax error, missing dep) is caught here, not by a dead
+# window. `systerm --version` runs the module without needing a display.
+systerm_ok() {
+  command -v systerm >/dev/null 2>&1 || return 1
+  systerm --version >/dev/null 2>&1
+}
+
+fallback() {
+  # First stock terminal that exists. xterm is guaranteed present in the base.
+  for t in xterm x-terminal-emulator.real xterm-real; do
+    if command -v "$t" >/dev/null 2>&1; then
+      if [ -n "$cmd" ]; then exec "$t" -e sh -c "$cmd"; else exec "$t"; fi
+    fi
+  done
+  # Absolute last resort: an interactive shell in whatever launched us.
+  if [ -n "$cmd" ]; then exec sh -c "$cmd"; else exec "${SHELL:-/bin/sh}" -i; fi
+}
+
+if systerm_ok; then
+  [ -n "$cmd" ] && exec systerm -e sh -c "$cmd"
+  exec systerm
+fi
+
+# SysTerm is broken — don't leave the user without a terminal.
+printf 'sysible-term: SysTerm failed to start; opening a fallback terminal.\n' >&2
+fallback
