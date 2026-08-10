@@ -39,6 +39,8 @@ if [ -n "$BASH_VERSION" ] && [ -n "$PS1" ]; then
     __sysible_ai_hint() {
         local _rc=$?
         [ "${SYSIBLE_AI_HINT:-1}" = 0 ] && return "$_rc"
+        # Inside SysTerm's Atlas pane, the failure is surfaced there — no text hint.
+        [ -n "$SYSIBLE_ATLAS_FIFO" ] && return "$_rc"
         if [ "$_rc" -ne 0 ] && [ "$_rc" -ne 130 ]; then
             local _last _w
             _last=$(HISTTIMEFORMAT= history 1 2>/dev/null | sed 's/^ *[0-9]*[ *]*//')
@@ -53,5 +55,48 @@ if [ -n "$BASH_VERSION" ] && [ -n "$PS1" ]; then
     case ";${PROMPT_COMMAND};" in
         *";__sysible_ai_hint;"*) : ;;
         *) PROMPT_COMMAND="__sysible_ai_hint;${PROMPT_COMMAND:-}" ;;
+    esac
+fi
+
+# --- Sysible Atlas: SysTerm AI companion integration -----------------------
+# When bash runs inside SysTerm with the Atlas pane wired, a per-pane FIFO is
+# exported ($SYSIBLE_ATLAS_FIFO) plus a pane id ($SYSIBLE_ATLAS_ID). We write
+# two message kinds to it (base64 payloads, tab-separated, one line each — small
+# enough to be an atomic FIFO write): a failed command, and an `ai`/`atlas`
+# question. SysTerm keeps the read end open, so these writes never block. The
+# companion reads THIS pane's on-screen output itself, so we send only the
+# command/question, never the output.
+if [ -n "$BASH_VERSION" ] && [ -n "$PS1" ] && [ -n "$SYSIBLE_ATLAS_FIFO" ] && [ -p "$SYSIBLE_ATLAS_FIFO" ]; then
+    # Ask the companion a question:  ai <question>   (alias: atlas <question>)
+    atlas() {
+        if [ "$#" -eq 0 ]; then
+            printf 'usage: ai <question>   (answered in the Atlas pane)\n' >&2
+            return 2
+        fi
+        printf 'ask\t%s\t%s\n' "$SYSIBLE_ATLAS_ID" \
+            "$(printf '%s' "$*" | base64 | tr -d '\n')" > "$SYSIBLE_ATLAS_FIFO" 2>/dev/null || true
+    }
+    ai() { atlas "$@"; }
+
+    # After a command fails, hand it to the companion (unless it's one that
+    # routinely exits non-zero). Silence with SYSIBLE_ATLAS_AUTO=0.
+    __atlas_prompt() {
+        local _rc=$?
+        [ "${SYSIBLE_ATLAS_AUTO:-1}" = 0 ] && return "$_rc"
+        if [ "$_rc" -ne 0 ] && [ "$_rc" -ne 130 ]; then
+            local _last _w
+            _last=$(HISTTIMEFORMAT= history 1 2>/dev/null | sed 's/^ *[0-9]*[ *]*//')
+            _w=${_last%% *}
+            case "$_w" in
+                grep|egrep|fgrep|rg|ag|test|'['|'[['|diff|cmp|pgrep|pkill|find|ai|atlas|sai|'') return "$_rc" ;;
+            esac
+            printf 'error\t%s\t%s\t%s\n' "$SYSIBLE_ATLAS_ID" "$_rc" \
+                "$(printf '%s' "$_last" | base64 | tr -d '\n')" > "$SYSIBLE_ATLAS_FIFO" 2>/dev/null || true
+        fi
+        return "$_rc"
+    }
+    case ";${PROMPT_COMMAND};" in
+        *";__atlas_prompt;"*) : ;;
+        *) PROMPT_COMMAND="__atlas_prompt;${PROMPT_COMMAND:-}" ;;
     esac
 fi
