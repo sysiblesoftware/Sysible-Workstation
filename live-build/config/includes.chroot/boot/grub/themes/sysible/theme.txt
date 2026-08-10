@@ -1,39 +1,42 @@
-# Sysible Linux — GRUB theme
-# Dark hex-mesh background with the Sysible mark; green highlight for the
-# selected entry. Fonts are left as the GRUB default so no .pf2 is required.
+# Sysible Linux — GRUB theme.
+# Dark hex-mesh background, Sysible lockup near the top, and a clean green "pill"
+# behind the selected entry (a sliced pixmap, selbar_*.png). Fonts are the GRUB
+# default (no .pf2 needed); the layout + selection bar carry the look.
 
 title-text: ""
 desktop-image: "background.png"
-desktop-color: "#0d1117"
+desktop-color: "#0a0d13"
 message-color: "#a7b4cc"
-message-bg-color: "#0d1117"
+message-bg-color: "#0a0d13"
 
-# Sysible mark + wordmark, centered near the top.
+# Sysible mark + wordmark, centred in the upper third (kept modest so it doesn't
+# crowd the menu). logo.png is 3.47:1, so the box keeps that ratio.
 + image {
     file = "logo.png"
-    left = 50%-260
-    top = 11%
-    width = 520
-    height = 150
+    left = 50%-220
+    top = 15%
+    width = 440
+    height = 127
 }
 
-# The boot entries.
+# Boot entries — a centred column with a green pill on the selected row.
 + boot_menu {
-    left = 24%
-    width = 52%
-    top = 40%
-    height = 46%
-    item_color = "#c7d2e0"
-    selected_item_color = "#5cc746"
-    item_height = 32
-    item_padding = 6
-    item_spacing = 9
+    left = 30%
+    width = 40%
+    top = 48%
+    height = 34%
+    item_color = "#aeb9c9"
+    selected_item_color = "#08110a"
+    item_height = 44
+    item_padding = 14
+    item_spacing = 10
+    selected_item_pixmap_style = "selbar_*.png"
     scrollbar = false
 }
 
 # Footer tagline.
 + label {
-    top = 89%
+    top = 90%
     left = 0
     width = 100%
     align = "center"
