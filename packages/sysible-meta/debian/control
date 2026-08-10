@@ -39,6 +39,9 @@ Recommends:
  systerm,
 # desktop apps
  wireshark, virt-manager, virt-viewer,
+# office suite — core apps + GNOME integration (the full `libreoffice` metapackage
+# is much larger). Obsidian isn't in Debian; the vendor hook installs it.
+ libreoffice-writer, libreoffice-calc, libreoffice-impress, libreoffice-gnome,
 # VM guest integration (clipboard, display auto-resize, folder sharing) — Sysible
 # Linux commonly runs in a VM, incl. VMware Fusion on Apple Silicon.
  open-vm-tools, open-vm-tools-desktop,

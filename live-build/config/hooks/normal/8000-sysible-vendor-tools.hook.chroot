@@ -181,4 +181,23 @@ else
     echo "ollama skipped (download) — sysible ai will guide install on first use"
 fi
 
+# Obsidian (desktop notes) — not in Debian. Proprietary freeware, so we download
+# the official .deb at build time (same as VS Code) rather than vendoring it.
+# Best-effort: Obsidian publishes no per-release checksum file, so integrity is
+# TLS-only, and a hiccup must not fail the ISO.
+echo "== obsidian (desktop notes) =="
+ob_ver=$($CURL https://api.github.com/repos/obsidianmd/obsidian-releases/releases/latest 2>/dev/null \
+    | grep -oE '"tag_name": *"v[0-9.]+"' | grep -oE '[0-9]+\.[0-9]+\.[0-9]+' | head -1)
+[ -n "$ob_ver" ] || ob_ver=1.8.10
+ob_url="https://github.com/obsidianmd/obsidian-releases/releases/download/v${ob_ver}/obsidian_${ob_ver}_${ARCH}.deb"
+if $CURL "$ob_url" -o /tmp/obsidian.deb 2>/dev/null; then
+    apt-get install -y --no-install-recommends /tmp/obsidian.deb 2>/dev/null \
+        || { dpkg -i /tmp/obsidian.deb 2>/dev/null || true; apt-get -y -f install 2>/dev/null || true; }
+    rm -f /tmp/obsidian.deb
+    { [ -x /usr/bin/obsidian ] || command -v obsidian >/dev/null 2>&1; } \
+        && echo "obsidian ${ob_ver} ok" || echo "obsidian install incomplete (non-fatal)"
+else
+    echo "obsidian skipped (download; check version ${ob_ver}/${ARCH}) — non-fatal"
+fi
+
 echo "== Sysible vendor tools done =="

@@ -1,0 +1,5 @@
+// Re-assert Sysible branding after every apt/dpkg transaction, so an upgrade
+// (including unattended-upgrades) can't quietly revert package-owned pieces
+// (os-release, the GDM login background, the GRUB "Sysible Linux" titles).
+// Idempotent and cheap when nothing drifted.
+DPkg::Post-Invoke { "if [ -x /usr/lib/sysible/branding-guard ]; then /usr/lib/sysible/branding-guard || true; fi"; };

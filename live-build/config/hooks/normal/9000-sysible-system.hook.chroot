@@ -153,51 +153,16 @@ fi
 
 # Lock / login screen: brand the GDM greeter + unlock dialog with the Sysible
 # background by rebuilding the GNOME Shell theme gresource (the reliable method
-# on Debian, where the greeter ignores the desktop-background gsetting). Entirely
-# best-effort: if the tools or the gresource are missing, the stock theme is left
-# untouched and the build proceeds.
-GRES=/usr/share/gnome-shell/gnome-shell-theme.gresource
-LOGIN_BG=/usr/share/backgrounds/sysible/sysible-login.png
-if command -v gresource >/dev/null 2>&1 && command -v glib-compile-resources >/dev/null 2>&1 \
-   && [ -f "$GRES" ] && [ -f "$LOGIN_BG" ]; then
-    WORK=$(mktemp -d)
-    ok=1
-    for res in $(gresource list "$GRES" 2>/dev/null); do
-        rel=${res#/org/gnome/shell/theme/}
-        mkdir -p "$WORK/$(dirname "$rel")"
-        gresource extract "$GRES" "$res" > "$WORK/$rel" 2>/dev/null || ok=0
-    done
-    if [ "$ok" = 1 ]; then
-        cp "$LOGIN_BG" "$WORK/sysible-login.png"
-        # Style the greeter/unlock background in every stylesheet the theme ships.
-        for css in gnome-shell.css gnome-shell-dark.css gnome-shell-light.css gnome-shell-high-contrast.css gdm.css gdm3.css; do
-            [ -f "$WORK/$css" ] || continue
-            cat >> "$WORK/$css" <<'CSS'
+# on Debian, where the greeter ignores the desktop-background gsetting). The logic
+# lives in /usr/lib/sysible/apply-login-background so the branding guard can
+# re-run it after a gnome-shell upgrade reverts the (package-owned) gresource.
+chmod 0755 /usr/lib/sysible/apply-login-background /usr/lib/sysible/branding-guard 2>/dev/null || true
+/usr/lib/sysible/apply-login-background || true
 
-/* Sysible lock / login background */
-#lockDialogGroup {
-  background: #0a0d13 url('resource:///org/gnome/shell/theme/sysible-login.png');
-  background-size: cover;
-  background-repeat: no-repeat;
-  background-position: center;
-}
-CSS
-        done
-        # Rebuild the gresource with all extracted files plus our additions.
-        {
-            echo '<?xml version="1.0" encoding="UTF-8"?>'
-            echo '<gresources><gresource prefix="/org/gnome/shell/theme">'
-            ( cd "$WORK" && find . -type f ! -name 'sysible.gresource.xml' \
-                | sed 's|^\./||' | sort | while read -r f; do echo "  <file>$f</file>"; done )
-            echo '</gresource></gresources>'
-        } > "$WORK/sysible.gresource.xml"
-        ( cd "$WORK" && glib-compile-resources --sourcedir="$WORK" \
-            --target="$GRES" sysible.gresource.xml ) 2>/dev/null \
-            && echo "Sysible: GDM lock/login background applied" \
-            || echo "Sysible: gresource rebuild skipped (kept stock theme)"
-    fi
-    rm -rf "$WORK"
-fi
+# Branding guard: re-assert package-owned branding (os-release, the greeter
+# background, GRUB titles) after every apt/dpkg upgrade and on boot, so an
+# `apt upgrade` (or unattended-upgrades) can't quietly revert it.
+systemctl enable sysible-branding-guard.service 2>/dev/null || true
 
 # GDM greeter branding via the gdm dconf profile. Two things here:
 #  * background — harmless belt-and-suspenders (the gresource rebuild above is

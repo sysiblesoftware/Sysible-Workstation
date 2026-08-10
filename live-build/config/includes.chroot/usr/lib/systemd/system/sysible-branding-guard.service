@@ -1,0 +1,13 @@
+[Unit]
+Description=Re-assert Sysible branding after package upgrades
+# Run before the display manager so the greeter picks up a corrected background.
+Before=gdm.service display-manager.service
+ConditionPathExists=/usr/lib/sysible/branding-guard
+
+[Service]
+Type=oneshot
+ExecStart=/usr/lib/sysible/branding-guard
+RemainAfterExit=yes
+
+[Install]
+WantedBy=multi-user.target

@@ -24,8 +24,8 @@ strings:
     donateUrl:           https://sysible.io/
 
 images:
-    productLogo:         "sysible-logo.png"
-    productIcon:         "sysible-logo.png"
+    productLogo:         "install-logo.png"
+    productIcon:         "install-logo.png"
     productWelcome:      "sysible-welcome.png"
 
 slideshow:               "show.qml"
