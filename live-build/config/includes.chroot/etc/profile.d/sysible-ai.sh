@@ -67,19 +67,10 @@ fi
 # companion reads THIS pane's on-screen output itself, so we send only the
 # command/question, never the output.
 if [ -n "$BASH_VERSION" ] && [ -n "$PS1" ] && [ -n "$SYSIBLE_ATLAS_FIFO" ] && [ -p "$SYSIBLE_ATLAS_FIFO" ]; then
-    # Ask the companion a question:  ai <question>   (alias: atlas <question>)
-    atlas() {
-        if [ "$#" -eq 0 ]; then
-            printf 'usage: ai <question>   (answered in the Atlas pane)\n' >&2
-            return 2
-        fi
-        printf 'ask\t%s\t%s\n' "$SYSIBLE_ATLAS_ID" \
-            "$(printf '%s' "$*" | base64 | tr -d '\n')" > "$SYSIBLE_ATLAS_FIFO" 2>/dev/null || true
-    }
-    ai() { atlas "$@"; }
-
     # After a command fails, hand it to the companion (unless it's one that
-    # routinely exits non-zero). Silence with SYSIBLE_ATLAS_AUTO=0.
+    # routinely exits non-zero). No typing required — ask questions in the Atlas
+    # pane itself (right-click → Open Sysible Atlas, or Alt+A). Silence with
+    # SYSIBLE_ATLAS_AUTO=0.
     __atlas_prompt() {
         local _rc=$?
         [ "${SYSIBLE_ATLAS_AUTO:-1}" = 0 ] && return "$_rc"
