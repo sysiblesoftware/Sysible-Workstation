@@ -67,23 +67,38 @@ fi
 # companion reads THIS pane's on-screen output itself, so we send only the
 # command/question, never the output.
 if [ -n "$BASH_VERSION" ] && [ -n "$PS1" ] && [ -n "$SYSIBLE_ATLAS_FIFO" ] && [ -p "$SYSIBLE_ATLAS_FIFO" ]; then
-    # After a command fails, hand it to the companion (unless it's one that
-    # routinely exits non-zero). No typing required — ask questions in the Atlas
-    # pane itself (right-click → Open Sysible Atlas, or Alt+A). Silence with
+    # Capture the command AS IT RUNS (DEBUG trap), not from `history` afterwards —
+    # so a git-in-your-prompt helper or a PROMPT_COMMAND function can't be mistaken
+    # for the command you actually typed. Only top-level commands are recorded; PS1
+    # $(...) run in subshells that don't fire DEBUG. After a command fails, hand it
+    # to the companion (skip ones that routinely exit non-zero). Silence with
     # SYSIBLE_ATLAS_AUTO=0.
+    __atlas_cmd=""
+    __atlas_debug() {
+        [ -n "$COMP_LINE" ] && return
+        [ "${#FUNCNAME[@]}" -le 1 ] || return
+        case "$BASH_COMMAND" in
+            __atlas_*|__sysible_*) return ;;
+        esac
+        __atlas_cmd=$BASH_COMMAND
+    }
+    trap '__atlas_debug' DEBUG
+
     __atlas_prompt() {
         local _rc=$?
-        [ "${SYSIBLE_ATLAS_AUTO:-1}" = 0 ] && return "$_rc"
-        if [ "$_rc" -ne 0 ] && [ "$_rc" -ne 130 ]; then
-            local _last _w
-            _last=$(HISTTIMEFORMAT= history 1 2>/dev/null | sed 's/^ *[0-9]*[ *]*//')
-            _w=${_last%% *}
+        if [ "${SYSIBLE_ATLAS_AUTO:-1}" != 0 ] && [ "$_rc" -ne 0 ] \
+           && [ "$_rc" -ne 130 ] && [ -n "$__atlas_cmd" ]; then
+            local _w=${__atlas_cmd%% *}
             case "$_w" in
-                grep|egrep|fgrep|rg|ag|test|'['|'[['|diff|cmp|pgrep|pkill|find|ai|atlas|sai|'') return "$_rc" ;;
+                grep|egrep|fgrep|rg|ag|test|'['|'[['|diff|cmp|pgrep|pkill|find|ai|atlas|sai|'') : ;;
+                *)
+                    printf 'error\t%s\t%s\t%s\n' "$SYSIBLE_ATLAS_ID" "$_rc" \
+                        "$(printf '%s' "$__atlas_cmd" | base64 | tr -d '\n')" \
+                        > "$SYSIBLE_ATLAS_FIFO" 2>/dev/null || true
+                    ;;
             esac
-            printf 'error\t%s\t%s\t%s\n' "$SYSIBLE_ATLAS_ID" "$_rc" \
-                "$(printf '%s' "$_last" | base64 | tr -d '\n')" > "$SYSIBLE_ATLAS_FIFO" 2>/dev/null || true
         fi
+        __atlas_cmd=""
         return "$_rc"
     }
     case ";${PROMPT_COMMAND};" in
