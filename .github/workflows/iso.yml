@@ -136,3 +136,23 @@ jobs:
             See `REASSEMBLE.<arch>.md` for the exact commands. Live/installer login:
             `sysible` / `sysible`.
           fail_on_unmatched_files: true
+
+      # Poke the website so its download page updates to this release right away.
+      # Optional: set the WEBSITE_DISPATCH_TOKEN secret (a fine-grained PAT with
+      # "Contents: write" on sysiblesoftware/sysible-website) to enable it. If the
+      # secret is absent this is a no-op — the website's own 6-hourly sync still
+      # catches the new release.
+      - name: Notify website of new release
+        if: startsWith(github.ref, 'refs/tags/') || inputs.release
+        env:
+          WEBSITE_DISPATCH_TOKEN: ${{ secrets.WEBSITE_DISPATCH_TOKEN }}
+        run: |
+          if [ -z "${WEBSITE_DISPATCH_TOKEN:-}" ]; then
+            echo "WEBSITE_DISPATCH_TOKEN not set — skipping. The website syncs itself every 6h."
+            exit 0
+          fi
+          curl -sSL --fail -X POST \
+            -H "Authorization: Bearer $WEBSITE_DISPATCH_TOKEN" \
+            -H "Accept: application/vnd.github+json" \
+            https://api.github.com/repos/sysiblesoftware/sysible-website/dispatches \
+            -d '{"event_type":"iso-released"}'
