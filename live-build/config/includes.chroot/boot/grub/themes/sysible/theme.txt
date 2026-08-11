@@ -20,16 +20,21 @@ message-bg-color: "#0a0d13"
 }
 
 # Boot entries — a centred column with a green pill on the selected row.
+# Geometry note: the selected pill grows by item_padding on every side, so
+# item_spacing MUST stay larger than 2*item_padding or the pill bleeds into the
+# next entry (that was the old "one green box over both entries" bug). Here the
+# 9-slice corners are 14px, item_height is comfortably larger, and the spacing
+# (18) far exceeds 2*item_padding (8) — the pill is always exactly one clean row.
 + boot_menu {
-    left = 30%
-    width = 40%
-    top = 48%
-    height = 34%
+    left = 32%
+    width = 36%
+    top = 50%
+    height = 30%
     item_color = "#aeb9c9"
     selected_item_color = "#08110a"
-    item_height = 44
-    item_padding = 14
-    item_spacing = 10
+    item_height = 40
+    item_padding = 4
+    item_spacing = 18
     selected_item_pixmap_style = "selbar_*.png"
     scrollbar = false
 }
