@@ -32,11 +32,12 @@
   <!-- Body: identical hexagon to the SysTerm mark (same coords, fill, edge). -->
   <path d="M64 9 L111 36.5 L111 91.5 L64 119 L17 91.5 L17 36.5 Z"
         fill="url(#screen)" stroke="url(#edge)" stroke-width="5" stroke-linejoin="miter"/>
-  <!-- Symbol: NESTED CORE — a concentric hexagon + centre node, brand green #6ddb73.
-       Same green + stroke weight as SysTerm's ">_" so the two read as siblings. -->
+  <!-- Symbol: NESTED CORE — a green concentric hexagon with a BLUE centre node.
+       Green structure + blue node is the family accent scheme (matches the blue
+       nodes on the Controller mark); same stroke weight as SysTerm's ">_". -->
   <g id="symbol">
     <path d="M64 38 L86.5 51 L86.5 77 L64 90 L41.5 77 L41.5 51 Z"
           fill="none" stroke="#6ddb73" stroke-width="7" stroke-linejoin="round"/>
-    <circle cx="64" cy="64" r="8.5" fill="#6ddb73"/>
+    <circle cx="64" cy="64" r="8.5" fill="#79a0ff"/>
   </g>
 </svg>
