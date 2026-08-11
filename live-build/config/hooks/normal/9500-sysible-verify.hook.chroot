@@ -18,10 +18,14 @@ WIN=$(dpkg -L systerm 2>/dev/null | grep '/systerm/window\.py$' | head -1)
 { [ -n "$WIN" ] && [ -f "$WIN" ] && grep -q 'Run Command' "$WIN"; } \
     || fail "Run Command menu missing from installed SysTerm ($WIN)"
 
-# 3) The new hollow-cursor icon (its accent colour #5cc746) is the installed icon.
+# 3) The canonical ">_" prompt icon is the WINNING on-disk icon. SysTerm's own .deb
+# and our includes.chroot both ship io.systerm.SysTerm.svg to the same path; whoever
+# is applied last wins. Assert the file actually on disk is the ">_" design (brand
+# green #6ddb73 prompt) so a drift between the two sources can never ship silently.
 ICON=/usr/share/icons/hicolor/scalable/apps/io.systerm.SysTerm.svg
-grep -q '5cc746' "$ICON" 2>/dev/null \
-    || fail "new SysTerm icon not installed ($ICON)"
+[ -f "$ICON" ] || fail "SysTerm icon missing ($ICON)"
+grep -q '6ddb73' "$ICON" 2>/dev/null \
+    || fail "SysTerm icon on disk is not the canonical >_ design (expected #6ddb73 in $ICON)"
 
 # 4) The target bootloader is installable offline. grub must be INSTALLED in the
 # live chroot so its .deb is in the ISO pool and already in the unpacked target;

@@ -10,3 +10,7 @@ Terminal=false
 Categories=System;
 Keywords=install;installer;calamares;system;disk;
 StartupNotify=true
+# The running window is Calamares (WM_CLASS "calamares"). Bind it to this launcher
+# so the dock/app-switcher shows the crisp themed "sysible-install" icon instead of
+# Calamares' own low-res window icon (which renders pixelated at dock size).
+StartupWMClass=calamares
