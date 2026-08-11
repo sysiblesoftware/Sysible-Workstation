@@ -31,11 +31,7 @@ from PIL import Image, ImageDraw, ImageFont, ImageFilter
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 MARK = os.path.join(ROOT, "branding/logo/sysible-mark.svg")
-# The install launcher is a DIFFERENT mark (download glyph, not the brand logo);
-# it has its own canonical SVG and is rendered here too so all branding is owned.
-INSTALL_SVG = os.path.join(
-    ROOT, "live-build/config/includes.chroot/usr/share/icons/hicolor/scalable/apps/sysible-install.svg"
-)
+CONTROLLER_MARK = os.path.join(ROOT, "branding/logo/sysible-controller-mark.svg")
 LB = os.path.join(ROOT, "live-build/config")
 CHROOT = os.path.join(LB, "includes.chroot")
 
@@ -53,15 +49,19 @@ def _lerp(a, b, t):
     return tuple(round(a[i] + (b[i] - a[i]) * t) for i in range(3))
 
 
+def _svg_png(url, size):
+    png = cairosvg.svg2png(url=url, output_width=size, output_height=size)
+    return Image.open(io.BytesIO(png)).convert("RGBA")
+
+
 def mark(size):
-    """The brand hexagon mark, size x size, transparent background."""
-    png = cairosvg.svg2png(url=MARK, output_width=size, output_height=size)
-    return Image.open(io.BytesIO(png)).convert("RGBA")
+    """The Sysible Linux brand mark, size x size, transparent background."""
+    return _svg_png(MARK, size)
 
 
-def install_mark(size):
-    png = cairosvg.svg2png(url=INSTALL_SVG, output_width=size, output_height=size)
-    return Image.open(io.BytesIO(png)).convert("RGBA")
+def controller_mark(size):
+    """The Sysible Controller mark (matched family body), transparent."""
+    return _svg_png(CONTROLLER_MARK, size)
 
 
 def _hex_mesh(W, H, r, alpha):
@@ -195,6 +195,60 @@ def vlockup(W, H, fg):
     return canvas
 
 
+def avatar(size, mark_url=MARK):
+    """Square social avatar: the mark on the dark hex-mesh field. The mark is kept
+    within the centre ~62% so a circular crop (GitHub/X) never clips it."""
+    canvas = field(size, size).convert("RGBA")
+    canvas.alpha_composite(_glow(size, size, size // 2, size // 2, int(size * 0.42), GREEN, 34))
+    s = int(size * 0.60)
+    m = _svg_png(mark_url, s)
+    canvas.alpha_composite(m, ((size - s) // 2, (size - s) // 2))
+    return canvas.convert("RGB")
+
+
+def _hexagon(cx, cy, r, rot_deg=0):
+    pts = []
+    for a in range(6):
+        ang = math.radians(60 * a + rot_deg)
+        pts.append((cx + r * math.cos(ang), cy + r * math.sin(ang)))
+    return pts
+
+
+def honeycomb_avatar(size, mark_url=MARK):
+    """Fun variant: a filled honeycomb tessellation in brand tints, the mark set
+    into the centre cell. Flat-top hexes packed so edges meet cleanly."""
+    canvas = Image.new("RGBA", (size, size), BG + (255,))
+    d = ImageDraw.Draw(canvas)
+    r = size / 9.5                      # cell circumradius
+    dx = r * 1.5                        # flat-top horizontal step
+    dy = r * math.sqrt(3)               # vertical step
+    cx0, cy0 = size / 2, size / 2
+    tints = [(24, 34, 66), (30, 44, 86), (20, 46, 44), (26, 56, 52)]
+    col = 0
+    x = -dx
+    while x < size + dx:
+        row = 0
+        yoff = (dy / 2) if (int(round((x - cx0) / dx)) % 2) else 0
+        y = -dy
+        while y < size + dy:
+            cx, cy = x, y + yoff
+            dist = math.hypot(cx - cx0, cy - cy0)
+            shade = tints[(col + row) % len(tints)]
+            # brighten cells nearer the centre for a soft radial glow
+            t = max(0.0, 1 - dist / (size * 0.62))
+            fill = _lerp(shade, (74, 120, 210), 0.28 * t)
+            d.polygon(_hexagon(cx, cy, r * 0.92, rot_deg=0), fill=fill + (255,),
+                      outline=(10, 14, 24, 255))
+            y += dy
+            row += 1
+        x += dx
+        col += 1
+    # centre cell mark
+    s = int(size * 0.5)
+    canvas.alpha_composite(_svg_png(mark_url, s), ((size - s) // 2, (size - s) // 2))
+    return canvas.convert("RGB")
+
+
 # ---------------------------------------------------------------- output map
 def build():
     """Return {relpath: PIL.Image or ('tga', PIL.Image)} for every derived asset."""
@@ -228,13 +282,18 @@ def build():
     # README badges.
     A[G(".github/sysible-logo-dark.png")] = hlockup(980, 260, FG_DARK)
     A[G(".github/sysible-logo-light.png")] = hlockup(980, 260, FG_LIGHT)
+
+    # Sysible Controller — matched family mark (same body, hub+nodes design).
+    for sz in (48, 64, 128, 256):
+        A[C(f"usr/share/icons/hicolor/{sz}x{sz}/apps/sysible-controller.png")] = controller_mark(sz)
+    A[C("usr/share/pixmaps/sysible-controller.png")] = controller_mark(256)
+
+    # Social avatars (square, circle-crop-safe) for GitHub org + Twitter/X.
+    A[G("branding/social/github-avatar.png")] = avatar(512)
+    A[G("branding/social/twitter-avatar.png")] = avatar(400)
+    A[G("branding/social/controller-avatar.png")] = avatar(512, CONTROLLER_MARK)
+    A[G("branding/social/honeycomb-avatar.png")] = honeycomb_avatar(512)
     return A
-
-
-def _install(size):
-    canvas = Image.new("RGBA", (size, size), (0, 0, 0, 0))
-    canvas.alpha_composite(install_mark(size))
-    return canvas
 
 
 # Files that are branded but INTENTIONALLY not regenerated here, with the reason.
@@ -261,33 +320,36 @@ def _target_path(key):
 def main():
     check = "--check" in sys.argv
     assets = build()
-    # Keep every SVG copy of the mark byte-identical to the canonical source, so
-    # no consumer (app grid, lockscreen renderer, pixmap lookups) can pick up the
-    # old ">"+square art again. These were the lingering old-master files.
+    # Keep every SVG copy byte-identical to its canonical source, so no consumer
+    # (app grid, lockscreen renderer, pixmap lookups) can pick up old art again.
+    # (target_path, source_svg): the Linux marks track sysible-mark.svg; the
+    # Controller dock icon tracks sysible-controller-mark.svg.
     svg_targets = [
-        os.path.join(CHROOT, "usr/share/icons/hicolor/scalable/apps/sysible-logo.svg"),
-        os.path.join(CHROOT, "usr/share/pixmaps/sysible-logo-dark.svg"),
-        os.path.join(CHROOT, "usr/share/pixmaps/sysible-logo-light.svg"),
+        (os.path.join(CHROOT, "usr/share/icons/hicolor/scalable/apps/sysible-logo.svg"), MARK),
+        (os.path.join(CHROOT, "usr/share/pixmaps/sysible-logo-dark.svg"), MARK),
+        (os.path.join(CHROOT, "usr/share/pixmaps/sysible-logo-light.svg"), MARK),
+        (os.path.join(CHROOT, "usr/share/icons/hicolor/scalable/apps/sysible-controller.svg"), CONTROLLER_MARK),
     ]
-    with open(MARK, "rb") as f:
-        mark_bytes = f.read()
+    src_bytes = {p: open(p, "rb").read() for p in {MARK, CONTROLLER_MARK}}
 
     drift = []
-    manifest = ["# sysible branding manifest — sha256 of the canonical mark + every",
+    manifest = ["# sysible branding manifest — sha256 of the canonical marks + every",
                 "# generated asset. Regenerate with: python3 branding/render-branding.py",
-                f"{hashlib.sha256(mark_bytes).hexdigest()}  branding/logo/sysible-mark.svg"]
+                f"{hashlib.sha256(src_bytes[MARK]).hexdigest()}  branding/logo/sysible-mark.svg",
+                f"{hashlib.sha256(src_bytes[CONTROLLER_MARK]).hexdigest()}  branding/logo/sysible-controller-mark.svg"]
 
-    for tgt in svg_targets:
+    for tgt, src in svg_targets:
         rel = os.path.relpath(tgt, ROOT)
+        data = src_bytes[src]
         if check:
             cur = open(tgt, "rb").read() if os.path.exists(tgt) else b""
-            if cur != mark_bytes:
+            if cur != data:
                 drift.append(rel)
         else:
             os.makedirs(os.path.dirname(tgt), exist_ok=True)
             with open(tgt, "wb") as f:
-                f.write(mark_bytes)
-        manifest.append(f"{hashlib.sha256(mark_bytes).hexdigest()}  {rel}")
+                f.write(data)
+        manifest.append(f"{hashlib.sha256(data).hexdigest()}  {rel}")
 
     for key, obj in assets.items():
         path = _target_path(key)

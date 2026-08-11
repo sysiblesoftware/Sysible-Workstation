@@ -1,9 +1,11 @@
-# sysible branding manifest — sha256 of the canonical mark + every
+# sysible branding manifest — sha256 of the canonical marks + every
 # generated asset. Regenerate with: python3 branding/render-branding.py
 4595f69fd1f8eca78146bf909489f8ff568a242f44145d29b9feef3ebc08f3c4  branding/logo/sysible-mark.svg
+f438a8de824c9abca1f9de2241c732ecbf24bad550e922ceb4a528d62b4c5455  branding/logo/sysible-controller-mark.svg
 4595f69fd1f8eca78146bf909489f8ff568a242f44145d29b9feef3ebc08f3c4  live-build/config/includes.chroot/usr/share/icons/hicolor/scalable/apps/sysible-logo.svg
 4595f69fd1f8eca78146bf909489f8ff568a242f44145d29b9feef3ebc08f3c4  live-build/config/includes.chroot/usr/share/pixmaps/sysible-logo-dark.svg
 4595f69fd1f8eca78146bf909489f8ff568a242f44145d29b9feef3ebc08f3c4  live-build/config/includes.chroot/usr/share/pixmaps/sysible-logo-light.svg
+f438a8de824c9abca1f9de2241c732ecbf24bad550e922ceb4a528d62b4c5455  live-build/config/includes.chroot/usr/share/icons/hicolor/scalable/apps/sysible-controller.svg
 9fb4b67edeedb1a0ab03fe22818eace68dae4cb94e2f0395d9eb200c83ba8d53  live-build/config/includes.chroot/boot/grub/themes/sysible/logo.png
 9a720afe05a180579eb3b9aaadb090921548c48903e3684dd447d90526d42afe  live-build/config/includes.chroot/boot/grub/themes/sysible/background.png
 a51b824763a00ebcd71854492bb7d33ccfc4917cd15e80edad29570cdd583d7a  live-build/config/branding/splash.png
@@ -25,3 +27,12 @@ df97282bfdeabb05e9164668bc00a157cf262abb7dae8418235aeadf1510c4e5  live-build/con
 49172234895ac0b17ff4132e077ee64531f467ddb55359fb7156182acf142534  live-build/config/includes.chroot/usr/share/icons/hicolor/256x256/apps/sysible-logo.png
 18dcb0c325498c3a9aa074a898d010db1b9be41de427a607a23d8eeb8bd48b01  .github/sysible-logo-dark.png
 2a8cff258e8c5a90265492d7088d0b220e639fc81334c403cd3a2b1288a04a1f  .github/sysible-logo-light.png
+34ec33a18730f05283b5c3b70f5f0e28008f32e9c92a134de88417ba3503b390  live-build/config/includes.chroot/usr/share/icons/hicolor/48x48/apps/sysible-controller.png
+f3677f9fedd72d8857a6342a0410644df25ac4c65206af89b65e1a42e720ad0f  live-build/config/includes.chroot/usr/share/icons/hicolor/64x64/apps/sysible-controller.png
+16ae50af53c20ba08cf99f9669255a0e161dc7b0adf01b13867dcbb70760cd0f  live-build/config/includes.chroot/usr/share/icons/hicolor/128x128/apps/sysible-controller.png
+3c05b3f76070632a0a139d2e2408060b9e405169014d10b640016d50d432efcc  live-build/config/includes.chroot/usr/share/icons/hicolor/256x256/apps/sysible-controller.png
+3c05b3f76070632a0a139d2e2408060b9e405169014d10b640016d50d432efcc  live-build/config/includes.chroot/usr/share/pixmaps/sysible-controller.png
+3d56b3a8eab2f03fd120d8f6066dcdf8bb9292082250d26165505b11b19b8d2d  branding/social/github-avatar.png
+a80f749c1d46e1a7ec7e945d5c1d47bd2f1a21bdd29a19322152b45fe4d6d097  branding/social/twitter-avatar.png
+183310356c34100b259a54ae375e86a853d0d5396dace99c2483ce0ed2be64b3  branding/social/controller-avatar.png
+689395097955697464e3685501f5a109bed2b28fa1ac2f1a77b87e413e18ea07  branding/social/honeycomb-avatar.png
