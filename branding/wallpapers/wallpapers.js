@@ -19,10 +19,8 @@
   // ---- centered lockup (Mesh) ----
   function drawLogo(x,cx,cy,R,light){const k=R/20;
     const rg=x.createRadialGradient(cx,cy,0,cx,cy,R*2.8);rg.addColorStop(0,light?'rgba(90,140,235,0.14)':'rgba(90,140,240,0.22)');rg.addColorStop(1,'rgba(0,0,0,0)');x.fillStyle=rg;x.fillRect(cx-R*3,cy-R*3,R*6,R*6);
-    hexPoly(x,cx,cy,k);const gg=x.createLinearGradient(cx-17*k,cy-20*k,cx+17*k,cy+20*k);gg.addColorStop(0,'#43a047');gg.addColorStop(1,'#3560d4');
-    x.save();if(!light){x.shadowBlur=R*0.55;x.shadowColor='rgba(80,120,230,0.6)';}x.lineWidth=R*0.135;x.strokeStyle=gg;x.lineJoin='round';x.stroke();x.restore();
-    x.beginPath();x.moveTo(cx-6*k,cy-7*k);x.lineTo(cx+1*k,cy);x.lineTo(cx-6*k,cy+7*k);x.lineWidth=R*0.15;x.strokeStyle=light?'#2f60d4':'#7aa2ff';x.lineCap='round';x.lineJoin='round';x.stroke();
-    x.fillStyle=light?'#43a047':'#63c869';x.fillRect(cx+3*k,cy+4*k,5*k,5*k);
+    /* the ACTUAL Sysible Linux mark (canonical SVG) — no hand-drawn copy to drift */
+    var S=R*2.327;if(window.SYS_MARK)x.drawImage(window.SYS_MARK,cx-S/2,cy-S/2,S,S);
     x.save();x.textAlign='center';x.textBaseline='top';try{x.letterSpacing=(R*0.05)+'px';}catch(e){}x.font='600 '+(R*0.30)+'px '+SANS;x.fillStyle=light?'rgba(28,42,66,0.9)':'rgba(214,223,238,0.92)';x.fillText('SYSIBLE·LINUX',cx,cy+R*1.5);x.restore();}
   function drawMesh(x,W,H,light){const s=H/1080;light?bgLin(x,W,H,'#eef1f7','#dfe4ee'):bgLin(x,W,H,'#090b10','#12151e');
     const r=30*s,hw=Math.sqrt(3)*r,vh=1.5*r,gx=W*0.5,gy=H*0.44,gR=Math.min(W,H)*0.52,faint=light?'rgba(58,84,132,0.11)':'rgba(150,170,200,0.055)';
@@ -49,10 +47,7 @@
     x.restore();vign(x,W,H,light?0.12:0.4,light);}
 
   // ---- bottom-left lockup ----
-  function drawMark(x,cx,cy,R,light){const k=R/20;hexPoly(x,cx,cy,k);const gg=x.createLinearGradient(cx-17*k,cy-20*k,cx+17*k,cy+20*k);gg.addColorStop(0,'#43a047');gg.addColorStop(1,'#3560d4');
-    x.save();if(!light){x.shadowBlur=R*0.5;x.shadowColor='rgba(80,120,230,0.55)';}x.lineWidth=R*0.14;x.strokeStyle=gg;x.lineJoin='round';x.stroke();x.restore();
-    x.beginPath();x.moveTo(cx-6*k,cy-7*k);x.lineTo(cx+1*k,cy);x.lineTo(cx-6*k,cy+7*k);x.lineWidth=R*0.15;x.strokeStyle=light?'#2f60d4':'#7aa2ff';x.lineCap='round';x.lineJoin='round';x.stroke();
-    x.fillStyle=light?'#43a047':'#63c869';x.fillRect(cx+3*k,cy+4*k,5*k,5*k);}
+  function drawMark(x,cx,cy,R,light){var S=R*2.327;if(window.SYS_MARK)x.drawImage(window.SYS_MARK,cx-S/2,cy-S/2,S,S);}
   function lockup(x,W,H,light){const R=H*0.048,mB=H*0.13,mLx=W*0.06,k=R/20,cx=mLx+17*k,cy=H-mB-R;
     const rg=x.createRadialGradient(0,H,0,0,H,W*0.55);rg.addColorStop(0,light?'rgba(236,238,244,0.42)':'rgba(0,0,0,0.38)');rg.addColorStop(1,'rgba(0,0,0,0)');x.fillStyle=rg;x.fillRect(0,0,W,H);
     drawMark(x,cx,cy,R,light);
@@ -64,10 +59,8 @@
   // ---- SysTerm badge + center variations ----
   function sysTermBadge(x,cx,cy,R){const k=R/20;
     const glow=x.createRadialGradient(cx,cy,0,cx,cy,R*2.5);glow.addColorStop(0,'rgba(80,130,235,0.30)');glow.addColorStop(0.6,'rgba(60,150,110,0.10)');glow.addColorStop(1,'rgba(0,0,0,0)');x.fillStyle=glow;x.fillRect(cx-R*2.7,cy-R*2.7,R*5.4,R*5.4);
-    hexPoly(x,cx,cy,k);const fg=x.createLinearGradient(cx,cy-R,cx,cy+R);fg.addColorStop(0,'#1b2333');fg.addColorStop(1,'#0f1420');x.save();x.shadowBlur=R*0.55;x.shadowColor='rgba(60,100,210,0.5)';x.fillStyle=fg;x.fill();x.restore();
-    hexPoly(x,cx,cy,k);const gg=x.createLinearGradient(cx-17*k,cy-20*k,cx+17*k,cy+20*k);gg.addColorStop(0,'#43a047');gg.addColorStop(1,'#3560d4');x.lineWidth=R*0.11;x.strokeStyle=gg;x.lineJoin='miter';x.miterLimit=3;x.stroke();
-    x.beginPath();x.moveTo(cx-7*k,cy-9*k);x.lineTo(cx+2*k,cy);x.lineTo(cx-7*k,cy+9*k);x.lineWidth=R*0.17;x.strokeStyle='#7aa2ff';x.lineCap='round';x.lineJoin='round';x.stroke();
-    x.fillStyle='#63c869';x.fillRect(cx+3.5*k,cy+4.5*k,6*k,6*k);}
+    /* the ACTUAL SysTerm icon (canonical SVG) */
+    var S=R*2.327;if(window.SYS_TERM)x.drawImage(window.SYS_TERM,cx-S/2,cy-S/2,S,S);}
   function base_beacon(x,W,H){const s=H/1080;bgLin(x,W,H,'#0a0c12','#10131c');const cx=W*0.5,cy=H*0.47,M=Math.min(W,H),r0=M*0.20,step=M*0.072,rings=9;
     for(let k=0;k<rings;k++){hexPath(x,cx,cy,r0+k*step);const a=0.42*(1-k/rings)+0.04;x.lineWidth=(1.5-0.06*k)*s;x.strokeStyle=rgba(mixc(GH,BH,k/(rings-1)),a);x.stroke();}
     vign(x,W,H,0.5,false);sysTermBadge(x,cx,cy,M*0.145);}
