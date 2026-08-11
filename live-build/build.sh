@@ -153,11 +153,18 @@ p = sys.argv[1]; s = open(p).read()
 s = re.sub(r'Live system \((.*?) fail-safe mode\)', r'Sysible Linux (Live, safe graphics) [\1]', s)
 s = re.sub(r'Live system \((.*?)\)', r'Sysible Linux (Live) [\1]', s)
 s = s.replace('Debian GNU/Linux', 'Sysible Linux')
-m = re.search(r'menuentry\s+"[^"]*Live[^"]*"\s*\{.*?\n\}', s, re.S)
+# Clone the first Live menuentry into "Install Sysible Linux" and place it
+# IMMEDIATELY AFTER the Live entry (not at the end of the file). The theme's
+# menu has scrollbar=false, so on a tall/stretched display any entry appended
+# last drops below the visible rows — which is why the Install entry wasn't
+# showing on arm64. As the 2nd entry it's always near the top and visible at any
+# resolution. (?ms): ^ anchors the closing brace at column 0, how live-build
+# writes entries — more robust than matching the first "\n}".
+m = re.search(r'(?ms)^menuentry\s+"[^"]*Live[^"]*".*?^\}', s)
 if m:
     inst = re.sub(r'menuentry\s+"[^"]*"', 'menuentry "Install Sysible Linux"', m.group(0), count=1)
     inst = re.sub(r'(\n\s*linux\s+\S+[^\n]*)', r'\1 sysible.install', inst, count=1)
-    s = s + "\n" + inst + "\n"
+    s = s[:m.end()] + "\n\n" + inst + s[m.end():]
 # Brand the live GRUB menu with the Sysible THEME (dark hex background, centered
 # mark, GREEN TEXT highlight — not a solid bar — and the "GNU GRUB version" line
 # hidden). This MUST be APPENDED, not prepended: live-build's generated grub.cfg
