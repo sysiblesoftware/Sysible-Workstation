@@ -170,7 +170,11 @@ if m:
 # transparent background (no garish highlight bar), never stock blue.
 vis = ('\n\n# --- Sysible branding (appended last so it wins) ---\n'
        'insmod all_video\ninsmod efi_gop\ninsmod efi_uga\ninsmod gfxterm\ninsmod png\n'
-       'set gfxmode=auto\nterminal_output gfxterm\n'
+       # gfxmode=auto on arm64 EFI often picks a mode whose aspect ratio does not
+       # match the display, so the firmware stretches the whole framebuffer
+       # vertically (theme + logo render tall/elongated, overlapping the menu).
+       # Prefer common 16:9 modes first so the aspect is correct; fall back to auto.
+       'set gfxmode=1920x1080,1600x900,1280x720,auto\nset gfxpayload=keep\nterminal_output gfxterm\n'
        'loadfont ($root)/boot/grub/fonts/unicode.pf2\n'
        'set color_normal=light-gray/black\n'
        'set menu_color_normal=light-gray/black\n'

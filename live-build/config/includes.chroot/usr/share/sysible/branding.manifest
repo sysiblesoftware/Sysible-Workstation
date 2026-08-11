@@ -13,6 +13,11 @@ c2efb435f4ebae1dcc397fe5a3596250de38302cc13066f2c2f69c8689dbb840  live-build/con
 76bedf32d1214fbd53457595d37c75c07cf3b2a31650067b8332275df1bdb062  live-build/config/binary_grub/splash.tga
 0f83da50b18399673ce8c9cb43b0038f99dbd4506642cc0bbe5872e30cf8f6a5  live-build/config/includes.chroot/usr/share/plymouth/themes/sysible/logo.png
 7b9bae8fe481eaafa3dc9bf57cc0fdafb46510a8ec053fa96bf15e05aeb2af28  live-build/config/includes.chroot/etc/calamares/branding/sysible/sysible-logo.png
+4b8671b1cf429906209ac2e919a8484866dfeb5b2db60fb08a63275a633c1ebd  live-build/config/includes.chroot/etc/calamares/branding/sysible/sysible-welcome.png
+aedbc1bfa71bc896badfc8954f1a9a968bd8a62325b74ff1fcf17dcb3133cb99  live-build/config/includes.chroot/etc/calamares/branding/sysible/mark.png
+1579c0ca0621fa9930a233795d78623ed8f4fb369fe04494059801a12d75431d  live-build/config/includes.chroot/usr/share/pixmaps/sysible-face.png
+1579c0ca0621fa9930a233795d78623ed8f4fb369fe04494059801a12d75431d  live-build/config/includes.chroot/etc/skel/.face
+1579c0ca0621fa9930a233795d78623ed8f4fb369fe04494059801a12d75431d  live-build/config/includes.chroot/var/lib/AccountsService/icons/user
 daa68cef8d0dce67c5cc52494ca08191861f06b2be577f72a8038aba7cb8d9ff  live-build/config/includes.chroot/usr/share/pixmaps/sysible-logo.png
 090d614e6447c863342c2c3d8975e93490c2bc3c61fab2818403ab23f9c1a506  live-build/config/includes.chroot/usr/share/pixmaps/sysible-logo-dark.png
 fb25de66f92ff88a2513438768d2b95e081ed72e8dc463815a5af780318653c1  live-build/config/includes.chroot/usr/share/pixmaps/sysible-logo-light.png

@@ -226,6 +226,16 @@ def build():
     # Plymouth (boot animation) + Calamares (installer) + GDM.
     A[C("usr/share/plymouth/themes/sysible/logo.png")] = centred_mark(332, 208)
     A[C("etc/calamares/branding/sysible/sysible-logo.png")] = centred_mark(96, 104, pad=0.02)
+    # Calamares HERO (productWelcome) + slideshow mark — the big centred logo.
+    A[C("etc/calamares/branding/sysible/sysible-welcome.png")] = centred_mark(240, 260, pad=0.04)
+    A[C("etc/calamares/branding/sysible/mark.png")] = centred_mark(440, 476, pad=0.04)
+    # Login / GDM / polkit avatar (.face) — the mark on the dark field, shown in a
+    # circle. The 9000 hook copies sysible-face.png over .face + the AccountsService
+    # icon at build, so all three are generated identically here to stay in sync.
+    _face = avatar(256)
+    A[C("usr/share/pixmaps/sysible-face.png")] = _face
+    A[C("etc/skel/.face")] = _face
+    A[C("var/lib/AccountsService/icons/user")] = _face
     # NOTE: install-logo.png (Calamares) and the SysTerm/install DOCK icons are
     # deliberately NOT regenerated here — they are the approved existing icons and
     # derive from sysible-install.svg / io.systerm.SysTerm.svg, not the brand mark.
