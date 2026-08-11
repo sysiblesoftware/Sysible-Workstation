@@ -111,7 +111,12 @@ def render(W, H, out):
     draw = ImageDraw.Draw(base)
     fs = int(H * 0.033)
     font = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", fs)
-    _wordmark(draw, "SYSIBLE LINUX", font, cx, ly + lh + int(H * 0.03), FG, int(H * 0.008))
+    wy = ly + lh + int(H * 0.03)
+    _wordmark(draw, "SYSIBLE LINUX", font, cx, wy, FG, int(H * 0.008))
+    # tagline beneath the wordmark (matches the desktop wallpaper + boot splash)
+    tfs = int(H * 0.0155)
+    tfont = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", tfs)
+    _wordmark(draw, "ENGINEERING · AUTOMATION", tfont, cx, wy + fs + int(H * 0.016), (150, 170, 205), int(H * 0.0055))
 
     base.convert("RGB").save(out)
     print("wrote %s (%dx%d)" % (out, W, H))
