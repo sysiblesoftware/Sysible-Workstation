@@ -1,0 +1,31 @@
+# Sysible workspaces — a fixed set of workspaces (like Kali) rather than GNOME's
+# default dynamic workspaces that grow/shrink on their own. Four static
+# workspaces, a top-bar indicator (workspace-indicator extension, enabled in
+# 00-sysible-desktop), and traditional keyboard switching:
+#   Super+1..4          → switch to workspace N
+#   Super+Shift+1..4    → move the active window to workspace N
+#   Super+PgUp/PgDn     → previous / next workspace (Ctrl+Alt+arrows also kept)
+# These are defaults only (not locked), so users can still change them.
+
+[org/gnome/mutter]
+dynamic-workspaces=false
+# Workspaces span all monitors, so switching moves every screen together — the
+# behaviour most people expect from a Kali-style multi-workspace setup.
+workspaces-only-on-primary=false
+
+[org/gnome/desktop/wm/preferences]
+num-workspaces=4
+
+[org/gnome/desktop/wm/keybindings]
+switch-to-workspace-1=['<Super>1']
+switch-to-workspace-2=['<Super>2']
+switch-to-workspace-3=['<Super>3']
+switch-to-workspace-4=['<Super>4']
+move-to-workspace-1=['<Super><Shift>1']
+move-to-workspace-2=['<Super><Shift>2']
+move-to-workspace-3=['<Super><Shift>3']
+move-to-workspace-4=['<Super><Shift>4']
+switch-to-workspace-left=['<Super>Page_Up', '<Control><Alt>Left']
+switch-to-workspace-right=['<Super>Page_Down', '<Control><Alt>Right']
+move-to-workspace-left=['<Super><Shift>Page_Up', '<Control><Shift><Alt>Left']
+move-to-workspace-right=['<Super><Shift>Page_Down', '<Control><Shift><Alt>Right']

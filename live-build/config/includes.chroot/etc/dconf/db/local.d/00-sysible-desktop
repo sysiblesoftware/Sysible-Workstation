@@ -3,7 +3,7 @@
 # session write, so the dock reverted to Firefox/Files/Software/Help).
 [org/gnome/shell]
 favorite-apps=['org.gnome.TextEditor.desktop', 'code.desktop', 'systerm.desktop', 'firefox-esr.desktop', 'org.gnome.Nautilus.desktop']
-enabled-extensions=['ding@rastersoft.com', 'dash-to-dock@micxgx.gmail.com']
+enabled-extensions=['ding@rastersoft.com', 'dash-to-dock@micxgx.gmail.com', 'workspace-indicator@gnome-shell-extensions.gcampax.github.com']
 
 [org/gnome/shell/extensions/dash-to-dock]
 dock-position='BOTTOM'
@@ -14,6 +14,9 @@ show-show-apps-button=true
 show-apps-at-top=false
 show-trash=false
 show-mounts=false
+# Free Super+1..9 (dash-to-dock binds them to dock apps by default) so they drive
+# workspace switching instead — see 10-sysible-workspaces.
+hot-keys=false
 custom-theme-shrink=true
 transparency-mode='FIXED'
 background-opacity=0.85
