@@ -1,15 +1,23 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48">
- <defs>
-  <linearGradient id="g" x1="7" y1="4" x2="41" y2="44" gradientUnits="userSpaceOnUse">
-   <stop offset="0" stop-color="#63c869"/><stop offset="1" stop-color="#5580ee"/>
-  </linearGradient>
- </defs>
- <!-- Sysible mark hexagon (pointy top/bottom) -->
- <path d="M24,4 L41,14 L41,34 L24,44 L7,34 L7,14 Z" fill="none"
-       stroke="url(#g)" stroke-width="2.6" stroke-linejoin="round"/>
- <!-- download arrow into a tray -->
- <path d="M24,13 L24,28" fill="none" stroke="#7aa2ff" stroke-width="3" stroke-linecap="round"/>
- <path d="M18,22.5 L24,29 L30,22.5" fill="none" stroke="#7aa2ff" stroke-width="3"
-       stroke-linecap="round" stroke-linejoin="round"/>
- <path d="M17,34 L31,34" fill="none" stroke="#63c869" stroke-width="3" stroke-linecap="round"/>
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="128" height="128" viewBox="0 0 128 128">
+  <defs>
+    <linearGradient id="edge" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#4a79e8"/>
+      <stop offset="1" stop-color="#1b2f66"/>
+    </linearGradient>
+    <linearGradient id="screen" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#101f39"/>
+      <stop offset="1" stop-color="#0a1322"/>
+    </linearGradient>
+  </defs>
+  <!-- Same Sysible hexagon body as the SysTerm mark, so the dock icons read as a
+       matched set (identical body, glyph tells them apart). -->
+  <path d="M64 9 L111 36.5 L111 91.5 L64 119 L17 91.5 L17 36.5 Z"
+        fill="url(#screen)" stroke="url(#edge)" stroke-width="5" stroke-linejoin="miter"/>
+  <!-- Bold SOLID download arrow in brand green — distinct from SysTerm's chevron +
+       hollow cursor. A filled glyph (not hairline strokes) stays crisp at the
+       small sizes the dock/app-grid render. -->
+  <path d="M56 36 H72 V60 H82 L64 86 L46 60 H56 Z" fill="#5cc746"/>
+  <!-- Install tray / disk base under the arrow. -->
+  <rect x="44" y="94" width="40" height="6" rx="3" fill="#5cc746"/>
 </svg>
