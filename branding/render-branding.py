@@ -225,7 +225,9 @@ def build():
     A[L("bootloaders/isolinux/splash.png")] = splash(800, 600)
     A[("tga", L("binary_grub/splash.tga"))] = splash(640, 480)
     # Plymouth (boot animation) + Calamares (installer) + GDM.
-    A[C("usr/share/plymouth/themes/sysible/logo.png")] = centred_mark(332, 208)
+    # Plymouth boot/shutdown splash: vertical lockup so the loading screen shows
+    # the "SYSIBLE LINUX" wordmark under the mark (a bare mark read as unbranded).
+    A[C("usr/share/plymouth/themes/sysible/logo.png")] = vlockup(360, 320, FG_DARK)
     A[C("etc/calamares/branding/sysible/sysible-logo.png")] = centred_mark(96, 104, pad=0.02)
     # Calamares HERO (productWelcome) + slideshow mark — the big centred logo.
     A[C("etc/calamares/branding/sysible/sysible-welcome.png")] = centred_mark(240, 260, pad=0.04)
