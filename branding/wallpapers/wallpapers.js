@@ -17,19 +17,20 @@
   function vign(x,W,H,a,light){const v=x.createRadialGradient(W/2,H*0.44,Math.min(W,H)*0.16,W/2,H/2,Math.max(W,H)*0.72);v.addColorStop(0,'rgba(0,0,0,0)');v.addColorStop(1,light?('rgba(44,60,96,'+a+')'):('rgba(0,0,0,'+a+')'));x.fillStyle=v;x.fillRect(0,0,W,H);}
 
   // ---- centered lockup (Mesh) ----
-  function drawLogo(x,cx,cy,R,light){const k=R/20;
+  function drawLogo(x,cx,cy,R,light,markImg,word){const k=R/20;markImg=markImg||window.SYS_MARK;word=word||'SYSIBLE·LINUX';
     const rg=x.createRadialGradient(cx,cy,0,cx,cy,R*2.8);rg.addColorStop(0,light?'rgba(90,140,235,0.14)':'rgba(90,140,240,0.22)');rg.addColorStop(1,'rgba(0,0,0,0)');x.fillStyle=rg;x.fillRect(cx-R*3,cy-R*3,R*6,R*6);
-    /* the ACTUAL Sysible Linux mark (canonical SVG) — no hand-drawn copy to drift */
-    var S=R*2.327;if(window.SYS_MARK)x.drawImage(window.SYS_MARK,cx-S/2,cy-S/2,S,S);
-    x.save();x.textAlign='center';x.textBaseline='top';try{x.letterSpacing=(R*0.05)+'px';}catch(e){}x.font='600 '+(R*0.30)+'px '+SANS;x.fillStyle=light?'rgba(28,42,66,0.9)':'rgba(214,223,238,0.92)';x.fillText('SYSIBLE·LINUX',cx,cy+R*1.5);x.restore();}
-  function drawMesh(x,W,H,light){const s=H/1080;light?bgLin(x,W,H,'#eef1f7','#dfe4ee'):bgLin(x,W,H,'#090b10','#12151e');
+    /* the ACTUAL canonical product mark (SVG) — no hand-drawn copy to drift */
+    var S=R*2.327;if(markImg)x.drawImage(markImg,cx-S/2,cy-S/2,S,S);
+    x.save();x.textAlign='center';x.textBaseline='top';try{x.letterSpacing=(R*0.05)+'px';}catch(e){}x.font='600 '+(R*0.30)+'px '+SANS;x.fillStyle=light?'rgba(28,42,66,0.9)':'rgba(214,223,238,0.92)';x.fillText(word,cx,cy+R*1.5);
+    /* tagline under the wordmark */ try{x.letterSpacing=(R*0.145)+'px';}catch(e){}x.font='600 '+(R*0.125)+'px '+SANS;x.fillStyle=light?'rgba(60,80,120,0.82)':'rgba(150,170,205,0.80)';x.fillText('ENGINEERING · AUTOMATION',cx,cy+R*1.5+R*0.52);x.restore();}
+  function drawMesh(x,W,H,light,markImg,word){const s=H/1080;light?bgLin(x,W,H,'#eef1f7','#dfe4ee'):bgLin(x,W,H,'#090b10','#12151e');
     const r=30*s,hw=Math.sqrt(3)*r,vh=1.5*r,gx=W*0.5,gy=H*0.44,gR=Math.min(W,H)*0.52,faint=light?'rgba(58,84,132,0.11)':'rgba(150,170,200,0.055)';
     let row=0;for(let cy=-r;cy<H+r;cy+=vh,row++){const off=(row%2)?hw/2:0;for(let cx=-r+off;cx<W+r;cx+=hw){const d=Math.hypot(cx-gx,cy-gy);hexPath(x,cx,cy,r*0.93);
       if(d<gR){const t=1-d/gR,fx=clamp((cx-(gx-gR))/(2*gR),0,1);x.fillStyle=rgba(mixc('#43a047','#3560d4',fx),(light?0.05:0.06)+(light?0.15:0.30)*t*t);x.fill();
         const sc=light?mixc('#2f8f3c','#2f60d4',fx):mixc('#63c869','#5580ee',fx);x.lineWidth=1.1*s;x.strokeStyle=rgba(sc,(light?0.13:0.16)+(light?0.42:0.55)*t);x.stroke();
       }else{x.lineWidth=1*s;x.strokeStyle=faint;x.stroke();}}}
     const v=x.createRadialGradient(gx,gy,Math.min(W,H)*0.18,W/2,H/2,Math.max(W,H)*0.72);v.addColorStop(0,'rgba(0,0,0,0)');v.addColorStop(1,light?'rgba(42,58,92,0.12)':'rgba(0,0,0,0.55)');x.fillStyle=v;x.fillRect(0,0,W,H);
-    drawLogo(x,gx,gy,Math.min(W,H)*0.112,light);}
+    drawLogo(x,gx,gy,Math.min(W,H)*0.082,light,markImg,word);}
 
   // ---- bases (light-aware) ----
   function base_fleet(x,W,H,light){const s=H/1080;light?bgLin(x,W,H,'#eef1f7','#e0e5ef'):bgLin(x,W,H,'#0a0d13','#0e1119');
@@ -48,7 +49,7 @@
 
   // ---- bottom-left lockup ----
   function drawMark(x,cx,cy,R,light){var S=R*2.327;if(window.SYS_MARK)x.drawImage(window.SYS_MARK,cx-S/2,cy-S/2,S,S);}
-  function lockup(x,W,H,light){const R=H*0.048,mB=H*0.13,mLx=W*0.06,k=R/20,cx=mLx+17*k,cy=H-mB-R;
+  function lockup(x,W,H,light){const R=H*0.048*0.72,mB=H*0.13,mLx=W*0.06,k=R/20,cx=mLx+17*k,cy=H-mB-R;
     const rg=x.createRadialGradient(0,H,0,0,H,W*0.55);rg.addColorStop(0,light?'rgba(236,238,244,0.42)':'rgba(0,0,0,0.38)');rg.addColorStop(1,'rgba(0,0,0,0)');x.fillStyle=rg;x.fillRect(0,0,W,H);
     drawMark(x,cx,cy,R,light);
     const tx=cx+17*k+R*0.6,wSize=R*0.62,tSize=R*0.235,white=light?'#14203a':'#eaeef6',accent=light?'#2f60d4':'#6f9bff',mut=light?'rgba(40,55,85,0.72)':'rgba(160,175,200,0.85)';
@@ -72,6 +73,10 @@
   const R = {
     'mesh-dark':      function(x,W,H){drawMesh(x,W,H,false);},
     'mesh-light':     function(x,W,H){drawMesh(x,W,H,true);},
+    'systerm-dark':    function(x,W,H){drawMesh(x,W,H,false,window.SYS_TERM,'SYSTERM');},
+    'systerm-light':   function(x,W,H){drawMesh(x,W,H,true,window.SYS_TERM,'SYSTERM');},
+    'controller-dark': function(x,W,H){drawMesh(x,W,H,false,window.SYS_CTRL,'SYSIBLE·CONTROLLER');},
+    'controller-light':function(x,W,H){drawMesh(x,W,H,true,window.SYS_CTRL,'SYSIBLE·CONTROLLER');},
     'fleet-dark':     function(x,W,H){base_fleet(x,W,H,false);lockup(x,W,H,false);},
     'fleet-light':    function(x,W,H){base_fleet(x,W,H,true);lockup(x,W,H,true);},
     'contour-dark':   function(x,W,H){base_topo(x,W,H,false);lockup(x,W,H,false);},

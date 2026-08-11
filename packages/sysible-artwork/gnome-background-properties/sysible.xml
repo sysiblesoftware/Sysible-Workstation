@@ -16,6 +16,34 @@
     <scolor>#0b0d12</scolor>
   </wallpaper>
   <wallpaper deleted="false">
+    <name>SysTerm (Dark)</name>
+    <filename>/usr/share/backgrounds/sysible/sysible-systerm-dark.jpg</filename>
+    <options>zoom</options>
+    <pcolor>#0b0d12</pcolor>
+    <scolor>#0b0d12</scolor>
+  </wallpaper>
+  <wallpaper deleted="false">
+    <name>SysTerm (Light)</name>
+    <filename>/usr/share/backgrounds/sysible/sysible-systerm-light.jpg</filename>
+    <options>zoom</options>
+    <pcolor>#0b0d12</pcolor>
+    <scolor>#0b0d12</scolor>
+  </wallpaper>
+  <wallpaper deleted="false">
+    <name>Sysible Controller (Dark)</name>
+    <filename>/usr/share/backgrounds/sysible/sysible-controller-dark.jpg</filename>
+    <options>zoom</options>
+    <pcolor>#0b0d12</pcolor>
+    <scolor>#0b0d12</scolor>
+  </wallpaper>
+  <wallpaper deleted="false">
+    <name>Sysible Controller (Light)</name>
+    <filename>/usr/share/backgrounds/sysible/sysible-controller-light.jpg</filename>
+    <options>zoom</options>
+    <pcolor>#0b0d12</pcolor>
+    <scolor>#0b0d12</scolor>
+  </wallpaper>
+  <wallpaper deleted="false">
     <name>Sysible Fleet (Dark)</name>
     <filename>/usr/share/backgrounds/sysible/sysible-fleet-dark.jpg</filename>
     <options>zoom</options>
