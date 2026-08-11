@@ -26,11 +26,11 @@
        Green links (structure) + BLUE nodes — the family accent scheme, matching
        the blue centre node on the Sysible Linux mark. -->
   <g id="symbol">
-    <path d="M44 64 H64 M64 64 L84 50 M64 64 L84 78" fill="none" stroke="#6ddb73"
-          stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
-    <circle cx="44" cy="64" r="7.5" fill="#79a0ff"/>
-    <circle cx="64" cy="64" r="8.5" fill="#79a0ff"/>
-    <circle cx="84" cy="50" r="7.5" fill="#79a0ff"/>
-    <circle cx="84" cy="78" r="7.5" fill="#79a0ff"/>
+    <path d="M38 64 H64 M64 64 L89 47 M64 64 L89 81" fill="none" stroke="#6ddb73"
+          stroke-width="5.5" stroke-linecap="round" stroke-linejoin="round"/>
+    <circle cx="38" cy="64" r="5.5" fill="#79a0ff"/>
+    <circle cx="64" cy="64" r="6.5" fill="#79a0ff"/>
+    <circle cx="89" cy="47" r="5.5" fill="#79a0ff"/>
+    <circle cx="89" cy="81" r="5.5" fill="#79a0ff"/>
   </g>
 </svg>
