@@ -206,47 +206,6 @@ def avatar(size, mark_url=MARK):
     return canvas.convert("RGB")
 
 
-def _hexagon(cx, cy, r, rot_deg=0):
-    pts = []
-    for a in range(6):
-        ang = math.radians(60 * a + rot_deg)
-        pts.append((cx + r * math.cos(ang), cy + r * math.sin(ang)))
-    return pts
-
-
-def honeycomb_avatar(size, mark_url=MARK):
-    """Fun variant: a filled honeycomb tessellation in brand tints, the mark set
-    into the centre cell. Flat-top hexes packed so edges meet cleanly."""
-    canvas = Image.new("RGBA", (size, size), BG + (255,))
-    d = ImageDraw.Draw(canvas)
-    r = size / 9.5                      # cell circumradius
-    dx = r * 1.5                        # flat-top horizontal step
-    dy = r * math.sqrt(3)               # vertical step
-    cx0, cy0 = size / 2, size / 2
-    tints = [(24, 34, 66), (30, 44, 86), (20, 46, 44), (26, 56, 52)]
-    col = 0
-    x = -dx
-    while x < size + dx:
-        row = 0
-        yoff = (dy / 2) if (int(round((x - cx0) / dx)) % 2) else 0
-        y = -dy
-        while y < size + dy:
-            cx, cy = x, y + yoff
-            dist = math.hypot(cx - cx0, cy - cy0)
-            shade = tints[(col + row) % len(tints)]
-            # brighten cells nearer the centre for a soft radial glow
-            t = max(0.0, 1 - dist / (size * 0.62))
-            fill = _lerp(shade, (74, 120, 210), 0.28 * t)
-            d.polygon(_hexagon(cx, cy, r * 0.92, rot_deg=0), fill=fill + (255,),
-                      outline=(10, 14, 24, 255))
-            y += dy
-            row += 1
-        x += dx
-        col += 1
-    # centre cell mark
-    s = int(size * 0.5)
-    canvas.alpha_composite(_svg_png(mark_url, s), ((size - s) // 2, (size - s) // 2))
-    return canvas.convert("RGB")
 
 
 # ---------------------------------------------------------------- output map
@@ -292,7 +251,6 @@ def build():
     A[G("branding/social/github-avatar.png")] = avatar(512)
     A[G("branding/social/twitter-avatar.png")] = avatar(400)
     A[G("branding/social/controller-avatar.png")] = avatar(512, CONTROLLER_MARK)
-    A[G("branding/social/honeycomb-avatar.png")] = honeycomb_avatar(512)
     return A
 
 
