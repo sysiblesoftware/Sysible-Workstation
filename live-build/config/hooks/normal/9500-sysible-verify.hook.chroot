@@ -51,4 +51,34 @@ grep -rqs "sysible-login-logo.png" /etc/dconf/db/gdm.d/ \
     || fail "GDM login-screen logo not pointed at the Sysible watermark"
 echo "sysible-verify: OK — GDM login watermark installed and wired."
 
+# 6) Branding integrity. Every logo in the image (GRUB boot menu, Plymouth,
+# Calamares, GDM, app-grid) is rendered from ONE canonical mark
+# (branding/logo/sysible-mark.svg) and its sha256 recorded in a manifest shipped
+# into the image. Assert the on-disk files still match — this is what stops the
+# GRUB boot logo from silently drifting back to old art while the dock icon is
+# fixed. Env-independent: just sha256 of the committed bytes.
+BMAN=/usr/share/sysible/branding.manifest
+[ -f "$BMAN" ] || fail "branding manifest missing ($BMAN)"
+PREFIX=live-build/config/includes.chroot
+checked=0
+while IFS= read -r line; do
+    case "$line" in ''|'#'*) continue ;; esac
+    sha=${line%% *}
+    rel=${line#* }
+    rel=${rel# }
+    # Only the assets that actually land in the installed root (under
+    # includes.chroot); ISO-only splashes and repo README badges are skipped here
+    # and covered by scripts/verify-branding.sh in CI instead.
+    case "$rel" in
+        "$PREFIX"/*) img="/${rel#"$PREFIX"/}" ;;
+        *) continue ;;
+    esac
+    [ -f "$img" ] || fail "branded asset missing from image: $img"
+    act=$(sha256sum "$img" 2>/dev/null | awk '{print $1}')
+    [ "$act" = "$sha" ] || fail "branded asset drifted from the canonical mark: $img"
+    checked=$((checked + 1))
+done < "$BMAN"
+[ "$checked" -gt 0 ] || fail "branding manifest matched no in-image assets"
+echo "sysible-verify: OK — $checked branded assets match the canonical mark (incl. GRUB boot logo)."
+
 echo "sysible-verify: OK — SysTerm $V, Run Command menu, and new icon all present."

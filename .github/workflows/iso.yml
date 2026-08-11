@@ -45,6 +45,13 @@ jobs:
 
       - uses: actions/checkout@v4
 
+      # Fail FAST (seconds, not 35 minutes) if any logo asset drifted from the
+      # canonical mark — e.g. the mark was changed but the boot/GRUB/Plymouth PNGs
+      # weren't regenerated. Pure sha256 check, no rendering, so it needs no extra
+      # deps and can't false-positive on toolchain differences.
+      - name: Verify branding is in sync
+        run: sh scripts/verify-branding.sh
+
       - name: Build the ISO
         run: |
           cd live-build

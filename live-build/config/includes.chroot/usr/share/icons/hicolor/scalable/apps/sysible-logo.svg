@@ -1,7 +1,42 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="-24 -26 48 52">
- <defs><linearGradient id="sg" x1="-17" y1="-20" x2="17" y2="20" gradientUnits="userSpaceOnUse">
-  <stop offset="0" stop-color="#63c869"/><stop offset="1" stop-color="#5580ee"/></linearGradient></defs>
- <path d="M0,-20 L17,-10 L17,10 L0,20 L-17,10 L-17,-10 Z" fill="none" stroke="url(#sg)" stroke-width="2.5" stroke-linejoin="round"/>
- <path d="M-6.5,-7.5 L1.2,0 L-6.5,7.5" fill="none" stroke="#7aa2ff" stroke-width="2.9" stroke-linecap="round" stroke-linejoin="round"/>
- <rect x="3.2" y="3.6" width="5.6" height="5.6" rx="1" fill="#63c869"/>
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Sysible Linux — CANONICAL brand mark. SINGLE SOURCE OF TRUTH.
+
+  Every logo that appears anywhere in the product (GRUB boot menu, isolinux
+  splash, Plymouth, GDM, Calamares, the app-grid icon, README badges) is
+  rendered FROM THIS FILE by branding/render-branding.py. Edit the art here,
+  run the generator, commit the regenerated assets — never hand-edit a derived
+  PNG, or scripts/verify-branding.sh will fail the build.
+
+  Likeness: this deliberately MATCHES the SysTerm dock icon (io.systerm.SysTerm.svg)
+  so the whole family reads as one set — identical hexagon body (near-black screen
+  interior, blue gradient edge), identical brand green (#6ddb73). ONLY the symbol
+  differs: SysTerm shows the ">_" terminal prompt; Sysible Linux shows the NESTED
+  CORE (a smaller hexagon + centre node = "the system core"), so the OS mark is its
+  own identity while still visibly part of the family.
+
+  To change the Sysible Linux symbol later, replace ONLY the <g id="symbol"> block
+  and re-run the generator; the body/colours stay locked to the SysTerm likeness.
+-->
+<svg xmlns="http://www.w3.org/2000/svg" width="128" height="128" viewBox="0 0 128 128">
+  <defs>
+    <linearGradient id="edge" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#79a0ff"/>
+      <stop offset="1" stop-color="#2f4d9e"/>
+    </linearGradient>
+    <linearGradient id="screen" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#101828"/>
+      <stop offset="1" stop-color="#0a0f1c"/>
+    </linearGradient>
+  </defs>
+  <!-- Body: identical hexagon to the SysTerm mark (same coords, fill, edge). -->
+  <path d="M64 9 L111 36.5 L111 91.5 L64 119 L17 91.5 L17 36.5 Z"
+        fill="url(#screen)" stroke="url(#edge)" stroke-width="5" stroke-linejoin="miter"/>
+  <!-- Symbol: NESTED CORE — a concentric hexagon + centre node, brand green #6ddb73.
+       Same green + stroke weight as SysTerm's ">_" so the two read as siblings. -->
+  <g id="symbol">
+    <path d="M64 38 L86.5 51 L86.5 77 L64 90 L41.5 77 L41.5 51 Z"
+          fill="none" stroke="#6ddb73" stroke-width="7" stroke-linejoin="round"/>
+    <circle cx="64" cy="64" r="8.5" fill="#6ddb73"/>
+  </g>
 </svg>

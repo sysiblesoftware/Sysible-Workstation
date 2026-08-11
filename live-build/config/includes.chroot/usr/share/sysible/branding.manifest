@@ -1,0 +1,27 @@
+# sysible branding manifest — sha256 of the canonical mark + every
+# generated asset. Regenerate with: python3 branding/render-branding.py
+4595f69fd1f8eca78146bf909489f8ff568a242f44145d29b9feef3ebc08f3c4  branding/logo/sysible-mark.svg
+4595f69fd1f8eca78146bf909489f8ff568a242f44145d29b9feef3ebc08f3c4  live-build/config/includes.chroot/usr/share/icons/hicolor/scalable/apps/sysible-logo.svg
+4595f69fd1f8eca78146bf909489f8ff568a242f44145d29b9feef3ebc08f3c4  live-build/config/includes.chroot/usr/share/pixmaps/sysible-logo-dark.svg
+4595f69fd1f8eca78146bf909489f8ff568a242f44145d29b9feef3ebc08f3c4  live-build/config/includes.chroot/usr/share/pixmaps/sysible-logo-light.svg
+9fb4b67edeedb1a0ab03fe22818eace68dae4cb94e2f0395d9eb200c83ba8d53  live-build/config/includes.chroot/boot/grub/themes/sysible/logo.png
+9a720afe05a180579eb3b9aaadb090921548c48903e3684dd447d90526d42afe  live-build/config/includes.chroot/boot/grub/themes/sysible/background.png
+a51b824763a00ebcd71854492bb7d33ccfc4917cd15e80edad29570cdd583d7a  live-build/config/branding/splash.png
+a99f46d0d35c767441ae2339ae36058fd483682a664c0292df6fa981fccb9584  live-build/config/bootloaders/isolinux/splash.png
+81901904c95dfa9f0e47df75f41691564125034e1ed4d518e4acb40b114c4672  live-build/config/binary_grub/splash.tga
+b16ec7826093a4eb568b83e8f4466002e7d7d392ebea40fb822ddce82b215b58  live-build/config/includes.chroot/usr/share/plymouth/themes/sysible/logo.png
+cc62577a40020baf50e291e405f8318635b3de71265bbbf20a83d0c15c63deda  live-build/config/includes.chroot/etc/calamares/branding/sysible/sysible-logo.png
+88a94e59ab41899c7d10bbfea004c76d5911b4f5e63e4596727d75338e28bfd9  live-build/config/includes.chroot/usr/share/pixmaps/sysible-logo.png
+1b081c2c91cec83b7f27c41da655e9fc68cb29743f806bbae734fe8f0c84c8e9  live-build/config/includes.chroot/usr/share/pixmaps/sysible-logo-dark.png
+8bc3a2062fa9e77ac071848b2cbecdb27232f8020b029667f367d2121905ba9c  live-build/config/includes.chroot/usr/share/pixmaps/sysible-logo-light.png
+1b081c2c91cec83b7f27c41da655e9fc68cb29743f806bbae734fe8f0c84c8e9  live-build/config/includes.chroot/usr/share/pixmaps/sysible-linux-logo.png
+06721695d590dcf45ec81d69bf11afbd982415625202167d7a6d37ddf48af6ff  live-build/config/includes.chroot/usr/share/icons/hicolor/16x16/apps/sysible-logo.png
+fe3a07eec26e1b0cbaf118b46e0fc99cf0d1454065f817a6a9e80fb7d2e03a13  live-build/config/includes.chroot/usr/share/icons/hicolor/22x22/apps/sysible-logo.png
+db34eda29fe931dc2f958d849690d309dba0c83ca55bdf2b59b5b17ed8b76fb9  live-build/config/includes.chroot/usr/share/icons/hicolor/24x24/apps/sysible-logo.png
+33b04bed39db9cecf37f18590fbef8a8cfc1605e8a6af76352e2589abf8be61c  live-build/config/includes.chroot/usr/share/icons/hicolor/32x32/apps/sysible-logo.png
+57252de334f7ed8da1f3efb2bcb9cee537d07de9e6bdf621c3d57ac6be19c3ee  live-build/config/includes.chroot/usr/share/icons/hicolor/48x48/apps/sysible-logo.png
+60570c75c52378411125434315c6f70333e2a2848ba9489b81c04db279baed55  live-build/config/includes.chroot/usr/share/icons/hicolor/64x64/apps/sysible-logo.png
+df97282bfdeabb05e9164668bc00a157cf262abb7dae8418235aeadf1510c4e5  live-build/config/includes.chroot/usr/share/icons/hicolor/128x128/apps/sysible-logo.png
+49172234895ac0b17ff4132e077ee64531f467ddb55359fb7156182acf142534  live-build/config/includes.chroot/usr/share/icons/hicolor/256x256/apps/sysible-logo.png
+18dcb0c325498c3a9aa074a898d010db1b9be41de427a607a23d8eeb8bd48b01  .github/sysible-logo-dark.png
+2a8cff258e8c5a90265492d7088d0b220e639fc81334c403cd3a2b1288a04a1f  .github/sysible-logo-light.png

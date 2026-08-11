@@ -13,7 +13,8 @@ import os
 import cairosvg
 from PIL import Image, ImageDraw, ImageFont, ImageFilter
 
-LOGO = "live-build/config/includes.chroot/usr/share/pixmaps/sysible-logo-dark.svg"
+# Canonical brand mark — single source of truth (see branding/render-branding.py).
+LOGO = "branding/logo/sysible-mark.svg"
 GREEN = (99, 200, 105)
 BLUE = (85, 128, 238)
 FG = (233, 240, 247)

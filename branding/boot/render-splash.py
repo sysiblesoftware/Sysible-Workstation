@@ -1,119 +1,19 @@
 #!/usr/bin/env python3
-"""Render the Sysible Linux boot splash screens.
+"""DEPRECATED — superseded by branding/render-branding.py.
 
-Produces two assets from one design so the boot experience is consistent:
-  * A high-resolution GRUB background (UEFI, incl. arm64) — crisp on real panels.
-  * A safe 640x480 isolinux background (BIOS/amd64) — the widely-supported mode.
-
-Design: dark #0d1117 field, a faint hexagon-mesh texture and a soft blue-green
-glow behind the hexagon-prompt logo, the SYSIBLE LINUX wordmark with letter
-spacing, and a gradient accent underline (green->blue, matching the logo).
-The artwork is confined to the TOP band; the boot menu renders in the clear
-lower band. No tagline.
+The boot splashes used to be rendered here from usr/share/pixmaps/sysible-logo-dark.svg,
+which was a SEPARATE copy of the logo that drifted from the dock icon — so the boot
+screen kept shipping the old mark. All branding is now rendered from ONE canonical
+source (branding/logo/sysible-mark.svg) by branding/render-branding.py, which also
+produces these splashes. This shim just forwards to it so no stale path survives.
 """
-import io
-import math
-import cairosvg
-from PIL import Image, ImageDraw, ImageFont, ImageFilter
+import os
+import runpy
+import sys
 
-HERE = "live-build/config/includes.chroot/usr/share/pixmaps/sysible-logo-dark.svg"
-BG = (13, 17, 23)
-FG = (233, 240, 247)
-GREEN = (99, 200, 105)
-BLUE = (85, 128, 238)
-
-
-def _lerp(a, b, t):
-    return tuple(round(a[i] + (b[i] - a[i]) * t) for i in range(3))
-
-
-def _hex_mesh(W, H, r, alpha):
-    """Faint pointy-top hexagon outline mesh, brand texture."""
-    layer = Image.new("RGBA", (W, H), (0, 0, 0, 0))
-    d = ImageDraw.Draw(layer)
-    dx = r * math.sqrt(3)
-    dy = r * 1.5
-    col = (120, 150, 210, alpha)
-    row = 0
-    y = -r
-    while y < H + r:
-        offset = (dx / 2) if (row % 2) else 0
-        x = -dx
-        while x < W + dx:
-            cx, cy = x + offset, y
-            pts = [(cx + r * math.sin(math.radians(a)),
-                    cy - r * math.cos(math.radians(a))) for a in range(0, 360, 60)]
-            d.line(pts + [pts[0]], fill=col, width=1)
-            x += dx
-        y += dy
-        row += 1
-    return layer
-
-
-def _glow(W, H, cx, cy, radius, color, peak):
-    g = Image.new("RGBA", (W, H), (0, 0, 0, 0))
-    d = ImageDraw.Draw(g)
-    steps = 48
-    for i in range(steps, 0, -1):
-        rr = radius * i / steps
-        a = round(peak * (1 - i / steps) ** 2)
-        d.ellipse([cx - rr, cy - rr, cx + rr, cy + rr], fill=color + (a,))
-    return g.filter(ImageFilter.GaussianBlur(radius / 12))
-
-
-def _wordmark(draw, text, font, cx, y, fill, tracking):
-    widths = [draw.textlength(ch, font=font) for ch in text]
-    total = sum(widths) + tracking * (len(text) - 1)
-    x = cx - total / 2
-    for ch, w in zip(text, widths):
-        draw.text((x, y), ch, font=font, fill=fill)
-        x += w + tracking
-
-
-def render(W, H, out):
-    # Layout is expressed as fractions of H so the art lands in the SAME place
-    # at any resolution and always stays in the top ~44% of the screen — the
-    # boot menu (isolinux vshift / GRUB's centred box) owns the lower band, so
-    # text never overlaps the artwork. Elements are rasterised at their exact
-    # pixel size (no upscaling) so they stay crisp.
-    canvas = Image.new("RGBA", (W, H), BG + (255,))
-
-    logo_h = int(H * 0.24)
-    logo_top = int(H * 0.07)
-    band_cy = logo_top + logo_h // 2
-
-    canvas.alpha_composite(_hex_mesh(W, H, int(H * 0.055), 15))
-    canvas.alpha_composite(_glow(W, H, W // 2, band_cy, int(H * 0.48), BLUE, 60))
-    canvas.alpha_composite(_glow(W, H, W // 2, band_cy, int(H * 0.30), GREEN, 42))
-
-    png = cairosvg.svg2png(url=HERE, output_height=logo_h)
-    logo = Image.open(io.BytesIO(png)).convert("RGBA")
-    canvas.alpha_composite(logo, ((W - logo.width) // 2, logo_top))
-
-    draw = ImageDraw.Draw(canvas)
-    fsize = int(H * 0.058)
-    font = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", fsize)
-    wy = logo_top + logo_h + int(H * 0.04)
-    _wordmark(draw, "SYSIBLE LINUX", font, W / 2, wy, FG, tracking=int(H * 0.013))
-
-    # gradient accent underline (green -> blue), matching the logo stroke
-    uw = int(W * 0.40)
-    uh = max(2, int(H * 0.006))
-    ux = (W - uw) // 2
-    uy = wy + fsize + int(H * 0.03)
-    bar = Image.new("RGBA", (uw, uh), (0, 0, 0, 0))
-    bd = ImageDraw.Draw(bar)
-    for i in range(uw):
-        bd.line([(i, 0), (i, uh)], fill=_lerp(GREEN, BLUE, i / uw) + (255,))
-    canvas.alpha_composite(bar, (ux, uy))
-
-    canvas.convert("RGB").save(out)
-    print("wrote %s (%dx%d) art-bottom=%d (%.0f%% of H)" % (out, W, H, uy + uh, 100.0 * (uy + uh) / H))
-
+HERE = os.path.dirname(os.path.abspath(__file__))
+GEN = os.path.join(HERE, "..", "render-branding.py")
 
 if __name__ == "__main__":
-    # GRUB / UEFI (incl. arm64): high-res, scaled by firmware to the panel.
-    render(1920, 1080, "live-build/config/branding/splash.png")
-    # isolinux / BIOS: 800x600 is crisp on VM/most firmware and is the mode set
-    # in menu.cfg (menu resolution 800 600) so it isn't upscaled/soft.
-    render(800, 600, "live-build/config/bootloaders/isolinux/splash.png")
+    sys.stderr.write("render-splash.py is deprecated; running branding/render-branding.py instead.\n")
+    runpy.run_path(GEN, run_name="__main__")
