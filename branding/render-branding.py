@@ -32,6 +32,7 @@ from PIL import Image, ImageDraw, ImageFont, ImageFilter
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 MARK = os.path.join(ROOT, "branding/logo/sysible-mark.svg")
 CONTROLLER_MARK = os.path.join(ROOT, "branding/logo/sysible-controller-mark.svg")
+INSTALL_SVG = os.path.join(ROOT, "live-build/config/includes.chroot/usr/share/icons/hicolor/scalable/apps/sysible-install.svg")
 LB = os.path.join(ROOT, "live-build/config")
 CHROOT = os.path.join(LB, "includes.chroot")
 
@@ -236,9 +237,11 @@ def build():
     A[C("usr/share/pixmaps/sysible-face.png")] = _face
     A[C("etc/skel/.face")] = _face
     A[C("var/lib/AccountsService/icons/user")] = _face
-    # NOTE: install-logo.png (Calamares) and the SysTerm/install DOCK icons are
-    # deliberately NOT regenerated here — they are the approved existing icons and
-    # derive from sysible-install.svg / io.systerm.SysTerm.svg, not the brand mark.
+    # Calamares productLogo — render from the (solid, family-style) install icon so
+    # the install window matches the dock instead of the old hollow-gradient art.
+    A[C("etc/calamares/branding/sysible/install-logo.png")] = _svg_png(INSTALL_SVG, 512)
+    # The SysTerm/install DOCK icons themselves are the approved art and are not
+    # regenerated here (they derive from their own SVGs, not the brand mark).
     # Pixmaps (app + README + system).
     A[C("usr/share/pixmaps/sysible-logo.png")] = centred_mark(256, 256, pad=0.04)
     A[C("usr/share/pixmaps/sysible-logo-dark.png")] = vlockup(512, 555, FG_DARK)
