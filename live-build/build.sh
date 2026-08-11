@@ -170,11 +170,15 @@ if m:
 # transparent background (no garish highlight bar), never stock blue.
 vis = ('\n\n# --- Sysible branding (appended last so it wins) ---\n'
        'insmod all_video\ninsmod efi_gop\ninsmod efi_uga\ninsmod gfxterm\ninsmod png\n'
-       # gfxmode=auto on arm64 EFI often picks a mode whose aspect ratio does not
-       # match the display, so the firmware stretches the whole framebuffer
-       # vertically (theme + logo render tall/elongated, overlapping the menu).
-       # Prefer common 16:9 modes first so the aspect is correct; fall back to auto.
-       'set gfxmode=1920x1080,1600x900,1280x720,auto\nset gfxpayload=keep\nterminal_output gfxterm\n'
+       # gfxmode: let the firmware report its native mode (auto). Forcing a fixed
+       # 16:9 mode (tried earlier) does NOT cure the "stretched/tall" look reported
+       # under VMware Fusion on Apple Silicon — that stretch is the hypervisor
+       # scaling one GOP mode to a differently-shaped VM window, not GRUB's choice,
+       # and forcing a mode the window can't match only adds black bars/pillarbox.
+       # gfxpayload=keep hands the same framebuffer to the kernel so Plymouth
+       # doesn't re-stretch. (VM-side fix: Fusion → Settings → Display, use full
+       # resolution / disable stretch scaling.)
+       'set gfxmode=auto\nset gfxpayload=keep\nterminal_output gfxterm\n'
        'loadfont ($root)/boot/grub/fonts/unicode.pf2\n'
        'set color_normal=light-gray/black\n'
        'set menu_color_normal=light-gray/black\n'
