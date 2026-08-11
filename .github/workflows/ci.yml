@@ -6,6 +6,19 @@ on:
   pull_request:
 
 jobs:
+  config-lint:
+    # Validates the live-build config layer (hooks, dconf, gschema, .desktop,
+    # GRUB theme, hicolor icons, Calamares config, systemd units, package list)
+    # that the package build below does not exercise.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install validators
+        run: sudo apt-get update -qq && sudo apt-get install -y --no-install-recommends
+             python3-pil python3-yaml libxml2-utils
+      - name: Check live-build config
+        run: python3 scripts/check-config.py
+
   build:
     runs-on: ubuntu-latest
     steps:
