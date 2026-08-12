@@ -1,10 +1,10 @@
 Source: sysible-desktop-gnome
 Section: x11
 Priority: optional
-Maintainer: Sysible <maintainers@sysible.io>
+Maintainer: Sysible <maintainers@sysible.com>
 Build-Depends: debhelper-compat (= 13)
 Standards-Version: 4.6.2
-Homepage: https://sysible.io
+Homepage: https://sysible.com
 Rules-Requires-Root: no
 
 Package: sysible-desktop-gnome

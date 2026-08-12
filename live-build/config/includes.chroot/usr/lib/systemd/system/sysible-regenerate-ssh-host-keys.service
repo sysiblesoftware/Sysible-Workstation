@@ -1,6 +1,6 @@
 [Unit]
 Description=Regenerate OpenSSH host keys for a unique per-machine identity
-Documentation=https://sysible.io
+Documentation=https://sysible.com
 # Only on first boot, when the image-stripped host keys are absent. Once keys
 # exist this condition is false and the unit is skipped on every later boot.
 ConditionPathExists=!/etc/ssh/ssh_host_ed25519_key

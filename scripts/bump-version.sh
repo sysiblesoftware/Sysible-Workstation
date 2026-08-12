@@ -37,7 +37,7 @@ TMP=$(mktemp)
     echo
     echo "  * $MSG"
     echo
-    echo " -- Sysible <maintainers@sysible.io>  $DATE"
+    echo " -- Sysible <maintainers@sysible.com>  $DATE"
     echo
     cat "$CH"
 } > "$TMP"

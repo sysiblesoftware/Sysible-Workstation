@@ -1,11 +1,11 @@
 # Sysible Linux — the only repo Sysible itself publishes (sysible-* packages).
 # Everything else comes from Debian or the upstream vendor repos below.
-# Disabled until repo.sysible.io is live: an enabled entry pointing at a host
+# Disabled until repo.sysible.com is live: an enabled entry pointing at a host
 # that does not resolve makes every `apt update` fail. Flip Enabled to yes (or
 # drop this line) once the repo is published.
 Types: deb
 Enabled: no
-URIs: https://repo.sysible.io/apt
+URIs: https://repo.sysible.com/apt
 Suites: sysible-stable
 Components: main
 Architectures: amd64 arm64

@@ -2,4 +2,4 @@ sysible-cli (0.1.0) sysible; urgency=medium
 
   * Initial release: `sysible verify` (readiness checks, --json, per-area flags).
 
- -- Sysible <maintainers@sysible.io>  Fri, 07 Aug 2026 00:00:00 +0000
+ -- Sysible <maintainers@sysible.com>  Fri, 07 Aug 2026 00:00:00 +0000

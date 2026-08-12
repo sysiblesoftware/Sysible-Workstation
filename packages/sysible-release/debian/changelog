@@ -3,4 +3,4 @@ sysible-release (0.1.0) sysible; urgency=medium
   * Initial release: Sysible archive keyring + repo, upstream vendor repo configs,
     and the vendor-keyring fetch script.
 
- -- Sysible <maintainers@sysible.io>  Fri, 07 Aug 2026 00:00:00 +0000
+ -- Sysible <maintainers@sysible.com>  Fri, 07 Aug 2026 00:00:00 +0000

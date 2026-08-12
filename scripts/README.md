@@ -30,7 +30,7 @@ git commit -m "sysible-release: archive signing public key"
 sudo apt install aptly awscli
 cp aptly.conf.sample ~/.aptly.conf     # edit bucket/endpoint for your setup
 
-# local filesystem (nginx serves repo.sysible.io/apt):
+# local filesystem (nginx serves repo.sysible.com/apt):
 ./publish-repo.sh sysible-dev
 
 # or S3 + CloudFront (endpoint "sysible" in aptly.conf):

@@ -17,11 +17,11 @@ strings:
     versionedName:       Sysible Linux 0.1 (Ignition)
     shortVersionedName:  Sysible Linux 0.1
     bootloaderEntryName: Sysible Linux
-    productUrl:          https://sysible.io/
-    supportUrl:          https://sysible.io/
-    knownIssuesUrl:      https://sysible.io/
-    releaseNotesUrl:     https://sysible.io/
-    donateUrl:           https://sysible.io/
+    productUrl:          https://sysible.com/
+    supportUrl:          https://sysible.com/
+    knownIssuesUrl:      https://sysible.com/
+    releaseNotesUrl:     https://sysible.com/
+    donateUrl:           https://sysible.com/
 
 images:
     productLogo:         "install-logo.png"

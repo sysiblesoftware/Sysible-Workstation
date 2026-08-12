@@ -2,4 +2,4 @@ sysible-desktop-gnome (0.1.0) sysible; urgency=medium
 
   * Initial GNOME defaults: Mesh-dark wallpaper, dark + blue accent, SysTerm terminal.
 
- -- Sysible <maintainers@sysible.io>  Fri, 07 Aug 2026 00:00:00 +0000
+ -- Sysible <maintainers@sysible.com>  Fri, 07 Aug 2026 00:00:00 +0000

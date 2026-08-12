@@ -3,4 +3,4 @@ sysible-meta (0.1.0) sysible; urgency=medium
   * Initial metapackage: sysible-workstation defines the all-in-one engineering
     workstation toolkit (Depends = must-haves, Recommends = heavier/GUI/upstream).
 
- -- Sysible <maintainers@sysible.io>  Fri, 07 Aug 2026 00:00:00 +0000
+ -- Sysible <maintainers@sysible.com>  Fri, 07 Aug 2026 00:00:00 +0000

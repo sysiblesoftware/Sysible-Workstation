@@ -4,7 +4,7 @@
   "gpgProvider": "gpg",
   "FileSystemPublishEndpoints": {
     "local": {
-      "rootDir": "/srv/repo.sysible.io/apt",
+      "rootDir": "/srv/repo.sysible.com/apt",
       "linkMethod": "copy"
     }
   },
