@@ -1,10 +1,10 @@
 # Sysible Linux — the only repo Sysible itself publishes (sysible-* packages).
 # Everything else comes from Debian or the upstream vendor repos below.
-# Disabled until repo.sysible.com is live: an enabled entry pointing at a host
-# that does not resolve makes every `apt update` fail. Flip Enabled to yes (or
-# drop this line) once the repo is published.
+# Enabled: repo.sysible.com is live (Cloudflare R2). If you ever take the repo
+# down, set Enabled to no first — an enabled entry pointing at a dead host makes
+# every `apt update` fail.
 Types: deb
-Enabled: no
+Enabled: yes
 URIs: https://repo.sysible.com/apt
 Suites: sysible-stable
 Components: main
