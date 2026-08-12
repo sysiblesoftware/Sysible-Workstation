@@ -1,3 +1,9 @@
+sysible-desktop-gnome (0.1.2) sysible; urgency=medium
+
+  * default background uses the light wallpaper in light mode (dark variant stays for dark mode)
+
+ -- Sysible <maintainers@sysible.com>  Wed, 12 Aug 2026 19:12:47 +0000
+
 sysible-desktop-gnome (0.1.1) sysible; urgency=medium
 
   * SES rebrand: default wallpaper -> topographic; desktop accent-color -> green.

@@ -1,7 +1,7 @@
 # Sysible Linux GNOME defaults. These set DEFAULT values only — a user is free
 # to change any of them; they just land on brand out of the box.
 [org.gnome.desktop.background]
-picture-uri='file:///usr/share/backgrounds/sysible/sysible-topographic.jpg'
+picture-uri='file:///usr/share/backgrounds/sysible/sysible-topographic-light.jpg'
 picture-uri-dark='file:///usr/share/backgrounds/sysible/sysible-topographic.jpg'
 picture-options='zoom'
 primary-color='#0b0d12'
