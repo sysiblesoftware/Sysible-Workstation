@@ -1,3 +1,9 @@
+sysible-artwork (0.1.2) sysible; urgency=medium
+
+  * refresh wallpaper set: locked banner (no clip) + light variants; add Lumpkin County roads; drop circuit/flowfield/constellation/neural-deep; rebuild generator in Python
+
+ -- Sysible <maintainers@sysible.com>  Wed, 12 Aug 2026 18:56:36 +0000
+
 sysible-artwork (0.1.1) sysible; urgency=medium
 
   * SES rebrand wallpapers: 8 re-rendered with the mark+wordmark lockup, plus 3 real-terrain Dahlonega topographic wallpapers; registry updated.

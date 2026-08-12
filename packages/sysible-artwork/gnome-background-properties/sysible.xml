@@ -3,56 +3,40 @@
 <wallpapers>
   <wallpaper deleted="false">
     <name>Sysible Topographic</name>
-    <filename>/usr/share/backgrounds/sysible/sysible-topographic.jpg</filename>
+    <filename>/usr/share/backgrounds/sysible/sysible-topographic-light.jpg</filename>
+    <filename-dark>/usr/share/backgrounds/sysible/sysible-topographic.jpg</filename-dark>
     <options>zoom</options>
     <pcolor>#0b0d12</pcolor>
     <scolor>#0b0d12</scolor>
   </wallpaper>
   <wallpaper deleted="false">
     <name>Sysible Topographic Ridge</name>
-    <filename>/usr/share/backgrounds/sysible/sysible-topographic-ridge.jpg</filename>
+    <filename>/usr/share/backgrounds/sysible/sysible-topographic-ridge-light.jpg</filename>
+    <filename-dark>/usr/share/backgrounds/sysible/sysible-topographic-ridge.jpg</filename-dark>
     <options>zoom</options>
     <pcolor>#0b0d12</pcolor>
     <scolor>#0b0d12</scolor>
   </wallpaper>
   <wallpaper deleted="false">
     <name>Sysible Neural</name>
-    <filename>/usr/share/backgrounds/sysible/sysible-neural.jpg</filename>
-    <options>zoom</options>
-    <pcolor>#0b0d12</pcolor>
-    <scolor>#0b0d12</scolor>
-  </wallpaper>
-  <wallpaper deleted="false">
-    <name>Sysible Neural (Deep)</name>
-    <filename>/usr/share/backgrounds/sysible/sysible-neural-deep.jpg</filename>
+    <filename>/usr/share/backgrounds/sysible/sysible-neural-light.jpg</filename>
+    <filename-dark>/usr/share/backgrounds/sysible/sysible-neural.jpg</filename-dark>
     <options>zoom</options>
     <pcolor>#0b0d12</pcolor>
     <scolor>#0b0d12</scolor>
   </wallpaper>
   <wallpaper deleted="false">
     <name>Sysible Cosmos</name>
-    <filename>/usr/share/backgrounds/sysible/sysible-cosmos.jpg</filename>
+    <filename>/usr/share/backgrounds/sysible/sysible-cosmos-light.jpg</filename>
+    <filename-dark>/usr/share/backgrounds/sysible/sysible-cosmos.jpg</filename-dark>
     <options>zoom</options>
     <pcolor>#0b0d12</pcolor>
     <scolor>#0b0d12</scolor>
   </wallpaper>
   <wallpaper deleted="false">
-    <name>Sysible Constellation</name>
-    <filename>/usr/share/backgrounds/sysible/sysible-constellation.jpg</filename>
-    <options>zoom</options>
-    <pcolor>#0b0d12</pcolor>
-    <scolor>#0b0d12</scolor>
-  </wallpaper>
-  <wallpaper deleted="false">
-    <name>Sysible Circuit</name>
-    <filename>/usr/share/backgrounds/sysible/sysible-circuit.jpg</filename>
-    <options>zoom</options>
-    <pcolor>#0b0d12</pcolor>
-    <scolor>#0b0d12</scolor>
-  </wallpaper>
-  <wallpaper deleted="false">
-    <name>Sysible Flow Field</name>
-    <filename>/usr/share/backgrounds/sysible/sysible-flowfield.jpg</filename>
+    <name>Sysible Roads</name>
+    <filename>/usr/share/backgrounds/sysible/sysible-roads-light.jpg</filename>
+    <filename-dark>/usr/share/backgrounds/sysible/sysible-roads.jpg</filename-dark>
     <options>zoom</options>
     <pcolor>#0b0d12</pcolor>
     <scolor>#0b0d12</scolor>
