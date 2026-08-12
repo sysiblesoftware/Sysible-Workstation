@@ -145,7 +145,10 @@ def glow_layer(W, H, draw_fn, blur_px, scale=4):
 # ============================================================================
 # BANNER — LOCKED design (banner_c_mock.py). small SYSIBLE LINUX, green rule
 # directly UNDER the wordmark, ENGINEERING · AUTOMATION justified under the rule,
-# bottom-left with ~5.5% left / ~13% bottom safe margin. Identical everywhere.
+# bottom-left with ~11% left / ~13% bottom safe margin. Identical everywhere.
+# The 11% left inset keeps the wordmark clear of GNOME's `zoom` crop: on a
+# 16:10 display an 8K 16:9 wallpaper loses ~5% off each side, and a smaller
+# margin (the old 5.5%) clipped the leading "S". 11% leaves a visible buffer.
 # ============================================================================
 def draw_banner(img_rgba, pal):
     W, H = img_rgba.size
@@ -160,7 +163,7 @@ def draw_banner(img_rgba, pal):
     img_rgba = Image.alpha_composite(img_rgba, back_img)
 
     draw = ImageDraw.Draw(img_rgba, "RGBA")
-    x = int(W * 0.055)
+    x = int(W * 0.11)
     y_base = int(H * 0.84)
     cap = int(H * 0.030)
 
