@@ -23,9 +23,17 @@ GPGKEY="${SYSIBLE_GPG_KEY:-maintainers@sysible.com}"
 ENDPOINT="${SYSIBLE_APTLY_ENDPOINT:-}"     # "" -> filesystem:; else e.g. s3:sysible:
 PREFIX="${ENDPOINT}"                        # publish prefix (endpoint or empty)
 
-# Ensure a signing key exists in GNUPGHOME (auto-create on first publish).
+# Ensure a signing key exists. Auto-create ONLY for a local filesystem publish;
+# for a remote repo (S3/R2) refuse — auto-generating a throwaway key here would
+# sign the archive with a key whose public half clients don't have, silently
+# producing a repo nobody can verify. The key must be imported first.
 if ! gpg --list-secret-keys "$GPGKEY" >/dev/null 2>&1; then
-    echo "No signing key for '$GPGKEY' in GNUPGHOME=${GNUPGHOME:-$HOME/.gnupg}; generating it..."
+    if [ -n "$ENDPOINT" ]; then
+        echo "ERROR: no signing key for '$GPGKEY' in GNUPGHOME=${GNUPGHOME:-$HOME/.gnupg}." >&2
+        echo "Import the private key before publishing to '$ENDPOINT' — refusing to auto-generate a key clients won't trust." >&2
+        exit 1
+    fi
+    echo "No signing key for '$GPGKEY' in GNUPGHOME=${GNUPGHOME:-$HOME/.gnupg}; generating it (local filesystem publish)..."
     "$ROOT/scripts/gen-signing-key.sh"
 fi
 

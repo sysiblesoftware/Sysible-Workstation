@@ -19,7 +19,8 @@ jobs:
       AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
       AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
       AWS_DEFAULT_REGION: auto
-      R2_ENDPOINT: "https://${{ vars.R2_ACCOUNT_ID }}.r2.cloudflarestorage.com"
+      # R2_ENDPOINT is resolved from R2_ACCOUNT_ID in the "Resolve R2 endpoint"
+      # step below — it tolerates either a bare account id or a full endpoint URL.
       STATE_URI: s3://sysible-apt/_aptly-db
     steps:
       - uses: actions/checkout@v4
@@ -30,6 +31,17 @@ jobs:
             echo "::error::Set secrets SYSIBLE_GPG_PRIVATE_KEY + AWS_ACCESS_KEY_ID/AWS_SECRET_ACCESS_KEY (your Cloudflare R2 token) and the repo variable R2_ACCOUNT_ID before publishing."
             exit 1
           fi
+
+      - name: Resolve R2 endpoint
+        run: |
+          # Accept either the bare Cloudflare account id or a full endpoint URL
+          # in the R2_ACCOUNT_ID variable, and normalise to the S3 endpoint host.
+          acct="${{ vars.R2_ACCOUNT_ID }}"
+          acct="${acct#http://}"; acct="${acct#https://}"
+          acct="${acct%%.r2.cloudflarestorage.com*}"
+          acct="${acct%%/*}"
+          echo "R2_ENDPOINT=https://${acct}.r2.cloudflarestorage.com" >> "$GITHUB_ENV"
+          echo "Using R2 endpoint host: ${acct}.r2.cloudflarestorage.com"
 
       - name: Install tooling
         run: |
@@ -47,9 +59,21 @@ jobs:
       - name: Import signing key
         run: |
           echo "${{ secrets.SYSIBLE_GPG_PRIVATE_KEY }}" | gpg --batch --import
+          # The secret must contain the exact key we sign with, and whose public
+          # half is the committed keyring — otherwise clients can't verify.
+          if ! gpg --list-secret-keys "$SYSIBLE_GPG_KEY" >/dev/null 2>&1; then
+            echo "::error::SYSIBLE_GPG_PRIVATE_KEY does not contain $SYSIBLE_GPG_KEY. Update the secret with: gpg --armor --export-secret-keys maintainers@sysible.com"
+            exit 1
+          fi
 
       - name: aptly config
-        run: sed "s#__R2_ENDPOINT__#${R2_ENDPOINT#https://}#" scripts/aptly.conf.sample > "$HOME/.aptly.conf"
+        run: |
+          # Substitute the R2 endpoint, and repoint aptly's rootDir at a writable
+          # dir that matches where we sync the DB ($HOME/.aptly). The sample's
+          # /var/lib/aptly needs root and isn't where state is restored/persisted.
+          sed -e "s#__R2_ENDPOINT__#${R2_ENDPOINT#https://}#" \
+              -e "s#/var/lib/aptly#$HOME/.aptly#" \
+              scripts/aptly.conf.sample > "$HOME/.aptly.conf"
 
       - name: Restore aptly database
         run: aws s3 sync --endpoint-url "$R2_ENDPOINT" "$STATE_URI" "$HOME/.aptly" || echo "no prior aptly state (first run)"
