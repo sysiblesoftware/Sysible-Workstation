@@ -24,7 +24,7 @@ pins_for() {
         docker.gpg)      echo "9DC858229FC7DD38854AE2D88D81803C0EBFCD88 D3306A018370199E527AE7997EA0A9C3F273FCD8" ;;
         hashicorp.gpg)   echo "798AEC654E5C15428C8E42EEAA16FCBCA621E701 EB0AF5E2994969596F99873E706E668369C085E9" ;;
         microsoft.gpg)   echo "BC528686B50D79E339D3721CEB3E94ADBE1229CF" ;;
-        github-cli.gpg)  echo "2C6106201985B60E6C7AC87323F3D4EA75716059 5700BAB26C8DE75F3EE323FEE5FAF19590714157" ;;   # canonical gh apt key + observed rotation key; accept either so a mid-rotation keyring never fails the build
+        github-cli.gpg)  echo "2C6106201985B60E6C7AC87323F3D4EA75716059" ;;   # gh apt PRIMARY key (its signing subkey 7F38...313325 rides along, verified via the primary)
         *)               echo "" ;;   # kubernetes.gpg, google-cloud.gpg — logged, not yet enforced
     esac
 }
@@ -40,9 +40,16 @@ fetch() {  # fetch <url> <dest.gpg>
     else
         cp "$tmp" "$out"
     fi
-    got=$(gpg --show-keys --with-colons "$out" 2>/dev/null | awk -F: '/^fpr:/{print $10}')
+    # Extract only PRIMARY key fingerprints — the fpr line immediately following
+    # each pub record. In gpg --with-colons output every key emits an fpr line
+    # for its primary AND one for each subkey; pinning subkey fingerprints would
+    # make the build break every time an upstream rotates a subkey under a stable
+    # primary. We pin the primary and let its self-signed subkeys ride along
+    # (a forged subkey needs the primary's secret key, so this stays fail-closed
+    # against a rogue primary while tolerating legitimate subkey rotation).
+    got=$(gpg --show-keys --with-colons "$out" 2>/dev/null | awk -F: '/^pub:/{p=1;next} /^fpr:/&&p{print $10;p=0}')
     if [ -z "$got" ]; then
-        echo "FATAL: no OpenPGP key found in $url" >&2; rm -f "$tmp" "$out"; exit 1
+        echo "FATAL: no OpenPGP primary key found in $url" >&2; rm -f "$tmp" "$out"; exit 1
     fi
     pins=$(pins_for "$dest")
     if [ -n "$pins" ]; then
