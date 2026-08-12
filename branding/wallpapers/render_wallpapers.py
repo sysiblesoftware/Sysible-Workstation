@@ -161,7 +161,7 @@ def draw_banner(img_rgba, pal):
 
     draw = ImageDraw.Draw(img_rgba, "RGBA")
     x = int(W * 0.055)
-    y_base = int(H * 0.87)
+    y_base = int(H * 0.84)
     cap = int(H * 0.030)
 
     word_col = DARK_TXT if pal["light"] else WHITE

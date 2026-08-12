@@ -1,3 +1,9 @@
+sysible-artwork (0.1.3) sysible; urgency=medium
+
+  * raise banner off the bottom edge; remove old-branded Dahlonega terrain wallpapers
+
+ -- Sysible <maintainers@sysible.com>  Wed, 12 Aug 2026 19:34:44 +0000
+
 sysible-artwork (0.1.2) sysible; urgency=medium
 
   * refresh wallpaper set: locked banner (no clip) + light variants; add Lumpkin County roads; drop circuit/flowfield/constellation/neural-deep; rebuild generator in Python

@@ -41,25 +41,4 @@
     <pcolor>#0b0d12</pcolor>
     <scolor>#0b0d12</scolor>
   </wallpaper>
-  <wallpaper deleted="false">
-    <name>Sysible Dahlonega, GA</name>
-    <filename>/usr/share/backgrounds/sysible/sysible-dahlonega-wide.jpg</filename>
-    <options>zoom</options>
-    <pcolor>#0b0d12</pcolor>
-    <scolor>#0b0d12</scolor>
-  </wallpaper>
-  <wallpaper deleted="false">
-    <name>Sysible Dahlonega — Local</name>
-    <filename>/usr/share/backgrounds/sysible/sysible-dahlonega-tight.jpg</filename>
-    <options>zoom</options>
-    <pcolor>#0b0d12</pcolor>
-    <scolor>#0b0d12</scolor>
-  </wallpaper>
-  <wallpaper deleted="false">
-    <name>Sysible North Georgia</name>
-    <filename>/usr/share/backgrounds/sysible/sysible-dahlonega-regional.jpg</filename>
-    <options>zoom</options>
-    <pcolor>#0b0d12</pcolor>
-    <scolor>#0b0d12</scolor>
-  </wallpaper>
 </wallpapers>
