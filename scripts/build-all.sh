@@ -23,6 +23,23 @@ for pkg in "$ROOT"/packages/*/; do
     rm -f "$ROOT"/packages/*.buildinfo "$ROOT"/packages/*.changes 2>/dev/null || true
 done
 
+# --- SysTerm: external repo, built here so its .deb publishes to the apt repo
+# alongside the sysible-* packages (sysible-meta Depends: systerm). Guarded so an
+# offline/ISO context can skip it (the ISO build already builds SysTerm itself).
+if [ "${SYSIBLE_SKIP_SYSTERM:-0}" != "1" ]; then
+    echo "== building systerm (from dev) =="
+    rm -rf /tmp/systerm-src
+    if git clone --depth 1 --branch dev https://github.com/sysiblesoftware/SysTerm /tmp/systerm-src; then
+        if ( cd /tmp/systerm-src && dpkg-buildpackage -us -uc -b ); then
+            mv /tmp/systerm_*.deb "$DIST"/ 2>/dev/null || true
+        else
+            echo "WARNING: systerm build failed — publishing without it" >&2
+        fi
+    else
+        echo "WARNING: systerm clone failed — publishing without it" >&2
+    fi
+fi
+
 echo
 echo "Built into $DIST:"
 ls -1 "$DIST"/*.deb

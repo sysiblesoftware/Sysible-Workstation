@@ -1,6 +1,6 @@
 {
   "rootDir": "/var/lib/aptly",
-  "architectures": ["amd64"],
+  "architectures": ["amd64", "arm64"],
   "gpgProvider": "gpg",
   "FileSystemPublishEndpoints": {
     "local": {

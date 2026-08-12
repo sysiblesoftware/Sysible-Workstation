@@ -1,0 +1,8 @@
+sysible-branding (0.1.0) sysible; urgency=medium
+
+  * Initial package: ships the SES brand assets that were previously only baked
+    into the ISO (GRUB theme, GDM login background, Sysible app icons, Sora
+    font). postinst re-applies them (update-grub, login gresource, icon/font
+    caches) on install and upgrade so brand changes flow via apt.
+
+ -- Sysible <maintainers@sysible.io>  Wed, 12 Aug 2026 12:31:37 +0000

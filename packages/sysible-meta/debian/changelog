@@ -1,3 +1,10 @@
+sysible-meta (0.1.1) sysible; urgency=medium
+
+  * Depend on sysible-branding + sysible-artwork so the SES brand + wallpapers
+    install and upgrade via apt.
+
+ -- Sysible <maintainers@sysible.io>  Wed, 12 Aug 2026 12:33:03 +0000
+
 sysible-meta (0.1.0) sysible; urgency=medium
 
   * Initial metapackage: sysible-workstation defines the all-in-one engineering

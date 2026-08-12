@@ -1,0 +1,12 @@
+#!/bin/sh
+set -e
+case "$1" in
+  configure)
+    [ -x /usr/sbin/update-grub ] && update-grub >/dev/null 2>&1 || true
+    [ -x /usr/lib/sysible/apply-login-background ] && /usr/lib/sysible/apply-login-background >/dev/null 2>&1 || true
+    command -v gtk-update-icon-cache >/dev/null 2>&1 && gtk-update-icon-cache -f /usr/share/icons/hicolor >/dev/null 2>&1 || true
+    command -v fc-cache >/dev/null 2>&1 && fc-cache -f /usr/share/fonts/truetype/sora >/dev/null 2>&1 || true
+    ;;
+esac
+#DEBHELPER#
+exit 0
