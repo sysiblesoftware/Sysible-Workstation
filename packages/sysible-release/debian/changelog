@@ -1,3 +1,9 @@
+sysible-release (0.1.6) sysible; urgency=medium
+
+  * accept both gh apt primary keys (GitHub CDN serves two keyring variants mid-rotation)
+
+ -- Sysible <maintainers@sysible.com>  Wed, 12 Aug 2026 21:28:21 +0000
+
 sysible-release (0.1.5) sysible; urgency=medium
 
   * verify only primary key fingerprints (subkeys ride along) so gh keyring's signing subkey no longer fails the pin
