@@ -1,3 +1,9 @@
+sysible-desktop-gnome (0.1.3) sysible; urgency=medium
+
+  * reload wallpaper on artwork upgrade (no more black desktop); ship 4 fixed workspaces via gschema so apt-upgraded systems get them too
+
+ -- Sysible <maintainers@sysible.com>  Wed, 12 Aug 2026 23:49:09 +0000
+
 sysible-desktop-gnome (0.1.2) sysible; urgency=medium
 
   * default background uses the light wallpaper in light mode (dark variant stays for dark mode)

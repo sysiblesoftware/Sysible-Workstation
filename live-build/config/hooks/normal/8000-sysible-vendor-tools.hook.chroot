@@ -132,6 +132,25 @@ else
     echo "sops skipped"
 fi
 
+# PowerShell — Microsoft's official .deb from the PowerShell GitHub releases,
+# which ships BOTH amd64 and arm64 (the Debian prod apt feed is amd64-only, so it
+# would leave arm64 systems without it). apt resolves its runtime deps (libicu,
+# less, locales). Best-effort so a download hiccup can't fail the ISO.
+echo "== powershell (official .deb) =="
+pwsh_ver=$($CURL https://api.github.com/repos/PowerShell/PowerShell/releases/latest 2>/dev/null \
+    | grep -oE '"tag_name": *"v[0-9.]+"' | grep -oE 'v[0-9.]+' | head -1)
+[ -n "$pwsh_ver" ] || pwsh_ver=v7.4.6
+pwsh_num=${pwsh_ver#v}
+pwsh_url="https://github.com/PowerShell/PowerShell/releases/download/${pwsh_ver}/powershell_${pwsh_num}-1.deb_${ARCH}.deb"
+if $CURL "$pwsh_url" -o /tmp/powershell.deb 2>/dev/null; then
+    apt-get install -y --no-install-recommends /tmp/powershell.deb \
+        && echo "powershell ok ($pwsh_ver $ARCH)" \
+        || echo "WARNING: powershell install failed for $ARCH — skipping"
+    rm -f /tmp/powershell.deb
+else
+    echo "WARNING: powershell download failed ($pwsh_url) — skipping"
+fi
+
 # Ollama runtime (NOT a model) — the local LLM server behind `sysible ai` and the
 # AI companion terminal. Bundle the engine so the feature works offline out of the
 # box; users pull whatever model they want (`ollama pull …` / `sysible ai --pull`).

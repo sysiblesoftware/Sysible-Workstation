@@ -1,12 +1,32 @@
 #!/bin/sh
 set -e
-if [ "$1" = "configure" ]; then
-    # Recompile the schemas so the Sysible defaults take effect.
-    glib-compile-schemas /usr/share/glib-2.0/schemas || true
-    # Make SysTerm the system default terminal where the alternative exists.
-    if command -v update-alternatives >/dev/null 2>&1 && [ -x /usr/bin/systerm ]; then
-        update-alternatives --install /usr/bin/x-terminal-emulator x-terminal-emulator /usr/bin/systerm 60 || true
+
+# Re-apply the desktop background in live sessions so a fresh sysible-artwork
+# upgrade (same filenames, new bytes) actually shows instead of leaving GNOME on
+# the near-black fallback colour. dh_fixperms may drop the +x bit under /usr/lib,
+# so re-assert it here before running.
+refresh_backgrounds() {
+    if [ -f /usr/lib/sysible/refresh-wallpaper ]; then
+        chmod 0755 /usr/lib/sysible/refresh-wallpaper 2>/dev/null || true
+        /usr/lib/sysible/refresh-wallpaper || true
     fi
-fi
+}
+
+case "$1" in
+    configure)
+        # Recompile the schemas so the Sysible defaults take effect.
+        glib-compile-schemas /usr/share/glib-2.0/schemas || true
+        # Make SysTerm the system default terminal where the alternative exists.
+        if command -v update-alternatives >/dev/null 2>&1 && [ -x /usr/bin/systerm ]; then
+            update-alternatives --install /usr/bin/x-terminal-emulator x-terminal-emulator /usr/bin/systerm 60 || true
+        fi
+        refresh_backgrounds
+        ;;
+    triggered)
+        # Fired by the /usr/share/backgrounds/sysible trigger when the artwork
+        # package replaces a wallpaper in place — reload it in running sessions.
+        refresh_backgrounds
+        ;;
+esac
 #DEBHELPER#
 exit 0

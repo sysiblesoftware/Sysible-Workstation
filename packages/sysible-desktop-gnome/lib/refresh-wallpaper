@@ -1,0 +1,50 @@
+#!/bin/sh
+# Re-apply the desktop background in every active graphical user session.
+#
+# sysible-artwork ships the wallpapers under STABLE paths (sysible-topographic.jpg
+# etc.); an `apt upgrade` replaces the JPEG in place with new bytes. GNOME loads
+# the wallpaper by path and does NOT reload when the file changes underneath it,
+# so the running desktop drops to the fallback colour (primary-color #0b0d12,
+# i.e. near-black) and stays there until the user re-picks a wallpaper by hand.
+#
+# This re-asserts picture-uri / picture-uri-dark for each logged-in user so GNOME
+# reloads the fresh file automatically. Fired by a dpkg trigger on the backgrounds
+# directory (so it runs right after the artwork package updates) and on our own
+# configure. Idempotent and cheap; only touches backgrounds WE own.
+set -e
+
+SCHEMA=org.gnome.desktop.background
+OURS=/usr/share/backgrounds/sysible/
+
+poke_user() {   # poke_user <uid> <user>
+    _uid="$1"; _user="$2"
+    _bus="/run/user/$_uid/bus"
+    [ -S "$_bus" ] || return 0
+    for _key in picture-uri picture-uri-dark; do
+        _uri=$(runuser -u "$_user" -- env DBUS_SESSION_BUS_ADDRESS="unix:path=$_bus" \
+               gsettings get "$SCHEMA" "$_key" 2>/dev/null) || continue
+        # Only refresh Sysible-owned wallpapers; leave a user's own choice alone.
+        case "$_uri" in
+            *"$OURS"*) ;;
+            *) continue ;;
+        esac
+        # Clear to '' then set back so GNOME emits a real "changed" and reloads the
+        # new file. ('' is the empty-string GVariant — note the literal quotes.)
+        runuser -u "$_user" -- env DBUS_SESSION_BUS_ADDRESS="unix:path=$_bus" \
+            gsettings set "$SCHEMA" "$_key" "''" 2>/dev/null || true
+        runuser -u "$_user" -- env DBUS_SESSION_BUS_ADDRESS="unix:path=$_bus" \
+            gsettings set "$SCHEMA" "$_key" "$_uri" 2>/dev/null || true
+    done
+}
+
+# Iterate active user runtime dirs (/run/user/<uid>) — one per logged-in user.
+for _d in /run/user/*; do
+    [ -d "$_d" ] || continue
+    _uid=$(basename "$_d")
+    case "$_uid" in ''|*[!0-9]*) continue ;; esac
+    [ "$_uid" -ge 1000 ] || continue          # real login users only
+    _user=$(getent passwd "$_uid" | cut -d: -f1)
+    [ -n "$_user" ] || continue
+    poke_user "$_uid" "$_user"
+done
+exit 0

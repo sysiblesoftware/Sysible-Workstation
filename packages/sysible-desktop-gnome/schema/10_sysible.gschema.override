@@ -18,3 +18,24 @@ accent-color='green'
 
 [org.gnome.shell]
 favorite-apps=['io.systerm.SysTerm.desktop', 'org.gnome.Nautilus.desktop', 'code.desktop', 'firefox-esr.desktop']
+
+# Kali-style FIXED workspaces: four static workspaces instead of GNOME's default
+# dynamic set (which grows/shrinks and usually shows just 1-2). Also delivered via
+# /etc/dconf on the ISO, but shipped here too so `apt upgrade` puts it on systems
+# installed from an older image. Defaults only — users can still change them.
+[org.gnome.mutter]
+dynamic-workspaces=false
+workspaces-only-on-primary=false
+
+[org.gnome.desktop.wm.preferences]
+num-workspaces=4
+
+[org.gnome.desktop.wm.keybindings]
+switch-to-workspace-1=['<Super>1']
+switch-to-workspace-2=['<Super>2']
+switch-to-workspace-3=['<Super>3']
+switch-to-workspace-4=['<Super>4']
+move-to-workspace-1=['<Super><Shift>1']
+move-to-workspace-2=['<Super><Shift>2']
+move-to-workspace-3=['<Super><Shift>3']
+move-to-workspace-4=['<Super><Shift>4']
