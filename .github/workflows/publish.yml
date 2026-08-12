@@ -99,13 +99,31 @@ jobs:
       - name: Sync repo to R2
         run: |
           # Upload the aptly-generated tree to the bucket's apt/ prefix. aws s3
-          # sync sends no x-amz-acl header, so R2 accepts it (unlike aptly's S3
+          # sends no x-amz-acl header, so R2 accepts it (unlike aptly's S3
           # publish). NO --delete: each run publishes only ONE suite (dev on
           # push, stable on tag), so mirroring would wipe the other suite the
           # VMs may be reading. Each suite overwrites its own dists/ in place;
           # orphaned pool files are harmless.
-          aws s3 sync "$HOME/aptly-public/" "s3://sysible-apt/apt/" \
-            --endpoint-url "$R2_ENDPOINT" --no-progress
+          #
+          # Cache-Control is the crux of correctness behind Cloudflare's CDN:
+          #   * pool/  — content-addressed .deb payloads that never change once
+          #     published, so cache them hard (a year, immutable).
+          #   * dists/ — the Release / Packages / *.bz2 index that apt fetches
+          #     first and validates by size+hash. If the CDN serves a STALE
+          #     index against a FRESH Release, apt fails ("unexpected size").
+          #     It must never be cached: send no-cache and re-upload every run
+          #     so the edge always revalidates against the origin.
+          #
+          # Pass 1: pool/ (the .deb payloads) — long-lived, immutable.
+          if [ -d "$HOME/aptly-public/pool" ]; then
+            aws s3 sync "$HOME/aptly-public/pool/" "s3://sysible-apt/apt/pool/" \
+              --endpoint-url "$R2_ENDPOINT" --no-progress \
+              --cache-control "public, max-age=31536000, immutable"
+          fi
+          # Pass 2: dists/ (the index metadata) — never cache, always re-upload.
+          aws s3 cp "$HOME/aptly-public/dists/" "s3://sysible-apt/apt/dists/" \
+            --recursive --endpoint-url "$R2_ENDPOINT" --no-progress \
+            --cache-control "no-cache, max-age=0, must-revalidate"
 
       - name: Persist aptly database
         run: aws s3 sync --endpoint-url "$R2_ENDPOINT" "$HOME/.aptly" "$STATE_URI"
