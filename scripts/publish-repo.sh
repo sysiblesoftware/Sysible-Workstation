@@ -44,24 +44,22 @@ aptly repo show "$SUITE" >/dev/null 2>&1 || \
     aptly repo create -distribution="$SUITE" -component=main "$SUITE"
 aptly repo add -force-replace "$SUITE" "$DIST"/*.deb
 
-if [ "$SUITE" = "sysible-dev" ]; then
-    # Dev: publish the repo directly and update in place — fast, mutable.
-    if aptly publish list -raw 2>/dev/null | grep -q "${PREFIX} ${SUITE}$"; then
-        aptly publish update -batch -gpg-key="$GPGKEY" "$SUITE" "$PREFIX"
-    else
-        aptly publish repo -batch -gpg-key="$GPGKEY" -distribution="$SUITE" \
-            -component=main "$SUITE" "$PREFIX"
-    fi
-else
-    # Stable: immutable snapshot, then switch the published suite to it.
+# 2. (Re)publish. Drop any existing publish first, then create fresh, so the
+# published tree is fully regenerated every run — the CI publish dir is
+# ephemeral (rebuilt each run and `aws s3 sync`ed to R2), so an in-place update
+# against a wiped dir isn't safe. Idempotent thanks to the `|| true` on drop.
+aptly publish drop "$SUITE" "$PREFIX" >/dev/null 2>&1 || true
+
+if [ "$SUITE" = "sysible-stable" ]; then
+    # Stable: immutable, timestamped snapshot.
     SNAP="sysible-stable-$(date -u +%Y%m%d%H%M%S)"
     aptly snapshot create "$SNAP" from repo "$SUITE"
-    if aptly publish list -raw 2>/dev/null | grep -q "${PREFIX} ${SUITE}$"; then
-        aptly publish switch -batch -gpg-key="$GPGKEY" "$SUITE" "$PREFIX" "$SNAP"
-    else
-        aptly publish snapshot -batch -gpg-key="$GPGKEY" -distribution="$SUITE" \
-            -component=main "$SNAP" "$PREFIX"
-    fi
+    aptly publish snapshot -batch -gpg-key="$GPGKEY" -distribution="$SUITE" \
+        -component=main "$SNAP" "$PREFIX"
+else
+    # Dev: publish the mutable repo directly.
+    aptly publish repo -batch -gpg-key="$GPGKEY" -distribution="$SUITE" \
+        -component=main "$SUITE" "$PREFIX"
 fi
 
 echo "Published $SUITE (endpoint '${PREFIX:-filesystem}')."

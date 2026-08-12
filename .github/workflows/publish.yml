@@ -11,7 +11,9 @@ jobs:
     # Never run on forks; only publish from the canonical repo.
     if: github.repository == 'sysiblesoftware/Sysible-Linux'
     env:
-      SYSIBLE_APTLY_ENDPOINT: "s3:sysible:"
+      # aptly publishes to a local dir; a later step `aws s3 sync`s it to R2.
+      # (aptly's native S3 publish emits an x-amz-acl header R2 rejects with 501.)
+      SYSIBLE_APTLY_ENDPOINT: "filesystem:local:"
       SYSIBLE_GPG_KEY: maintainers@sysible.com
       # Cloudflare R2 (S3-compatible). AWS_* are your R2 API-token credentials;
       # region is always "auto" for R2. R2_ACCOUNT_ID is a repo *variable* (not a
@@ -68,11 +70,12 @@ jobs:
 
       - name: aptly config
         run: |
-          # Substitute the R2 endpoint, and repoint aptly's rootDir at a writable
-          # dir that matches where we sync the DB ($HOME/.aptly). The sample's
-          # /var/lib/aptly needs root and isn't where state is restored/persisted.
+          # Repoint the DB rootDir (/var/lib/aptly needs root) and the filesystem
+          # publish dir at writable paths under $HOME. The __R2_ENDPOINT__ sub is
+          # harmless (the S3 publish endpoint is unused now — we sync via awscli).
           sed -e "s#__R2_ENDPOINT__#${R2_ENDPOINT#https://}#" \
               -e "s#/var/lib/aptly#$HOME/.aptly#" \
+              -e "s#/srv/repo.sysible.com/apt#$HOME/aptly-public#" \
               scripts/aptly.conf.sample > "$HOME/.aptly.conf"
 
       - name: Restore aptly database
@@ -92,6 +95,14 @@ jobs:
 
       - name: Publish
         run: ./scripts/publish-repo.sh ${{ steps.suite.outputs.name }}
+
+      - name: Sync repo to R2
+        run: |
+          # Upload the aptly-generated tree to the bucket's apt/ prefix. aws s3
+          # sync sends no x-amz-acl header, so R2 accepts it (unlike aptly's S3
+          # publish). --delete keeps R2 an exact mirror of the fresh publish.
+          aws s3 sync "$HOME/aptly-public/" "s3://sysible-apt/apt/" \
+            --endpoint-url "$R2_ENDPOINT" --delete --no-progress
 
       - name: Persist aptly database
         run: aws s3 sync --endpoint-url "$R2_ENDPOINT" "$HOME/.aptly" "$STATE_URI"
