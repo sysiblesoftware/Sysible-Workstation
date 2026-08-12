@@ -21,10 +21,37 @@ signed). Every user-facing thing is a versioned `.deb`:
    - `git tag vX.Y && git push --tags` -> **sysible-stable** (what end users get).
 4. On a machine: `sudo apt update && sudo apt full-upgrade`.
 
-## One-time to turn the repo on (infra)
-- Set CI secrets `SYSIBLE_GPG_PRIVATE_KEY`, `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`.
-- Point `https://repo.sysible.io/apt` at the S3 bucket `s3://sysible-apt` (CDN/DNS).
-- In `packages/sysible-release/apt/sources.list.d/sysible.sources` flip
-  `Enabled: no` -> `yes` (and bump `sysible-release`), then cut a `vX.Y` tag.
-  Until the host resolves, keep it disabled — an enabled dead source breaks
-  `apt update`.
+## One-time to turn the repo on (Cloudflare — no AWS needed)
+
+The repo is published to **Cloudflare R2** (S3-compatible). Do this once.
+
+**A. Signing key** (`SYSIBLE_GPG_PRIVATE_KEY`) — you generate it, it's not from a vendor:
+```sh
+export GNUPGHOME="$HOME/.sysible-signing"
+scripts/gen-signing-key.sh                       # creates the key + refreshes the public keyring
+gpg --armor --export-secret-keys maintainers@sysible.io   # <- paste THIS into the GitHub secret
+git add packages/sysible-release/keyrings/sysible-archive-keyring.gpg && git commit  # public half, so clients trust it
+```
+
+**B. Cloudflare R2 bucket + token:**
+1. Cloudflare dashboard → **R2** → *Create bucket* named `sysible-apt`.
+2. R2 → *Manage R2 API Tokens* → *Create API token* (Object Read & Write on that bucket).
+   It shows an **Access Key ID** and **Secret Access Key** → these are your `AWS_ACCESS_KEY_ID` / `AWS_SECRET_ACCESS_KEY` (R2 speaks the S3 API).
+3. Your **Account ID** is on the R2 overview page → this is `R2_ACCOUNT_ID`.
+4. Bucket → *Settings* → **Public access / Custom Domain** → connect `repo.sysible.io`
+   (Cloudflare adds the DNS + CDN automatically since the domain is on Cloudflare).
+
+**C. Put the values into GitHub** (repo → Settings → Secrets and variables → Actions):
+| Name | Kind | Value |
+|---|---|---|
+| `SYSIBLE_GPG_PRIVATE_KEY` | secret | the armored private key from step A |
+| `AWS_ACCESS_KEY_ID` | secret | R2 token Access Key ID |
+| `AWS_SECRET_ACCESS_KEY` | secret | R2 token Secret Access Key |
+| `R2_ACCOUNT_ID` | **variable** | your Cloudflare account id (not secret) |
+
+**D. Go live:** in `packages/sysible-release/apt/sources.list.d/sysible.sources`
+flip `Enabled: no -> yes`, run `scripts/bump-version.sh sysible-release "enable repo"`,
+commit, then `git tag v0.2 && git push --tags`. `publish.yml` builds + signs +
+uploads to R2; installed systems then `apt update && apt full-upgrade`.
+(Keep it disabled until `repo.sysible.io` resolves — an enabled dead source
+breaks `apt update`.)

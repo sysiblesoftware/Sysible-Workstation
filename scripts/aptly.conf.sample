@@ -10,11 +10,12 @@
   },
   "S3PublishEndpoints": {
     "sysible": {
-      "region": "us-east-1",
+      "region": "auto",
       "bucket": "sysible-apt",
+      "endpoint": "__R2_ENDPOINT__",
       "prefix": "apt",
-      "acl": "public-read",
-      "distribution": "cloudfront"
+      "acl": "none",
+      "forceVirtualHostedStyle": false
     }
   }
 }
