@@ -100,9 +100,12 @@ jobs:
         run: |
           # Upload the aptly-generated tree to the bucket's apt/ prefix. aws s3
           # sync sends no x-amz-acl header, so R2 accepts it (unlike aptly's S3
-          # publish). --delete keeps R2 an exact mirror of the fresh publish.
+          # publish). NO --delete: each run publishes only ONE suite (dev on
+          # push, stable on tag), so mirroring would wipe the other suite the
+          # VMs may be reading. Each suite overwrites its own dists/ in place;
+          # orphaned pool files are harmless.
           aws s3 sync "$HOME/aptly-public/" "s3://sysible-apt/apt/" \
-            --endpoint-url "$R2_ENDPOINT" --delete --no-progress
+            --endpoint-url "$R2_ENDPOINT" --no-progress
 
       - name: Persist aptly database
         run: aws s3 sync --endpoint-url "$R2_ENDPOINT" "$HOME/.aptly" "$STATE_URI"
