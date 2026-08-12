@@ -8,7 +8,7 @@
 #   ./publish-repo.sh [sysible-dev|sysible-stable]
 #
 # Environment:
-#   SYSIBLE_GPG_KEY        signing key id/email        (default maintainers@sysible.io)
+#   SYSIBLE_GPG_KEY        signing key id/email        (default maintainers@sysible.com)
 #   SYSIBLE_APTLY_ENDPOINT aptly publishing endpoint    (default "" = local filesystem
 #                          rootDir; for S3 use e.g. "s3:sysible:")
 #   GNUPGHOME              must hold the private signing key
@@ -19,7 +19,7 @@ case "$SUITE" in sysible-dev|sysible-stable) ;; *) echo "unknown suite: $SUITE" 
 
 ROOT=$(cd "$(dirname "$0")/.." && pwd)
 DIST="$ROOT/dist"
-GPGKEY="${SYSIBLE_GPG_KEY:-maintainers@sysible.io}"
+GPGKEY="${SYSIBLE_GPG_KEY:-maintainers@sysible.com}"
 ENDPOINT="${SYSIBLE_APTLY_ENDPOINT:-}"     # "" -> filesystem:; else e.g. s3:sysible:
 PREFIX="${ENDPOINT}"                        # publish prefix (endpoint or empty)
 

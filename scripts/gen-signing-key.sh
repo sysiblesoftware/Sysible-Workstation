@@ -5,14 +5,14 @@
 #
 #   ./scripts/gen-signing-key.sh
 #   export GNUPGHOME="$HOME/.sysible-signing"
-#   export SYSIBLE_GPG_KEY=maintainers@sysible.io
+#   export SYSIBLE_GPG_KEY=maintainers@sysible.com
 set -e
 ROOT=$(cd "$(dirname "$0")/.." && pwd)
 : "${GNUPGHOME:=$HOME/.sysible-signing}"
 export GNUPGHOME
 mkdir -p "$GNUPGHOME"; chmod 700 "$GNUPGHOME"
 
-if gpg --list-secret-keys maintainers@sysible.io >/dev/null 2>&1; then
+if gpg --list-secret-keys maintainers@sysible.com >/dev/null 2>&1; then
     echo "signing key already present in $GNUPGHOME"
 else
     cat > "$GNUPGHOME/keyparams" <<KP
@@ -22,7 +22,7 @@ Key-Curve: ed25519
 Subkey-Type: ECDH
 Subkey-Curve: cv25519
 Name-Real: Sysible Archive Automatic Signing Key
-Name-Email: maintainers@sysible.io
+Name-Email: maintainers@sysible.com
 Expire-Date: 0
 %commit
 KP
@@ -30,10 +30,10 @@ KP
     rm -f "$GNUPGHOME/keyparams"
 fi
 
-gpg --export > "$ROOT/packages/sysible-release/keyrings/sysible-archive-keyring.gpg"
-FPR=$(gpg --list-keys --with-colons maintainers@sysible.io | awk -F: '/^fpr:/{print $10; exit}')
+gpg --export maintainers@sysible.com > "$ROOT/packages/sysible-release/keyrings/sysible-archive-keyring.gpg"
+FPR=$(gpg --list-keys --with-colons maintainers@sysible.com | awk -F: '/^fpr:/{print $10; exit}')
 echo
 echo "Public keyring written: packages/sysible-release/keyrings/sysible-archive-keyring.gpg"
 echo "Fingerprint: $FPR"
-echo "Now:  export GNUPGHOME=$GNUPGHOME ; export SYSIBLE_GPG_KEY=maintainers@sysible.io"
+echo "Now:  export GNUPGHOME=$GNUPGHOME ; export SYSIBLE_GPG_KEY=maintainers@sysible.com"
 echo "And commit the updated public keyring so apt clients trust this key."

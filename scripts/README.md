@@ -11,7 +11,7 @@ that `sysible-release` ships (never commit the private key):
 ```
 ./gen-signing-key.sh
 export GNUPGHOME="$HOME/.sysible-signing"      # where the key now lives
-export SYSIBLE_GPG_KEY=maintainers@sysible.io
+export SYSIBLE_GPG_KEY=maintainers@sysible.com
 git add ../packages/sysible-release/keyrings/sysible-archive-keyring.gpg
 git commit -m "sysible-release: archive signing public key"
 ```
