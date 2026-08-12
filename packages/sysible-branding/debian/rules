@@ -1,0 +1,30 @@
+#!/usr/bin/make -f
+CH := $(CURDIR)/../../live-build/config/includes.chroot
+D  := $(CURDIR)/debian/sysible-branding
+
+%:
+	dh $@
+
+override_dh_auto_build:
+
+override_dh_auto_install:
+	# GRUB boot theme
+	install -d $(D)/boot/grub/themes
+	cp -a $(CH)/boot/grub/themes/sysible $(D)/boot/grub/themes/
+	# GDM login/lock background + apply helper
+	install -d $(D)/usr/share/backgrounds/sysible $(D)/usr/lib/sysible
+	cp -a $(CH)/usr/share/backgrounds/sysible/sysible-login.png $(D)/usr/share/backgrounds/sysible/
+	if [ -f $(CH)/usr/lib/sysible/apply-login-background ]; then cp -a $(CH)/usr/lib/sysible/apply-login-background $(D)/usr/lib/sysible/; fi
+	# Sora brand font
+	install -d $(D)/usr/share/fonts/truetype/sora
+	cp -a $(CH)/usr/share/fonts/truetype/sora/. $(D)/usr/share/fonts/truetype/sora/
+	# Sysible app icons ONLY (never io.systerm — owned by the systerm pkg — nor the
+	# Adwaita/Nautilus recolours — owned by their themes)
+	set -e; for n in sysible-logo sysible-controller sysible-install sysible-agent-enroll; do \
+	  for f in `find $(CH)/usr/share/icons/hicolor -name "$$n.*" 2>/dev/null`; do \
+	    rel=$${f#$(CH)/}; install -d $(D)/`dirname $$rel`; cp -a $$f $(D)/$$rel; \
+	  done; \
+	done
+	# Sysible pixmaps
+	install -d $(D)/usr/share/pixmaps
+	cp -a $(CH)/usr/share/pixmaps/sysible-* $(D)/usr/share/pixmaps/ 2>/dev/null || true

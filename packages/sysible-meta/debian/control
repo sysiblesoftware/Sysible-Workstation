@@ -14,6 +14,8 @@ Depends: ${misc:Depends},
  sysible-release,
  sysible-cli,
  sysible-desktop-gnome,
+ sysible-branding,
+ sysible-artwork,
 # --- system administration ---
  sudo, openssh-server, openssh-client, curl, wget, git, vim, nano, tmux,
  screen, tree, less, bash-completion, rsync, lsof, strace, procps, psmisc,
@@ -62,6 +64,7 @@ Recommends:
  terraform, opentofu, packer,
  awscli, sops, age,
  code,
+ gh,
 Suggests:
  azure-cli, google-cloud-cli,
  sysible-controller, sysible-agent,

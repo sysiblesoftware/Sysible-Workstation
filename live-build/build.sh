@@ -153,11 +153,18 @@ p = sys.argv[1]; s = open(p).read()
 s = re.sub(r'Live system \((.*?) fail-safe mode\)', r'Sysible Linux (Live, safe graphics) [\1]', s)
 s = re.sub(r'Live system \((.*?)\)', r'Sysible Linux (Live) [\1]', s)
 s = s.replace('Debian GNU/Linux', 'Sysible Linux')
-m = re.search(r'menuentry\s+"[^"]*Live[^"]*"\s*\{.*?\n\}', s, re.S)
+# Clone the first Live menuentry into "Install Sysible Linux" and place it
+# IMMEDIATELY AFTER the Live entry (not at the end of the file). The theme's
+# menu has scrollbar=false, so on a tall/stretched display any entry appended
+# last drops below the visible rows — which is why the Install entry wasn't
+# showing on arm64. As the 2nd entry it's always near the top and visible at any
+# resolution. (?ms): ^ anchors the closing brace at column 0, how live-build
+# writes entries — more robust than matching the first "\n}".
+m = re.search(r'(?ms)^menuentry\s+"[^"]*Live[^"]*".*?^\}', s)
 if m:
     inst = re.sub(r'menuentry\s+"[^"]*"', 'menuentry "Install Sysible Linux"', m.group(0), count=1)
     inst = re.sub(r'(\n\s*linux\s+\S+[^\n]*)', r'\1 sysible.install', inst, count=1)
-    s = s + "\n" + inst + "\n"
+    s = s[:m.end()] + "\n\n" + inst + s[m.end():]
 # Brand the live GRUB menu with the Sysible THEME (dark hex background, centered
 # mark, GREEN TEXT highlight — not a solid bar — and the "GNU GRUB version" line
 # hidden). This MUST be APPENDED, not prepended: live-build's generated grub.cfg
@@ -170,11 +177,15 @@ if m:
 # transparent background (no garish highlight bar), never stock blue.
 vis = ('\n\n# --- Sysible branding (appended last so it wins) ---\n'
        'insmod all_video\ninsmod efi_gop\ninsmod efi_uga\ninsmod gfxterm\ninsmod png\n'
-       # gfxmode=auto on arm64 EFI often picks a mode whose aspect ratio does not
-       # match the display, so the firmware stretches the whole framebuffer
-       # vertically (theme + logo render tall/elongated, overlapping the menu).
-       # Prefer common 16:9 modes first so the aspect is correct; fall back to auto.
-       'set gfxmode=1920x1080,1600x900,1280x720,auto\nset gfxpayload=keep\nterminal_output gfxterm\n'
+       # gfxmode: let the firmware report its native mode (auto). Forcing a fixed
+       # 16:9 mode (tried earlier) does NOT cure the "stretched/tall" look reported
+       # under VMware Fusion on Apple Silicon — that stretch is the hypervisor
+       # scaling one GOP mode to a differently-shaped VM window, not GRUB's choice,
+       # and forcing a mode the window can't match only adds black bars/pillarbox.
+       # gfxpayload=keep hands the same framebuffer to the kernel so Plymouth
+       # doesn't re-stretch. (VM-side fix: Fusion → Settings → Display, use full
+       # resolution / disable stretch scaling.)
+       'set gfxmode=auto\nset gfxpayload=keep\nterminal_output gfxterm\n'
        'loadfont ($root)/boot/grub/fonts/unicode.pf2\n'
        'set color_normal=light-gray/black\n'
        'set menu_color_normal=light-gray/black\n'

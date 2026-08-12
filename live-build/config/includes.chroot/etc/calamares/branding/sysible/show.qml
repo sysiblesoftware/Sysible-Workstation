@@ -51,7 +51,7 @@ Presentation {
                     width: 190; height: 4; radius: 2
                     gradient: Gradient {
                         orientation: Gradient.Horizontal
-                        GradientStop { position: 0.0; color: "#63c869" }
+                        GradientStop { position: 0.0; color: "#6ddb73" }
                         GradientStop { position: 1.0; color: "#5580ee" }
                     }
                 }

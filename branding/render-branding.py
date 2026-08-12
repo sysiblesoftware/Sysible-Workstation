@@ -41,8 +41,20 @@ FG_DARK = (233, 240, 247)    # wordmark on dark
 FG_LIGHT = (20, 29, 56)      # wordmark on light
 GREEN = (109, 219, 115)      # #6ddb73
 BLUE = (122, 162, 255)       # #7aa2ff
-FONT = "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf"
+FONT = os.path.join(ROOT, "branding/fonts/Sora.ttf")   # Sora (OFL), SES rebrand
 WORDMARK = "SYSIBLE LINUX"
+
+
+def _sora(size):
+    """Sora at SemiBold — the display weight of the SES brand. (Variable font;
+    fall back gracefully if an instance name is unavailable.)"""
+    f = ImageFont.truetype(FONT, size)
+    for nm in ("SemiBold", "Bold", "Regular"):
+        try:
+            f.set_variation_by_name(nm); break
+        except Exception:
+            continue
+    return f
 
 
 # ---------------------------------------------------------------- primitives
@@ -107,13 +119,80 @@ def _draw_wordmark(draw, text, font, cx, y, fill, tracking):
     return total
 
 
-def field(W, H):
-    """Dark hex-mesh + soft blue/green glow. No logo (GRUB overlays logo.png)."""
-    canvas = Image.new("RGBA", (W, H), BG + (255,))
-    canvas.alpha_composite(_hex_mesh(W, H, max(24, int(H * 0.055)), 15))
-    cy = int(H * 0.30)
-    canvas.alpha_composite(_glow(W, H, W // 2, cy, int(H * 0.48), BLUE, 55))
-    canvas.alpha_composite(_glow(W, H, W // 2, cy, int(H * 0.30), GREEN, 40))
+def _rng(seed):
+    s = seed & 0x7fffffff
+    while True:
+        s = (1103515245 * s + 12345) & 0x7fffffff
+        yield s / 0x7fffffff
+
+
+def _hgrid(GW, GH, seed):
+    r = _rng(seed)
+    bumps = [(next(r) * 1.1 - 0.05, next(r) * 1.1 - 0.05, next(r) * 2 - 1, 0.08 + next(r) * 0.22)
+             for _ in range(14)]
+    H = [[0.0] * GW for _ in range(GH)]
+    for j in range(GH):
+        for i in range(GW):
+            x, y = i / (GW - 1), j / (GH - 1)
+            v = x * 0.5 + y * 0.3
+            for cx, cy, amp, sig in bumps:
+                v += amp * math.exp(-(((x - cx) ** 2 + (y - cy) ** 2) / (2 * sig * sig)))
+            H[j][i] = v
+    return H
+
+
+def _contour(H, GW, GH, level):
+    segs = []
+
+    def ip(a, b, pa, pb):
+        t = (level - a) / (b - a) if b != a else 0.5
+        return (pa[0] + (pb[0] - pa[0]) * t, pa[1] + (pb[1] - pa[1]) * t)
+    for j in range(GH - 1):
+        for i in range(GW - 1):
+            tl, tr, br, bl = H[j][i], H[j][i + 1], H[j + 1][i + 1], H[j + 1][i]
+            p = []
+            if (tl > level) != (tr > level): p.append(ip(tl, tr, (i, j), (i + 1, j)))
+            if (tr > level) != (br > level): p.append(ip(tr, br, (i + 1, j), (i + 1, j + 1)))
+            if (br > level) != (bl > level): p.append(ip(br, bl, (i + 1, j + 1), (i, j + 1)))
+            if (bl > level) != (tl > level): p.append(ip(bl, tl, (i, j + 1), (i, j)))
+            if len(p) == 2:
+                segs.append((p[0], p[1]))
+            elif len(p) == 4:
+                segs.append((p[0], p[1])); segs.append((p[2], p[3]))
+    return segs
+
+
+def field(W, H, seed=7):
+    """Dark ground + TOPOGRAPHIC contour lines (survey-map style) + soft glow.
+    Replaces the old honeycomb/hex-mesh. Deterministic (fixed seed)."""
+    top, bot = (16, 22, 33), (8, 11, 18)
+    canvas = Image.new("RGB", (W, H), bot)
+    d = ImageDraw.Draw(canvas)
+    for y in range(H):
+        t = y / max(1, H - 1)
+        d.line([(0, y), (W, y)], fill=tuple(int(top[k] + (bot[k] - top[k]) * t) for k in range(3)))
+    canvas = canvas.convert("RGBA")
+    GW, GH = 200, 120
+    Hf = _hgrid(GW, GH, seed)
+    lo = min(map(min, Hf)); hi = max(map(max, Hf)); step = (hi - lo) / 26.0
+    sx, sy = W / (GW - 1), H / (GH - 1)
+    lay = Image.new("RGBA", (W, H), (0, 0, 0, 0)); ld = ImageDraw.Draw(lay)
+    lv = lo + step * 0.5
+    while lv < hi:
+        idx = round((lv - lo) / step); ic = (idx % 5 == 0)
+        col = (150, 178, 225, 70) if ic else (108, 136, 185, 34)
+        wd = max(2, int(H * 0.0011)) if ic else max(1, int(H * 0.0006))
+        for a, b in _contour(Hf, GW, GH, lv):
+            ld.line([(a[0] * sx, a[1] * sy), (b[0] * sx, b[1] * sy)], fill=col, width=wd)
+        lv += step
+    canvas.alpha_composite(lay)
+    al = Image.new("RGBA", (W, H), (0, 0, 0, 0)); ad = ImageDraw.Draw(al)
+    for kk in (8, 15):
+        for a, b in _contour(Hf, GW, GH, lo + step * kk):
+            ad.line([(a[0] * sx, a[1] * sy), (b[0] * sx, b[1] * sy)], fill=GREEN + (55,),
+                    width=max(2, int(H * 0.0009)))
+    canvas.alpha_composite(al)
+    canvas.alpha_composite(_glow(W, H, W // 2, int(H * 0.05), int(H * 0.42), BLUE, 40))
     return canvas.convert("RGB")
 
 
@@ -126,15 +205,13 @@ def splash(W, H):
     canvas.alpha_composite(m, ((W - m.width) // 2, logo_top))
     draw = ImageDraw.Draw(canvas)
     fsize = int(H * 0.058)
-    font = ImageFont.truetype(FONT, fsize)
+    font = _sora(fsize)
     wy = logo_top + logo_h + int(H * 0.04)
     _draw_wordmark(draw, WORDMARK, font, W / 2, wy, FG_DARK, tracking=int(H * 0.013))
     uw, uh = int(W * 0.40), max(2, int(H * 0.006))
     ux, uy = (W - uw) // 2, wy + fsize + int(H * 0.03)
-    bar = Image.new("RGBA", (uw, uh), (0, 0, 0, 0))
-    bd = ImageDraw.Draw(bar)
-    for i in range(uw):
-        bd.line([(i, 0), (i, uh)], fill=_lerp(GREEN, BLUE, i / uw) + (255,))
+    # Solid green accent underline (SES rebrand — was a green->blue gradient bar).
+    bar = Image.new("RGBA", (uw, uh), GREEN + (255,))
     canvas.alpha_composite(bar, (ux, uy))
     return canvas.convert("RGB")
 
@@ -152,12 +229,12 @@ def _fit_font(text, max_w, cap_px, tracking_ratio):
     """Largest font (<= cap_px) whose tracked width fits max_w. Returns (font, tw, tracking)."""
     d = ImageDraw.Draw(Image.new("RGBA", (4, 4)))
     size = cap_px
-    font = ImageFont.truetype(FONT, size)
+    font = _sora(size)
     tr = size * tracking_ratio
     tw = sum(d.textlength(c, font=font) for c in text) + tr * (len(text) - 1)
     if tw > max_w:                       # scale down proportionally to fit the box
         size = max(8, int(size * max_w / tw))
-        font = ImageFont.truetype(FONT, size)
+        font = _sora(size)
         tr = size * tracking_ratio
         tw = sum(d.textlength(c, font=font) for c in text) + tr * (len(text) - 1)
     return font, tw, tr, size
@@ -225,7 +302,9 @@ def build():
     A[L("bootloaders/isolinux/splash.png")] = splash(800, 600)
     A[("tga", L("binary_grub/splash.tga"))] = splash(640, 480)
     # Plymouth (boot animation) + Calamares (installer) + GDM.
-    A[C("usr/share/plymouth/themes/sysible/logo.png")] = centred_mark(332, 208)
+    # Plymouth boot/shutdown splash: vertical lockup so the loading screen shows
+    # the "SYSIBLE LINUX" wordmark under the mark (a bare mark read as unbranded).
+    A[C("usr/share/plymouth/themes/sysible/logo.png")] = vlockup(360, 320, FG_DARK)
     A[C("etc/calamares/branding/sysible/sysible-logo.png")] = centred_mark(96, 104, pad=0.02)
     # Calamares HERO (productWelcome) + slideshow mark — the big centred logo.
     A[C("etc/calamares/branding/sysible/sysible-welcome.png")] = centred_mark(240, 260, pad=0.04)

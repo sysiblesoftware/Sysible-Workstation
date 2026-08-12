@@ -2,71 +2,78 @@
 <!DOCTYPE wallpapers SYSTEM "gnome-wp-list.dtd">
 <wallpapers>
   <wallpaper deleted="false">
-    <name>Sysible Mesh (Dark)</name>
-    <filename>/usr/share/backgrounds/sysible/sysible-mesh-dark.jpg</filename>
+    <name>Sysible Topographic</name>
+    <filename>/usr/share/backgrounds/sysible/sysible-topographic.jpg</filename>
     <options>zoom</options>
     <pcolor>#0b0d12</pcolor>
     <scolor>#0b0d12</scolor>
   </wallpaper>
   <wallpaper deleted="false">
-    <name>Sysible Mesh (Light)</name>
-    <filename>/usr/share/backgrounds/sysible/sysible-mesh-light.jpg</filename>
+    <name>Sysible Topographic Ridge</name>
+    <filename>/usr/share/backgrounds/sysible/sysible-topographic-ridge.jpg</filename>
     <options>zoom</options>
     <pcolor>#0b0d12</pcolor>
     <scolor>#0b0d12</scolor>
   </wallpaper>
   <wallpaper deleted="false">
-    <name>Sysible Fleet (Dark)</name>
-    <filename>/usr/share/backgrounds/sysible/sysible-fleet-dark.jpg</filename>
+    <name>Sysible Neural</name>
+    <filename>/usr/share/backgrounds/sysible/sysible-neural.jpg</filename>
     <options>zoom</options>
     <pcolor>#0b0d12</pcolor>
     <scolor>#0b0d12</scolor>
   </wallpaper>
   <wallpaper deleted="false">
-    <name>Sysible Fleet (Light)</name>
-    <filename>/usr/share/backgrounds/sysible/sysible-fleet-light.jpg</filename>
+    <name>Sysible Neural (Deep)</name>
+    <filename>/usr/share/backgrounds/sysible/sysible-neural-deep.jpg</filename>
     <options>zoom</options>
     <pcolor>#0b0d12</pcolor>
     <scolor>#0b0d12</scolor>
   </wallpaper>
   <wallpaper deleted="false">
-    <name>Sysible Contour (Dark)</name>
-    <filename>/usr/share/backgrounds/sysible/sysible-contour-dark.jpg</filename>
+    <name>Sysible Cosmos</name>
+    <filename>/usr/share/backgrounds/sysible/sysible-cosmos.jpg</filename>
     <options>zoom</options>
     <pcolor>#0b0d12</pcolor>
     <scolor>#0b0d12</scolor>
   </wallpaper>
   <wallpaper deleted="false">
-    <name>Sysible Contour (Light)</name>
-    <filename>/usr/share/backgrounds/sysible/sysible-contour-light.jpg</filename>
+    <name>Sysible Constellation</name>
+    <filename>/usr/share/backgrounds/sysible/sysible-constellation.jpg</filename>
     <options>zoom</options>
     <pcolor>#0b0d12</pcolor>
     <scolor>#0b0d12</scolor>
   </wallpaper>
   <wallpaper deleted="false">
-    <name>Sysible Aurora (Dark)</name>
-    <filename>/usr/share/backgrounds/sysible/sysible-aurora-dark.jpg</filename>
+    <name>Sysible Circuit</name>
+    <filename>/usr/share/backgrounds/sysible/sysible-circuit.jpg</filename>
     <options>zoom</options>
     <pcolor>#0b0d12</pcolor>
     <scolor>#0b0d12</scolor>
   </wallpaper>
   <wallpaper deleted="false">
-    <name>Sysible Aurora (Light)</name>
-    <filename>/usr/share/backgrounds/sysible/sysible-aurora-light.jpg</filename>
+    <name>Sysible Flow Field</name>
+    <filename>/usr/share/backgrounds/sysible/sysible-flowfield.jpg</filename>
     <options>zoom</options>
     <pcolor>#0b0d12</pcolor>
     <scolor>#0b0d12</scolor>
   </wallpaper>
   <wallpaper deleted="false">
-    <name>Sysible Beacon</name>
-    <filename>/usr/share/backgrounds/sysible/sysible-beacon.jpg</filename>
+    <name>Sysible Dahlonega, GA</name>
+    <filename>/usr/share/backgrounds/sysible/sysible-dahlonega-wide.jpg</filename>
     <options>zoom</options>
     <pcolor>#0b0d12</pcolor>
     <scolor>#0b0d12</scolor>
   </wallpaper>
   <wallpaper deleted="false">
-    <name>Sysible Hub</name>
-    <filename>/usr/share/backgrounds/sysible/sysible-hub.jpg</filename>
+    <name>Sysible Dahlonega — Local</name>
+    <filename>/usr/share/backgrounds/sysible/sysible-dahlonega-tight.jpg</filename>
+    <options>zoom</options>
+    <pcolor>#0b0d12</pcolor>
+    <scolor>#0b0d12</scolor>
+  </wallpaper>
+  <wallpaper deleted="false">
+    <name>Sysible North Georgia</name>
+    <filename>/usr/share/backgrounds/sysible/sysible-dahlonega-regional.jpg</filename>
     <options>zoom</options>
     <pcolor>#0b0d12</pcolor>
     <scolor>#0b0d12</scolor>

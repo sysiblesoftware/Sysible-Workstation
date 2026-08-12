@@ -13,17 +13,21 @@ jobs:
     env:
       SYSIBLE_APTLY_ENDPOINT: "s3:sysible:"
       SYSIBLE_GPG_KEY: maintainers@sysible.com
+      # Cloudflare R2 (S3-compatible). AWS_* are your R2 API-token credentials;
+      # region is always "auto" for R2. R2_ACCOUNT_ID is a repo *variable* (not a
+      # secret) — your Cloudflare account id — used to build the S3 endpoint host.
       AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
       AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-      AWS_DEFAULT_REGION: us-east-1
+      AWS_DEFAULT_REGION: auto
+      R2_ENDPOINT: "https://${{ vars.R2_ACCOUNT_ID }}.r2.cloudflarestorage.com"
       STATE_URI: s3://sysible-apt/_aptly-db
     steps:
       - uses: actions/checkout@v4
 
       - name: Preflight — required secrets
         run: |
-          if [ -z "${{ secrets.SYSIBLE_GPG_PRIVATE_KEY }}" ] || [ -z "${{ secrets.AWS_ACCESS_KEY_ID }}" ]; then
-            echo "::error::Set repo secrets SYSIBLE_GPG_PRIVATE_KEY and AWS_ACCESS_KEY_ID/AWS_SECRET_ACCESS_KEY before publishing."
+          if [ -z "${{ secrets.SYSIBLE_GPG_PRIVATE_KEY }}" ] || [ -z "${{ secrets.AWS_ACCESS_KEY_ID }}" ] || [ -z "${{ vars.R2_ACCOUNT_ID }}" ]; then
+            echo "::error::Set secrets SYSIBLE_GPG_PRIVATE_KEY + AWS_ACCESS_KEY_ID/AWS_SECRET_ACCESS_KEY (your Cloudflare R2 token) and the repo variable R2_ACCOUNT_ID before publishing."
             exit 1
           fi
 
@@ -39,10 +43,10 @@ jobs:
           echo "${{ secrets.SYSIBLE_GPG_PRIVATE_KEY }}" | gpg --batch --import
 
       - name: aptly config
-        run: cp scripts/aptly.conf.sample "$HOME/.aptly.conf"
+        run: sed "s#__R2_ENDPOINT__#${R2_ENDPOINT#https://}#" scripts/aptly.conf.sample > "$HOME/.aptly.conf"
 
       - name: Restore aptly database
-        run: aws s3 sync "$STATE_URI" "$HOME/.aptly" || echo "no prior aptly state (first run)"
+        run: aws s3 sync --endpoint-url "$R2_ENDPOINT" "$STATE_URI" "$HOME/.aptly" || echo "no prior aptly state (first run)"
 
       - name: Build all packages
         run: ./scripts/build-all.sh
@@ -60,4 +64,4 @@ jobs:
         run: ./scripts/publish-repo.sh ${{ steps.suite.outputs.name }}
 
       - name: Persist aptly database
-        run: aws s3 sync "$HOME/.aptly" "$STATE_URI"
+        run: aws s3 sync --endpoint-url "$R2_ENDPOINT" "$HOME/.aptly" "$STATE_URI"

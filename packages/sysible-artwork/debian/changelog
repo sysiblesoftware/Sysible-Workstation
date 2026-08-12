@@ -1,3 +1,9 @@
+sysible-artwork (0.1.1) sysible; urgency=medium
+
+  * SES rebrand wallpapers: 8 re-rendered with the mark+wordmark lockup, plus 3 real-terrain Dahlonega topographic wallpapers; registry updated.
+
+ -- Sysible <maintainers@sysible.io>  Wed, 12 Aug 2026 12:28:19 +0000
+
 sysible-artwork (0.1.0) sysible; urgency=medium
 
   * Initial artwork: 10 finalized wallpapers + GNOME background-chooser entries.

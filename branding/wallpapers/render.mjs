@@ -17,11 +17,13 @@ await p.addScriptTag({content: js});
 // Composite the REAL canonical marks so the wallpaper logo can't drift from the icon.
 const markSvg = fs.readFileSync('../logo/sysible-mark.svg','utf8');
 const termSvg = fs.readFileSync('../../live-build/config/includes.chroot/usr/share/icons/hicolor/scalable/apps/io.systerm.SysTerm.svg','utf8');
-await p.evaluate(async ({m,t})=>{
+const ctrlSvg = fs.readFileSync('../logo/sysible-controller-mark.svg','utf8');
+await p.evaluate(async ({m,t,c})=>{
   async function mk(u){const i=new Image();i.src=u;await i.decode();return i;}
   window.SYS_MARK = await mk('data:image/svg+xml;base64,'+m);
   window.SYS_TERM = await mk('data:image/svg+xml;base64,'+t);
-}, {m:Buffer.from(markSvg).toString('base64'), t:Buffer.from(termSvg).toString('base64')});
+  window.SYS_CTRL = await mk('data:image/svg+xml;base64,'+c);
+}, {m:Buffer.from(markSvg).toString('base64'), t:Buffer.from(termSvg).toString('base64'), c:Buffer.from(ctrlSvg).toString('base64')});
 const keys = await p.evaluate(()=>window.SYS.keys);
 for (const key of keys){
   const dataUrl = await p.evaluate(({key,W,H,Q})=>{
