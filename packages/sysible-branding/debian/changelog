@@ -5,4 +5,4 @@ sysible-branding (0.1.0) sysible; urgency=medium
     font). postinst re-applies them (update-grub, login gresource, icon/font
     caches) on install and upgrade so brand changes flow via apt.
 
- -- Sysible <maintainers@sysible.io>  Wed, 12 Aug 2026 12:31:37 +0000
+ -- Sysible <maintainers@sysible.com>  Wed, 12 Aug 2026 12:31:37 +0000

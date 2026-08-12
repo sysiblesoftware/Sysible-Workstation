@@ -2,7 +2,7 @@ sysible-desktop-gnome (0.1.1) sysible; urgency=medium
 
   * SES rebrand: default wallpaper -> topographic; desktop accent-color -> green.
 
- -- Sysible <maintainers@sysible.io>  Wed, 12 Aug 2026 12:28:19 +0000
+ -- Sysible <maintainers@sysible.com>  Wed, 12 Aug 2026 12:28:19 +0000
 
 sysible-desktop-gnome (0.1.0) sysible; urgency=medium
 

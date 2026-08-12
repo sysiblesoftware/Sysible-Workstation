@@ -2,7 +2,7 @@ sysible-release (0.1.1) sysible; urgency=medium
 
   * add GitHub CLI (gh) apt source + pinned keyring
 
- -- Sysible <maintainers@sysible.io>  Wed, 12 Aug 2026 13:14:25 +0000
+ -- Sysible <maintainers@sysible.com>  Wed, 12 Aug 2026 13:14:25 +0000
 
 sysible-release (0.1.0) sysible; urgency=medium
 
