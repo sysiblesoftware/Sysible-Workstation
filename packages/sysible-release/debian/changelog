@@ -1,3 +1,9 @@
+sysible-release (0.1.4) sysible; urgency=medium
+
+  * restore canonical github-cli apt key pin (accept both current + rotation key) so ISO builds don't fail on the real gh keyring
+
+ -- Sysible <maintainers@sysible.com>  Wed, 12 Aug 2026 21:03:21 +0000
+
 sysible-release (0.1.3) sysible; urgency=medium
 
   * update pinned github-cli apt key fingerprint (GitHub rotated it) — unblocks ISO build
