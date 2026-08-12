@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
-"""Render the Sysible lock / login screen background.
+"""Render the Sysible lock / login screen background (SES rebrand).
 
-A calm, atmospheric composition: a dark field with a fine hexagon mesh, a soft
-blue-green glow, a vignette, and the Sysible mark + wordmark set low so the top
-stays clear for GNOME's clock (lock) and the user list (login). Output goes both
-to /usr/share/backgrounds/sysible (a 4K wallpaper) and, at a leaner size, into
-the GDM gnome-shell theme via the system hook.
+A calm, atmospheric composition: a dark field with TOPOGRAPHIC contour lines
+(survey-map style — no honeycomb), a soft glow, a vignette, and the Sysible mark
++ "SYSIBLE LINUX" wordmark (Sora) with a green accent underline, set a touch
+below centre so the top stays clear for GNOME's clock (lock) and user list
+(login). Output: a 4K wallpaper consumed by the GDM theme via the system hook.
 """
 import io
 import math
@@ -13,11 +13,21 @@ import os
 import cairosvg
 from PIL import Image, ImageDraw, ImageFont, ImageFilter
 
-# Canonical brand mark — single source of truth (see branding/render-branding.py).
-LOGO = "branding/logo/sysible-mark.svg"
-GREEN = (99, 200, 105)
-BLUE = (85, 128, 238)
+LOGO = "branding/logo/sysible-mark.svg"          # canonical S-tile mark
+FONT = "branding/fonts/Sora.ttf"                 # Sora (OFL)
+GREEN = (109, 219, 115)                           # #6ddb73
+BLUE = (122, 162, 255)                            # #7aa2ff
 FG = (233, 240, 247)
+
+
+def _sora(size):
+    f = ImageFont.truetype(FONT, size)
+    for nm in ("SemiBold", "Bold", "Regular"):
+        try:
+            f.set_variation_by_name(nm); break
+        except Exception:
+            continue
+    return f
 
 
 def _lerp(a, b, t):
@@ -31,32 +41,69 @@ def _vgrad(W, H, top, bot):
     return g.resize((W, H))
 
 
-def _hex_mesh(W, H, r, cx, cy, glowR):
+# ---- topographic contour field (marching squares over a Gaussian terrain) ----
+def _rng(seed):
+    s = seed & 0x7fffffff
+    while True:
+        s = (1103515245 * s + 12345) & 0x7fffffff
+        yield s / 0x7fffffff
+
+
+def _hgrid(GW, GH, seed):
+    r = _rng(seed)
+    bumps = [(next(r) * 1.1 - 0.05, next(r) * 1.1 - 0.05, next(r) * 2 - 1, 0.08 + next(r) * 0.22)
+             for _ in range(14)]
+    H = [[0.0] * GW for _ in range(GH)]
+    for j in range(GH):
+        for i in range(GW):
+            x, y = i / (GW - 1), j / (GH - 1)
+            v = x * 0.5 + y * 0.3
+            for cx, cy, amp, sig in bumps:
+                v += amp * math.exp(-(((x - cx) ** 2 + (y - cy) ** 2) / (2 * sig * sig)))
+            H[j][i] = v
+    return H
+
+
+def _contour(H, GW, GH, level):
+    segs = []
+
+    def ip(a, b, pa, pb):
+        t = (level - a) / (b - a) if b != a else 0.5
+        return (pa[0] + (pb[0] - pa[0]) * t, pa[1] + (pb[1] - pa[1]) * t)
+    for j in range(GH - 1):
+        for i in range(GW - 1):
+            tl, tr, br, bl = H[j][i], H[j][i + 1], H[j + 1][i + 1], H[j + 1][i]
+            p = []
+            if (tl > level) != (tr > level): p.append(ip(tl, tr, (i, j), (i + 1, j)))
+            if (tr > level) != (br > level): p.append(ip(tr, br, (i + 1, j), (i + 1, j + 1)))
+            if (br > level) != (bl > level): p.append(ip(br, bl, (i + 1, j + 1), (i, j + 1)))
+            if (bl > level) != (tl > level): p.append(ip(bl, tl, (i, j + 1), (i, j)))
+            if len(p) == 2:
+                segs.append((p[0], p[1]))
+            elif len(p) == 4:
+                segs.append((p[0], p[1])); segs.append((p[2], p[3]))
+    return segs
+
+
+def _topo(W, H, seed=7):
     layer = Image.new("RGBA", (W, H), (0, 0, 0, 0))
     d = ImageDraw.Draw(layer)
-    dx = r * math.sqrt(3)
-    dy = r * 1.5
-    row = 0
-    y = -r
-    while y < H + r:
-        off = (dx / 2) if (row % 2) else 0
-        x = -r
-        while x < W + dx:
-            hx = x + off
-            dist = math.hypot(hx - cx, cy - y) if False else math.hypot(hx - cx, y - cy)
-            t = max(0.0, 1 - dist / glowR)
-            pts = [(hx + r * 0.92 * math.sin(math.radians(60 * a)),
-                    y - r * 0.92 * math.cos(math.radians(60 * a))) for a in range(6)]
-            pts.append(pts[0])
-            if t > 0.02:
-                col = _lerp(GREEN, BLUE, min(1, (hx) / W))
-                a = int((0.10 + 0.55 * t) * 255)
-                d.line(pts, fill=col + (a,), width=2)
-            else:
-                d.line(pts, fill=(150, 170, 200, 14), width=1)
-            x += dx
-        y += dy
-        row += 1
+    GW, GH = 200, 120
+    Hf = _hgrid(GW, GH, seed)
+    lo = min(map(min, Hf)); hi = max(map(max, Hf)); step = (hi - lo) / 26.0
+    sx, sy = W / (GW - 1), H / (GH - 1)
+    lv = lo + step * 0.5
+    while lv < hi:
+        idx = round((lv - lo) / step); ic = (idx % 5 == 0)
+        col = (150, 178, 225, 60) if ic else (108, 136, 185, 28)
+        wd = max(2, int(H * 0.0011)) if ic else max(1, int(H * 0.0006))
+        for a, b in _contour(Hf, GW, GH, lv):
+            d.line([(a[0] * sx, a[1] * sy), (b[0] * sx, b[1] * sy)], fill=col, width=wd)
+        lv += step
+    for kk in (8, 15):
+        for a, b in _contour(Hf, GW, GH, lo + step * kk):
+            d.line([(a[0] * sx, a[1] * sy), (b[0] * sx, b[1] * sy)], fill=GREEN + (46,),
+                   width=max(2, int(H * 0.0009)))
     return layer
 
 
@@ -93,30 +140,34 @@ def _wordmark(draw, text, font, cx, y, fill, tracking):
     for c, w in zip(text, widths):
         draw.text((x, y), c, font=font, fill=fill)
         x += w + tracking
+    return total
 
 
 def render(W, H, out):
     cx, cy = W // 2, int(H * 0.52)
-    base = _vgrad(W, H, (10, 13, 19), (7, 9, 14)).convert("RGBA")
-    base.alpha_composite(_glow(W, H, cx, cy, int(W * 0.30), BLUE, 70))
-    base.alpha_composite(_glow(W, H, cx, cy, int(W * 0.20), GREEN, 46))
-    base.alpha_composite(_hex_mesh(W, H, int(H * 0.028), cx, cy, max(W, H) * 0.42))
+    base = _vgrad(W, H, (16, 22, 33), (8, 11, 18)).convert("RGBA")
+    base.alpha_composite(_topo(W, H))
+    base.alpha_composite(_glow(W, H, cx, int(H * 0.30), int(W * 0.26), BLUE, 46))
     base.alpha_composite(_vignette(W, H, 210))
 
     # mark + wordmark, set a touch below centre
-    lh = int(H * 0.16)
+    lh = int(H * 0.15)
     logo = Image.open(io.BytesIO(cairosvg.svg2png(url=LOGO, output_height=lh))).convert("RGBA")
     ly = cy - lh // 2
     base.alpha_composite(logo, (cx - logo.width // 2, ly))
     draw = ImageDraw.Draw(base)
     fs = int(H * 0.033)
-    font = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", fs)
-    wy = ly + lh + int(H * 0.03)
-    _wordmark(draw, "SYSIBLE LINUX", font, cx, wy, FG, int(H * 0.008))
-    # tagline beneath the wordmark (matches the desktop wallpaper + boot splash)
+    font = _sora(fs)
+    wy = ly + lh + int(H * 0.035)
+    tw = _wordmark(draw, "SYSIBLE LINUX", font, cx, wy, FG, int(H * 0.008))
+    # green accent underline
+    uh = max(2, int(H * 0.004))
+    uy = wy + int(fs * 1.18)
+    draw.rectangle([cx - tw / 2, uy, cx + tw / 2, uy + uh], fill=GREEN)
+    # tagline beneath the underline
     tfs = int(H * 0.0155)
-    tfont = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", tfs)
-    _wordmark(draw, "ENGINEERING · AUTOMATION", tfont, cx, wy + fs + int(H * 0.016), (150, 170, 205), int(H * 0.0055))
+    _wordmark(draw, "ENGINEERING · AUTOMATION", _sora(tfs), cx, uy + int(H * 0.014),
+              (150, 170, 205), int(H * 0.0055))
 
     base.convert("RGB").save(out)
     print("wrote %s (%dx%d)" % (out, W, H))

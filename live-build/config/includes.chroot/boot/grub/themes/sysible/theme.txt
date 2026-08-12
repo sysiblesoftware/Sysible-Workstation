@@ -1,6 +1,7 @@
 # Sysible Linux — GRUB theme.
-# Dark hex-mesh background, Sysible lockup near the top, and a clean green "pill"
-# behind the selected entry (a sliced pixmap, selbar_*.png). Fonts are the GRUB
+# Dark topographic background, Sysible lockup near the top, and a subtle
+# translucent card with a thin green left accent behind the selected entry
+# (a sliced pixmap, selbar_*.png) — no saturated "pill". Fonts are the GRUB
 # default (no .pf2 needed); the layout + selection bar carry the look.
 
 title-text: ""
@@ -19,7 +20,7 @@ message-bg-color: "#0a0d13"
     height = 127
 }
 
-# Boot entries — a centred column with a green pill on the selected row.
+# Boot entries — a centred column; selected row = subtle card + green left bar.
 # Geometry note: the selected pill grows by item_padding on every side, so
 # item_spacing MUST stay larger than 2*item_padding or the pill bleeds into the
 # next entry (that was the old "one green box over both entries" bug). Here the
@@ -30,8 +31,8 @@ message-bg-color: "#0a0d13"
     width = 36%
     top = 50%
     height = 30%
-    item_color = "#aeb9c9"
-    selected_item_color = "#08110a"
+    item_color = "#8a93a0"
+    selected_item_color = "#ffffff"
     item_height = 40
     item_padding = 4
     item_spacing = 18

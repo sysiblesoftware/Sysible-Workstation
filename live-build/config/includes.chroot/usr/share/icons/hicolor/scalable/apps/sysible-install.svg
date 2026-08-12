@@ -1,23 +1,12 @@
 <?xml version="1.0" encoding="UTF-8"?>
+<!-- Sysible Linux mark — SES rebrand. Dark tile + green ring + Sora "S" (vector
+     path, font-free) + short green underline. No hexagon. -->
 <svg xmlns="http://www.w3.org/2000/svg" width="128" height="128" viewBox="0 0 128 128">
-  <defs>
-    <linearGradient id="edge" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0" stop-color="#4a79e8"/>
-      <stop offset="1" stop-color="#1b2f66"/>
-    </linearGradient>
-    <linearGradient id="screen" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0" stop-color="#101f39"/>
-      <stop offset="1" stop-color="#0a1322"/>
-    </linearGradient>
-  </defs>
-  <!-- Same Sysible hexagon body as the SysTerm mark, so the dock icons read as a
-       matched set (identical body, glyph tells them apart). -->
-  <path d="M64 9 L111 36.5 L111 91.5 L64 119 L17 91.5 L17 36.5 Z"
-        fill="url(#screen)" stroke="url(#edge)" stroke-width="5" stroke-linejoin="miter"/>
-  <!-- Bold SOLID download arrow in brand green — distinct from SysTerm's chevron +
-       hollow cursor. A filled glyph (not hairline strokes) stays crisp at the
-       small sizes the dock/app-grid render. -->
-  <path d="M56 36 H72 V60 H82 L64 86 L46 60 H56 Z" fill="#5cc746"/>
-  <!-- Install tray / disk base under the arrow. -->
-  <rect x="44" y="94" width="40" height="6" rx="3" fill="#5cc746"/>
+  <defs><linearGradient id="t" x1="0" y1="0" x2="0" y2="1">
+    <stop offset="0" stop-color="#18202c"/><stop offset="1" stop-color="#0b0e15"/></linearGradient></defs>
+  <rect x="6" y="6" width="116" height="116" rx="27" fill="url(#t)"/>
+  <rect x="6" y="6" width="116" height="116" rx="27" fill="none" stroke="#6ddb73" stroke-width="3.5"/>
+  <g transform="translate(36.03,94.42) scale(0.0831,-0.0831)"><path d="M338.5 -19Q242 -19 175.25 12.0Q108.5 43 73.75 97.25Q39 151.5 39 221H178Q178 191.5 194.0 164.25Q210 137 245.25 120.0Q280.5 103 338.5 103Q391 103 425.75 117.75Q460.5 132.5 477.75 157.25Q495 182 495 213Q495 251.5 462.0 275.0Q429 298.5 359.5 304.5L295.5 310Q190.5 319 128.0 375.5Q65.5 432 65.5 525Q65.5 594.5 98.5 645.0Q131.5 695.5 191.0 723.25Q250.5 751 330.5 751Q413.5 751 473.75 722.0Q534 693 566.75 640.5Q599.5 588 599.5 517H460.5Q460.5 546.5 446.25 572.0Q432 597.5 403.25 613.25Q374.5 629 330.5 629Q288.5 629 260.5 614.75Q232.5 600.5 218.5 576.75Q204.5 553 204.5 525Q204.5 491 229.5 465.5Q254.5 440 308.5 435.5L372.5 430Q451 423.5 509.75 396.5Q568.5 369.5 601.25 323.75Q634 278 634 213Q634 144 597.75 91.5Q561.5 39 495.25 10.0Q429 -19 338.5 -19Z" fill="#eceff3"/></g>
+  <rect x="43.2" y="94" width="41.5" height="5" rx="2" fill="#6ddb73"/>
+<circle cx="96" cy="96" r="22" fill="#0b0e15"/><circle cx="96" cy="96" r="17" fill="#6ddb73"/><line x1="96" y1="86" x2="96" y2="104" stroke="#0a140e" stroke-width="6" stroke-linecap="round"/><path d="M88 98 L96 108 L104 98 Z" fill="#0a140e"/>
 </svg>
