@@ -36,7 +36,13 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends \
             build-essential debhelper dh-python python3-all python3-setuptools \
-            pybuild-plugin-pyproject aptly awscli ca-certificates gnupg
+            pybuild-plugin-pyproject aptly ca-certificates gnupg curl unzip
+          # awscli was dropped from Ubuntu 24.04's archive; install AWS CLI v2
+          # from AWS directly (it speaks the S3 API we use against Cloudflare R2).
+          curl -fsSL "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o /tmp/awscliv2.zip
+          unzip -q /tmp/awscliv2.zip -d /tmp
+          sudo /tmp/aws/install --update
+          aws --version
 
       - name: Import signing key
         run: |
