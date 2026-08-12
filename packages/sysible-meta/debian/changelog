@@ -1,3 +1,9 @@
+sysible-meta (0.1.2) sysible; urgency=medium
+
+  * recommend gh (GitHub CLI)
+
+ -- Sysible <maintainers@sysible.io>  Wed, 12 Aug 2026 13:14:25 +0000
+
 sysible-meta (0.1.1) sysible; urgency=medium
 
   * Depend on sysible-branding + sysible-artwork so the SES brand + wallpapers

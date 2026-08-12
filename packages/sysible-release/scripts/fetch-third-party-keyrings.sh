@@ -24,6 +24,7 @@ pins_for() {
         docker.gpg)      echo "9DC858229FC7DD38854AE2D88D81803C0EBFCD88 D3306A018370199E527AE7997EA0A9C3F273FCD8" ;;
         hashicorp.gpg)   echo "798AEC654E5C15428C8E42EEAA16FCBCA621E701 EB0AF5E2994969596F99873E706E668369C085E9" ;;
         microsoft.gpg)   echo "BC528686B50D79E339D3721CEB3E94ADBE1229CF" ;;
+        github-cli.gpg)  echo "2C6106201985B60E6C7AC87323F3D4EA75716059" ;;
         *)               echo "" ;;   # kubernetes.gpg, google-cloud.gpg — logged, not yet enforced
     esac
 }
@@ -64,6 +65,7 @@ fetch https://download.docker.com/linux/debian/gpg                      docker.g
 fetch https://pkgs.k8s.io/core:/stable:/v1.31/deb/Release.key           kubernetes.gpg
 fetch https://apt.releases.hashicorp.com/gpg                            hashicorp.gpg
 fetch https://packages.microsoft.com/keys/microsoft.asc                 microsoft.gpg
+fetch https://cli.github.com/packages/githubcli-archive-keyring.gpg      github-cli.gpg
 fetch https://packages.cloud.google.com/apt/doc/apt-key.gpg             google-cloud.gpg
 
 echo "sysible-release: vendor keyrings installed in $KR"

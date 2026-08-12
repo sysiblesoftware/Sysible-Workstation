@@ -64,6 +64,7 @@ Recommends:
  terraform, opentofu, packer,
  awscli, sops, age,
  code,
+ gh,
 Suggests:
  azure-cli, google-cloud-cli,
  sysible-controller, sysible-agent,
