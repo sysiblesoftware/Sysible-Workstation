@@ -144,30 +144,30 @@ def _wordmark(draw, text, font, cx, y, fill, tracking):
 
 
 def render(W, H, out):
-    cx, cy = W // 2, int(H * 0.52)
+    cx = W // 2
     base = _vgrad(W, H, (16, 22, 33), (8, 11, 18)).convert("RGBA")
     base.alpha_composite(_topo(W, H))
     base.alpha_composite(_glow(W, H, cx, int(H * 0.30), int(W * 0.26), BLUE, 46))
     base.alpha_composite(_vignette(W, H, 210))
 
-    # mark + wordmark, set a touch below centre
-    lh = int(H * 0.15)
-    logo = Image.open(io.BytesIO(cairosvg.svg2png(url=LOGO, output_height=lh))).convert("RGBA")
-    ly = cy - lh // 2
-    base.alpha_composite(logo, (cx - logo.width // 2, ly))
+    # A small "SYSIBLE LINUX" wordmark anchored to the BOTTOM — no centred mark.
+    # GNOME draws the login dialog / user list and the lock clock DEAD CENTRE, so
+    # the middle must stay clear or they collide (the old centred S-tile did). The
+    # greeter renders its own small logo beside the user list, so the background
+    # only needs a discreet footer wordmark. Kept small and professional.
     draw = ImageDraw.Draw(base)
-    fs = int(H * 0.033)
+    fs = int(H * 0.019)
     font = _sora(fs)
-    wy = ly + lh + int(H * 0.035)
-    tw = _wordmark(draw, "SYSIBLE LINUX", font, cx, wy, FG, int(H * 0.008))
+    wy = int(H * 0.86)
+    tw = _wordmark(draw, "SYSIBLE LINUX", font, cx, wy, FG, int(H * 0.006))
     # green accent underline
-    uh = max(2, int(H * 0.004))
-    uy = wy + int(fs * 1.18)
+    uh = max(2, int(H * 0.0028))
+    uy = wy + int(fs * 1.22)
     draw.rectangle([cx - tw / 2, uy, cx + tw / 2, uy + uh], fill=GREEN)
     # tagline beneath the underline
-    tfs = int(H * 0.0155)
-    _wordmark(draw, "ENGINEERING · AUTOMATION", _sora(tfs), cx, uy + int(H * 0.014),
-              (150, 170, 205), int(H * 0.0055))
+    tfs = int(H * 0.0105)
+    _wordmark(draw, "ENGINEERING · AUTOMATION", _sora(tfs), cx, uy + int(H * 0.010),
+              (150, 170, 205), int(H * 0.004))
 
     base.convert("RGB").save(out)
     print("wrote %s (%dx%d)" % (out, W, H))

@@ -1,3 +1,9 @@
+sysible-branding (0.1.1) sysible; urgency=medium
+
+  * redesign GDM login background: drop the centered S-mark (it overlapped the login dialog) and shrink the wordmark to a small bottom footer
+
+ -- Sysible <maintainers@sysible.com>  Thu, 13 Aug 2026 02:45:48 +0000
+
 sysible-branding (0.1.0) sysible; urgency=medium
 
   * Initial package: ships the SES brand assets that were previously only baked
