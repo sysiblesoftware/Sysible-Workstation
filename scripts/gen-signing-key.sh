@@ -15,6 +15,13 @@ mkdir -p "$GNUPGHOME"; chmod 700 "$GNUPGHOME"
 if gpg --list-secret-keys maintainers@sysible.com >/dev/null 2>&1; then
     echo "signing key already present in $GNUPGHOME"
 else
+    # SECURITY: give the key a finite lifetime (2 years) so a lost/compromised
+    # key auto-expires, and rotate before it lapses (re-run this and ship the new
+    # public keyring). `%no-protection` is only acceptable for an UNATTENDED CI
+    # signer whose secret lives solely as a CI secret; for the STABLE/RELEASE key
+    # prefer a passphrase-protected key on a hardware token (offline), separate
+    # from this dev/publish key. Override the lifetime with SYSIBLE_KEY_EXPIRE.
+    : "${SYSIBLE_KEY_EXPIRE:=2y}"
     cat > "$GNUPGHOME/keyparams" <<KP
 %no-protection
 Key-Type: EdDSA
@@ -23,7 +30,7 @@ Subkey-Type: ECDH
 Subkey-Curve: cv25519
 Name-Real: Sysible Archive Automatic Signing Key
 Name-Email: maintainers@sysible.com
-Expire-Date: 0
+Expire-Date: $SYSIBLE_KEY_EXPIRE
 %commit
 KP
     gpg --batch --gen-key "$GNUPGHOME/keyparams"

@@ -1,3 +1,9 @@
+sysible-release (0.1.7) sysible; urgency=medium
+
+  * pin k8s signing key; pin vendor apt repos below Debian to prevent base-package shadowing
+
+ -- Sysible <maintainers@sysible.com>  Thu, 13 Aug 2026 13:07:47 +0000
+
 sysible-release (0.1.6) sysible; urgency=medium
 
   * accept both gh apt primary keys (GitHub CDN serves two keyring variants mid-rotation)

@@ -91,20 +91,62 @@ jobs:
           The ISO is ~3.4 GB, over GitHub's 2 GB per-file release limit, so it is
           split into \`$BASE.*.part\` pieces.
 
-          Download every \`$BASE.*.part\`, plus \`SHA256SUMS.$A\` and
-          \`SHA256SUMS.$A.parts\`, into one folder, then:
+          Download every \`$BASE.*.part\`, plus \`SHA256SUMS.$A\`,
+          \`SHA256SUMS.$A.parts\` and their \`.gpg\` signatures, into one folder.
+
+          First verify AUTHENTICITY with the Sysible release key (fingerprint
+          published at https://sysible.com/security), then the checksums:
 
           \`\`\`sh
+          gpg --verify SHA256SUMS.$A.parts.gpg SHA256SUMS.$A.parts  # authenticity
           sha256sum -c SHA256SUMS.$A.parts     # verify the downloaded parts
           cat $BASE.*.part > $BASE             # reassemble
+          gpg --verify SHA256SUMS.$A.gpg SHA256SUMS.$A              # authenticity
           sha256sum -c SHA256SUMS.$A           # verify the whole ISO
           \`\`\`
 
           Then write \`$BASE\` to a USB stick (\`dd\`, Etcher, Rufus) and boot it.
-          Live login and installer default: user \`sysible\` / password \`sysible\`.
+          The live session logs in automatically; the installer creates your own
+          account and password (no default login ships in the image).
           EOF
           ls -lh
 
+      # Sign the checksum manifests with the Sysible release key so the download
+      # has an AUTHENTICITY anchor, not just an integrity check. Without this,
+      # anyone able to alter the release assets swaps the ISO AND the checksums
+      # together and `sha256sum -c` still passes. The `SHA256SUMS.*` glob in the
+      # publish step already picks up the resulting `.gpg` files.
+      # NOTE: ideally the release key is applied OFFLINE (hardware token) rather
+      # than injected into this privileged build container; this in-CI signing is
+      # the minimum bar. Fails closed if the key is absent.
+      - name: Sign the checksum manifests
+        if: startsWith(github.ref, 'refs/tags/') || inputs.release
+        env:
+          SYSIBLE_GPG_PRIVATE_KEY: ${{ secrets.SYSIBLE_GPG_PRIVATE_KEY }}
+        run: |
+          set -e
+          if [ -z "$SYSIBLE_GPG_PRIVATE_KEY" ]; then
+            echo "::error::SYSIBLE_GPG_PRIVATE_KEY is not set — a public release must ship signed checksums."
+            exit 1
+          fi
+          apt-get install -y --no-install-recommends gnupg
+          GNUPGHOME="$(mktemp -d)"; export GNUPGHOME; chmod 700 "$GNUPGHOME"
+          printf '%s' "$SYSIBLE_GPG_PRIVATE_KEY" | gpg --batch --import
+          KEYID=$(gpg --list-secret-keys --with-colons | awk -F: '/^sec:/{print $5; exit}')
+          cd release
+          for f in SHA256SUMS.*; do
+            case "$f" in *.gpg) continue ;; esac
+            gpg --batch --yes --local-user "$KEYID" --armor --detach-sign -o "$f.gpg" "$f"
+            gpg --batch --verify "$f.gpg" "$f"
+          done
+          gpgconf --kill all 2>/dev/null || true
+          rm -rf "$GNUPGHOME"
+          ls -l
+
+      # SECURITY TODO: pin this third-party action to a full commit SHA (it holds
+      # contents:write). It is left at the mutable @v2 tag only because the SHA
+      # must be resolved and reviewed on a trusted network — do that before the
+      # public release: `uses: softprops/action-gh-release@<40-char-sha>  # v2.x`.
       - name: Publish release
         if: startsWith(github.ref, 'refs/tags/') || inputs.release
         uses: softprops/action-gh-release@v2
@@ -135,13 +177,18 @@ jobs:
             plus the two `SHA256SUMS.<arch>*` files, then reassemble:
 
             ```sh
+            gpg --verify SHA256SUMS.<arch>.parts.gpg SHA256SUMS.<arch>.parts  # authenticity
             sha256sum -c SHA256SUMS.<arch>.parts   # verify the parts
             cat live-image-<arch>.hybrid.iso.*.part > live-image-<arch>.hybrid.iso
+            gpg --verify SHA256SUMS.<arch>.gpg SHA256SUMS.<arch>              # authenticity
             sha256sum -c SHA256SUMS.<arch>          # verify the whole ISO
             ```
 
-            See `REASSEMBLE.<arch>.md` for the exact commands. Live/installer login:
-            `sysible` / `sysible`.
+            Verify authenticity with the Sysible release key (fingerprint at
+            https://sysible.com/security) before trusting the checksums. See
+            `REASSEMBLE.<arch>.md` for exact commands. The live session logs in
+            automatically; the installer creates your own account — no default
+            login ships in the image.
           fail_on_unmatched_files: true
 
       # Poke the website so its download page updates to this release right away.

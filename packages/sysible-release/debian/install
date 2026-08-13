@@ -6,4 +6,5 @@ apt/sources.list.d/hashicorp.sources   etc/apt/sources.list.d
 apt/sources.list.d/microsoft-vscode.sources etc/apt/sources.list.d
 apt/sources.list.d/azure-cli.sources        etc/apt/sources.list.d
 apt/sources.list.d/google-cloud.sources     etc/apt/sources.list.d
+apt/preferences.d/99-sysible-vendor-pins    etc/apt/preferences.d
 scripts/fetch-third-party-keyrings.sh  usr/share/sysible/scripts

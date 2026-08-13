@@ -1,0 +1,33 @@
+# Keep third-party VENDOR repositories from shadowing Debian base packages.
+#
+# Sysible adds several vendor apt repos for their OWN tools (docker-ce, kubectl,
+# terraform, code, gcloud, gh, …). Those packages exist only in the vendor repo,
+# so at priority 100 they are still the only candidate and install normally. But
+# if a vendor repo ALSO offered a package that Debian ships, this keeps Debian's
+# version (priority 500) the default — so `apt full-upgrade` can never silently
+# swap a core system package for a vendor build. The Sysible repo itself is
+# deliberately NOT pinned down: it must be able to upgrade Sysible's own packages.
+
+Package: *
+Pin: origin "download.docker.com"
+Pin-Priority: 100
+
+Package: *
+Pin: origin "pkgs.k8s.io"
+Pin-Priority: 100
+
+Package: *
+Pin: origin "apt.releases.hashicorp.com"
+Pin-Priority: 100
+
+Package: *
+Pin: origin "packages.microsoft.com"
+Pin-Priority: 100
+
+Package: *
+Pin: origin "packages.cloud.google.com"
+Pin-Priority: 100
+
+Package: *
+Pin: origin "cli.github.com"
+Pin-Priority: 100

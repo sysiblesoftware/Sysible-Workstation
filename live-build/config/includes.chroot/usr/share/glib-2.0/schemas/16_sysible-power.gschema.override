@@ -1,7 +1,8 @@
 # Keep the session responsive — a VM/desktop shouldn't appear to "freeze" after
-# idle. Disable automatic suspend, screen blanking, and the lock screen. (The
-# hard guarantee against suspend is the systemd sleep-target mask in the system
-# hook; these keys stop the screen blank / dim / lock on top of that.)
+# idle. Disable automatic suspend and screen blanking. The screen LOCK stays
+# enabled for security: manual lock (Super+L) and lock-on-suspend still protect
+# an unattended machine; we only stop the idle blank/dim/auto-suspend on top of
+# the systemd sleep-target mask in the system hook.
 [org.gnome.settings-daemon.plugins.power]
 sleep-inactive-ac-type='nothing'
 sleep-inactive-battery-type='nothing'
@@ -13,5 +14,7 @@ idle-dim=false
 idle-delay=uint32 0
 
 [org.gnome.desktop.screensaver]
+# Don't auto-activate the screensaver on idle (that's the "freeze" complaint),
+# but KEEP lock-enabled so Super+L and lock-on-suspend still lock the session.
 idle-activation-enabled=false
-lock-enabled=false
+lock-enabled=true

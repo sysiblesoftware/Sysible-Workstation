@@ -1,0 +1,18 @@
+#!/bin/sh
+# SECURITY: strip any BUILD-TIME extra CA from the shipped image.
+#
+# build.sh copies operator-supplied CAs from live-build/config/extra-ca/ into
+# /usr/local/share/ca-certificates so the vendor-tools hook's HTTPS verifies when
+# the BUILD network does TLS interception. Those are build-only trust anchors: a
+# shipped interception CA would let whoever built the image MITM every TLS
+# connection on installed systems. Remove them at the very end of the chroot and
+# rebuild the trust store, so the final squashfs trusts only the standard CA set.
+# (The official CI build network is not inspected, so extra-ca is normally empty
+# and this is a no-op — it's the safety net for builds on inspected networks.)
+set -e
+if ls /usr/local/share/ca-certificates/*.crt >/dev/null 2>&1; then
+    echo "sysible-ca-cleanup: removing build-time extra CA(s) from the shipped trust store"
+    rm -f /usr/local/share/ca-certificates/*.crt
+    update-ca-certificates --fresh >/dev/null 2>&1 || update-ca-certificates || true
+fi
+exit 0

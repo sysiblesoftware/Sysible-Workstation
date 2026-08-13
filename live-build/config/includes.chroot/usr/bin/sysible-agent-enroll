@@ -142,7 +142,13 @@ class EnrollWindow(Gtk.ApplicationWindow):
                 f.write(
                     "#!/bin/sh\nset -e\ncd %s\n" % shlex.quote(wd)
                     + "echo '== downloading agent bundle =='\n"
-                    + "curl -k -sS -f -K %s -o bundle.zip %s\n" % (shlex.quote(cfg), shlex.quote(url))
+                    # SECURITY: full TLS verification is REQUIRED — this bundle is
+                    # unpacked and run as root (via pkexec below), so a '-k'
+                    # (insecure) fetch would let any network MITM deliver a
+                    # root-level payload. If a private Controller CA is in use,
+                    # install that CA into the system trust store; never disable
+                    # verification here.
+                    + "curl -sS -f -K %s -o bundle.zip %s\n" % (shlex.quote(cfg), shlex.quote(url))
                     + "echo '== unpacking =='\n"
                     + "rm -rf sysible-agent-bundle\n"
                     + "unzip -o bundle.zip -d sysible-agent-bundle\n"

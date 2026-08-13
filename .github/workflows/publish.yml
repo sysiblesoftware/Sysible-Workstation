@@ -5,6 +5,11 @@ on:
     branches: [main]        # -> sysible-dev
     tags: ['v*']            # -> sysible-stable
 
+# Least privilege: this job only reads the repo and pushes to R2 (not to GitHub),
+# so the GITHUB_TOKEN needs no write scope.
+permissions:
+  contents: read
+
 jobs:
   publish:
     runs-on: ubuntu-latest
@@ -59,8 +64,12 @@ jobs:
           aws --version
 
       - name: Import signing key
+        env:
+          SYSIBLE_GPG_PRIVATE_KEY: ${{ secrets.SYSIBLE_GPG_PRIVATE_KEY }}
         run: |
-          echo "${{ secrets.SYSIBLE_GPG_PRIVATE_KEY }}" | gpg --batch --import
+          # Pass the key via env and printf (not inline ${{ }} interpolation into
+          # the shell text) so its bytes never land in the command line / logs.
+          printf '%s' "$SYSIBLE_GPG_PRIVATE_KEY" | gpg --batch --import
           # The secret must contain the exact key we sign with, and whose public
           # half is the committed keyring — otherwise clients can't verify.
           if ! gpg --list-secret-keys "$SYSIBLE_GPG_KEY" >/dev/null 2>&1; then

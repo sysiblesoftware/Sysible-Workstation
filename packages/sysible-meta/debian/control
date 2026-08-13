@@ -18,6 +18,9 @@ Depends: ${misc:Depends},
  sysible-artwork,
 # --- system administration ---
  sudo, openssh-server, openssh-client, curl, wget, git, vim, nano, tmux,
+# libpam-pwquality enforces the password-quality floor (policy shipped in
+# /etc/security/pwquality.conf.d) — a hard dep so it can't be silently dropped.
+ libpam-pwquality,
  screen, tree, less, bash-completion, rsync, lsof, strace, procps, psmisc,
 # --- networking ---
  net-tools, iproute2, iputils-ping, dnsutils, mtr-tiny, traceroute, tcpdump,

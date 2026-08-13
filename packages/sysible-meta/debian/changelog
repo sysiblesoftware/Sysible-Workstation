@@ -1,3 +1,9 @@
+sysible-meta (0.1.3) sysible; urgency=medium
+
+  * add libpam-pwquality (password-quality floor) as a hard dependency
+
+ -- Sysible <maintainers@sysible.com>  Thu, 13 Aug 2026 13:07:47 +0000
+
 sysible-meta (0.1.2) sysible; urgency=medium
 
   * recommend gh (GitHub CLI)

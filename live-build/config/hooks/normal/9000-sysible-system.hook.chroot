@@ -35,7 +35,13 @@ LOGO=sysible-logo
 OSREL
 printf 'Sysible Linux \\n \\l\n\n' > /etc/issue
 echo "Sysible Linux" > /etc/issue.net
-for svc in gdm3 ssh libvirtd docker; do systemctl enable "$svc" 2>/dev/null || true; done
+# SSH is intentionally NOT enabled by default (a desktop/workstation image should
+# not expose a network login surface out of the box). openssh-server's postinst
+# enables ssh on install, so DISABLE it here; users turn it on deliberately with
+# `sudo systemctl enable --now ssh`. When they do, the shipped
+# /etc/ssh/sshd_config.d/10-sysible.conf drop-in makes it key-only.
+for svc in gdm3 libvirtd docker; do systemctl enable "$svc" 2>/dev/null || true; done
+systemctl disable ssh ssh.socket 2>/dev/null || true
 for grp in sudo kvm libvirt docker wireshark; do groupadd -f "$grp" 2>/dev/null || true; done
 
 # Never auto-suspend — a workstation/VM going to sleep on idle reads as a "freeze"
