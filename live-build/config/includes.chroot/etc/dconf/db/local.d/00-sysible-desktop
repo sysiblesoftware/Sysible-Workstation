@@ -3,7 +3,9 @@
 # session write, so the dock reverted to Firefox/Files/Software/Help).
 [org/gnome/shell]
 favorite-apps=['org.gnome.TextEditor.desktop', 'code.desktop', 'systerm.desktop', 'firefox-esr.desktop', 'org.gnome.Nautilus.desktop']
-enabled-extensions=['ding@rastersoft.com', 'dash-to-dock@micxgx.gmail.com', 'workspace-indicator@gnome-shell-extensions.gcampax.github.com']
+# enabled-extensions now lives in the sysible-desktop-gnome package
+# (/etc/dconf/db/local.d/05-sysible-extensions) so apt can add new ones — it
+# sorts after this file, so it is the authoritative list (incl. the system monitor).
 
 [org/gnome/shell/extensions/dash-to-dock]
 dock-position='BOTTOM'

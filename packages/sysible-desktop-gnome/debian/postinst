@@ -16,6 +16,9 @@ case "$1" in
     configure)
         # Recompile the schemas so the Sysible defaults take effect.
         glib-compile-schemas /usr/share/glib-2.0/schemas || true
+        # Compile the dconf system db so the enabled-extensions default (incl. the
+        # Sysible system monitor) lands on systems upgraded from an older image.
+        command -v dconf >/dev/null 2>&1 && dconf update 2>/dev/null || true
         # Make SysTerm the system default terminal where the alternative exists.
         if command -v update-alternatives >/dev/null 2>&1 && [ -x /usr/bin/systerm ]; then
             update-alternatives --install /usr/bin/x-terminal-emulator x-terminal-emulator /usr/bin/systerm 60 || true

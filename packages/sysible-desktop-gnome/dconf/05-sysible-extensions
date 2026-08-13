@@ -1,0 +1,11 @@
+# Authoritative default list of GNOME Shell extensions enabled on Sysible Linux.
+# It lives in the PACKAGE (not just the ISO's /etc/dconf) so `apt upgrade` can add
+# a newly-shipped extension — e.g. the Sysible system monitor — to systems that
+# were installed from an older image.
+#
+# This must be a dconf system-db default, NOT a gschema default: GNOME rewrites
+# org.gnome.shell keys into the user db on session start, which shadows a gschema
+# default. A later-sorting file in local.d wins over 00-sysible-desktop, so this
+# is the single source of truth for the enabled set.
+[org/gnome/shell]
+enabled-extensions=['ding@rastersoft.com', 'dash-to-dock@micxgx.gmail.com', 'workspace-indicator@gnome-shell-extensions.gcampax.github.com', 'sysible-sysmonitor@sysible.com']

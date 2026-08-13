@@ -1,0 +1,8 @@
+{
+  "uuid": "sysible-sysmonitor@sysible.com",
+  "name": "Sysible System Monitor",
+  "description": "Compact CPU / memory / disk readout in the top-right panel, in the Sysible palette. Click for a fuller breakdown.",
+  "shell-version": ["43", "44"],
+  "url": "https://sysible.com",
+  "version": 1
+}

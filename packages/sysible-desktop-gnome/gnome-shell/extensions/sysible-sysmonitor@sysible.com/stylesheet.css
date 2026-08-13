@@ -1,0 +1,23 @@
+/* Sysible System Monitor — top-bar readout, Sysible palette. */
+.sysible-sysmon {
+    spacing: 2px;
+}
+.sysible-sysmon-seg {
+    spacing: 4px;
+    margin: 0 5px;
+}
+.sysible-sysmon-dot {
+    font-size: 8px;
+    /* colour is set inline per metric (green/blue/amber, red when >90%) */
+}
+.sysible-sysmon-label {
+    color: rgba(205, 214, 227, 0.55);   /* muted #cdd6e3 */
+    font-size: 11px;
+    font-weight: bold;
+    letter-spacing: 0.3px;
+}
+.sysible-sysmon-val {
+    color: #cdd6e3;
+    font-size: 12px;
+    font-feature-settings: "tnum";       /* tabular figures — no width jitter */
+}
