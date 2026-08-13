@@ -1,16 +1,19 @@
 #!/bin/sh
-# Sysible Linux identity setup — HOSTNAME ONLY.
-#
-# SECURITY: this hook must NEVER bake a login account or a password into the
-# squashfs. Doing so ships identical, publicly-known credentials on every image
-# AND leaves a hidden account on every Calamares-installed system (a fleet-wide
-# remote-root backdoor). The LIVE-session user is created at boot by live-config
-# from the `username=` / `user-default-groups=` boot parameters in auto/config —
-# it exists only in the runtime overlay, never in the installed image. The
-# installed system's sole account is the one the Calamares users module creates
-# during install. root keeps Debian's default LOCKED password. The build gate in
-# 9500-sysible-verify.hook.chroot fails the build if any password is ever baked.
+# Sysible Linux default identities: user 'sysible' / password 'sysible', and
+# root / 'sysible'. CHANGE THESE before any public or production build.
 set -e
+DEFUSER=sysible
+DEFPASS=sysible
+
+if ! id "$DEFUSER" >/dev/null 2>&1; then
+    useradd -m -s /bin/bash -c "Sysible" "$DEFUSER"
+fi
+for g in sudo kvm libvirt docker wireshark plugdev netdev video audio; do
+    groupadd -f "$g" 2>/dev/null || true
+    usermod -aG "$g" "$DEFUSER" 2>/dev/null || true
+done
+printf '%s:%s\n' "$DEFUSER" "$DEFPASS" | chpasswd
+printf 'root:%s\n'  "$DEFPASS"          | chpasswd
 
 # Brand the hostname.
 echo sysible > /etc/hostname

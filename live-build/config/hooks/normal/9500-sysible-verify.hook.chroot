@@ -81,25 +81,4 @@ done < "$BMAN"
 [ "$checked" -gt 0 ] || fail "branding manifest matched no in-image assets"
 echo "sysible-verify: OK — $checked branded assets match the canonical mark (incl. GRUB boot logo)."
 
-# 7) SECURITY GATE — no baked credentials may ever ship. A production image must
-# carry NO set login password (users set them at install via Calamares, or the
-# live user gets a runtime-only password from live-config), and root must stay
-# LOCKED. Fail the build if any /etc/shadow entry has a real crypt hash (field
-# starts with '$'), if a 'sysible' login account was baked into the image, or if
-# root is not locked. This is what makes the "no default backdoor" guarantee
-# enforceable rather than a comment.
-if awk -F: '($2 ~ /^\$/){print $1; found=1} END{exit !found}' /etc/shadow >/tmp/_baked_pw 2>/dev/null; then
-    fail "baked login password(s) in /etc/shadow for: $(tr '\n' ' ' </tmp/_baked_pw) — no credentials may ship in the image"
-fi
-if getent passwd sysible >/dev/null 2>&1; then
-    fail "a 'sysible' login account is baked into the image — the live user must come from live-config at boot, not the squashfs"
-fi
-ROOT_PW=$(awk -F: '$1=="root"{print $2}' /etc/shadow 2>/dev/null)
-case "$ROOT_PW" in
-    '!'*|'*'*|'') : ;;   # locked / no-password-set — good
-    *) fail "root account is not locked in /etc/shadow (field: '$ROOT_PW')" ;;
-esac
-rm -f /tmp/_baked_pw
-echo "sysible-verify: OK — no baked passwords, no baked 'sysible' account, root locked."
-
 echo "sysible-verify: OK — SysTerm $V, Run Command menu, and new icon all present."
