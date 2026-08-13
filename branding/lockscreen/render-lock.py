@@ -158,7 +158,12 @@ def render(W, H, out):
     draw = ImageDraw.Draw(base)
     fs = int(H * 0.019)
     font = _sora(fs)
-    wy = int(H * 0.86)
+    # Anchor the footer wordmark at 80% height (not 86%): GDM/GNOME's greeter
+    # reserves a bottom strip and, on wide displays, the background is drawn with
+    # `zoom` (cover) which can crop the last few percent — at 86% the wordmark +
+    # underline + tagline ran off the bottom edge. 80% keeps the whole group
+    # inside the safe zone on every aspect ratio while still reading as a footer.
+    wy = int(H * 0.80)
     tw = _wordmark(draw, "SYSIBLE LINUX", font, cx, wy, FG, int(H * 0.006))
     # green accent underline
     uh = max(2, int(H * 0.0028))

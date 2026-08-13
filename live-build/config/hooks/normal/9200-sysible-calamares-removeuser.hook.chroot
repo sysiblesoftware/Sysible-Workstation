@@ -1,0 +1,59 @@
+#!/bin/sh
+# Calamares: remove the baked default 'sysible' account from the INSTALLED
+# system once the operator has created their own (different) account, so an
+# installed machine never carries a leftover default-credential login.
+#
+# The live session and a fresh first boot still use sysible/sysible for
+# convenience — this only changes what Calamares leaves on disk. If the
+# operator names their OWN account 'sysible', it is kept (that account is now
+# theirs, with the password they chose). The removal only fires when a
+# different human account exists.
+set -e
+
+CAL=/etc/calamares
+[ -f "$CAL/settings.conf" ] || exit 0   # calamares-settings not installed
+
+# 1) A guarded shellprocess job that runs in the TARGET chroot after 'users'.
+cat > "$CAL/modules/shellprocess@removedefault.conf" <<'YAML'
+---
+dontChroot: false
+timeout: 120
+script:
+  - |
+    new=""
+    for u in $(awk -F: '$3>=1000 && $3<65534 {print $1}' /etc/passwd); do
+        [ "$u" = "sysible" ] || new="$u"
+    done
+    if [ -n "$new" ] && id sysible >/dev/null 2>&1; then
+        pkill -KILL -u sysible 2>/dev/null || true
+        deluser --remove-home sysible >/dev/null 2>&1 \
+            || userdel -r sysible >/dev/null 2>&1 || true
+    fi
+YAML
+
+# 2) Wire it into the exec sequence right after the 'users' step (the SECOND
+#    '- users' line — the first is the interactive users *page*). Indentation is
+#    copied from the matched line so the YAML list stays valid.
+if ! grep -q 'shellprocess@removedefault' "$CAL/settings.conf"; then
+    awk '
+      /^[[:space:]]*-[[:space:]]*users[[:space:]]*$/ {
+        n++
+        if (n == 2) {
+          match($0, /^[[:space:]]*/); ind = substr($0, 1, RLENGTH)
+          print
+          print ind "- shellprocess@removedefault"
+          next
+        }
+      }
+      { print }
+    ' "$CAL/settings.conf" > "$CAL/settings.conf.new"
+    mv "$CAL/settings.conf.new" "$CAL/settings.conf"
+fi
+
+# Fail the build loudly if wiring didn't take (upstream settings.conf format
+# drift) — a red build beats silently shipping an installer that keeps the
+# default account.
+grep -q 'shellprocess@removedefault' "$CAL/settings.conf" \
+    || { echo "E: could not wire removedefault into calamares settings.conf" >&2; exit 1; }
+
+echo "sysible: calamares removedefault job wired after users."
