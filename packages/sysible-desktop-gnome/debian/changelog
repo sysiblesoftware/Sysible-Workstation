@@ -1,3 +1,9 @@
+sysible-desktop-gnome (0.1.5) sysible; urgency=medium
+
+  * deliver 4 fixed workspaces as an authoritative dconf system-db value (gschema default was being shadowed) so apt-upgraded systems get them
+
+ -- Sysible <maintainers@sysible.com>  Thu, 13 Aug 2026 11:36:58 +0000
+
 sysible-desktop-gnome (0.1.4) sysible; urgency=medium
 
   * add Sysible top-bar system monitor (CPU/MEM/DISK) extension, enabled by default

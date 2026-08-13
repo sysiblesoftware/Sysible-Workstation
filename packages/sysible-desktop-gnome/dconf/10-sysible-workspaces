@@ -1,11 +1,13 @@
-# Sysible workspaces — a fixed set of workspaces (like Kali) rather than GNOME's
-# default dynamic workspaces that grow/shrink on their own. Four static
-# workspaces, a top-bar indicator (workspace-indicator extension, enabled in
-# 00-sysible-desktop), and traditional keyboard switching:
+# Sysible workspaces — a FIXED set of four workspaces (like Kali) rather than
+# GNOME's default dynamic set that grows/shrinks on its own (and usually shows
+# just 1-2). Shipped from the PACKAGE (not just the ISO's /etc/dconf) so an
+# `apt upgrade` puts it on systems installed from an older image, and as a dconf
+# system-db value (authoritative) rather than only a gschema default, which a
+# running session or a stray user value can shadow.
 #   Super+1..4          → switch to workspace N
 #   Super+Shift+1..4    → move the active window to workspace N
 #   Super+PgUp/PgDn     → previous / next workspace (Ctrl+Alt+arrows also kept)
-# These are defaults only (not locked), so users can still change them.
+# Defaults only (not locked), so users can still change them.
 
 [org/gnome/mutter]
 dynamic-workspaces=false
