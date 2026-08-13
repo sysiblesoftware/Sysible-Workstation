@@ -6,24 +6,25 @@
 
 title-text: ""
 desktop-image: "background.png"
+# The Sysible lockup is BAKED INTO background.png — it is NOT a separate GRUB
+# `+ image` element any more. Why: arm64 GRUB positioned that image element but
+# IGNORED its width/height, drawing logo.png at full native size (1040px) — huge,
+# overlapping the menu. That is the bug that kept coming back in pixels AND in
+# percentages, because the real failure was GRUB not honouring the element's size
+# at all. Baked into the background there is NO element for GRUB to mis-size: GRUB
+# only scales the background to the screen, its most basic always-present behaviour.
+# `crop` = cover (preserve aspect, fill, centre-crop overflow) so the logo never
+# distorts; and if a GRUB build ignored scale-method too, the fallback is
+# stretch-to-fill, which keeps the logo in the SAME relative place. No code path
+# left can render the logo huge or over the menu. (Re-bake after a logo change:
+# branding/logo/grub-background-base.png is the clean topo — composite logo.png at
+# 30% width, top 13%, centred, and overwrite background.png.)
+desktop-image-scale-method: "crop"
+desktop-image-h-align: "center"
+desktop-image-v-align: "center"
 desktop-color: "#0a0d13"
 message-color: "#a7b4cc"
 message-bg-color: "#0a0d13"
-
-# Sysible mark + wordmark — sized in PERCENTAGES, not pixels. The live GRUB runs
-# at `gfxmode=auto` (a fixed mode stretches under some hypervisors), so the menu
-# renders at whatever resolution the firmware reports — anything from 800x600 to
-# 4K. A fixed-pixel logo is therefore huge on small modes and tiny on large ones.
-# As a percentage the logo is always the SAME fraction of the screen (~24% wide,
-# top 13%, bottom ~22%) and the menu sits at top 40%, so they can never overlap
-# at any resolution. `left = 38%` centres a 24%-wide box ((100-24)/2 ≈ 38).
-+ image {
-    file = "logo.png"
-    left = 38%
-    top = 13%
-    width = 24%
-    height = 9%
-}
 
 # Boot entries — a centred column pulled up right under the logo (no big empty
 # gap). Selected row = subtle card + green left bar.
