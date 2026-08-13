@@ -10,18 +10,19 @@ desktop-color: "#0a0d13"
 message-color: "#a7b4cc"
 message-bg-color: "#0a0d13"
 
-# Sysible mark + wordmark. logo.png is 3.47:1; the box keeps that ratio (360x104).
-# Sized for the resolution GRUB actually renders at — firmware/VM GOP almost
-# always gives 1024x768 for the menu (native high-res only comes after the kernel
-# loads), so a modest 360px reads well there (~35% width) instead of the earlier
-# 620px that filled the screen. GRUB_GFXMODE also prefers 1024x768 so the
-# installed menu matches the live ISO menu.
+# Sysible mark + wordmark — sized in PERCENTAGES, not pixels. The live GRUB runs
+# at `gfxmode=auto` (a fixed mode stretches under some hypervisors), so the menu
+# renders at whatever resolution the firmware reports — anything from 800x600 to
+# 4K. A fixed-pixel logo is therefore huge on small modes and tiny on large ones.
+# As a percentage the logo is always the SAME fraction of the screen (~24% wide,
+# top 13%, bottom ~22%) and the menu sits at top 40%, so they can never overlap
+# at any resolution. `left = 38%` centres a 24%-wide box ((100-24)/2 ≈ 38).
 + image {
     file = "logo.png"
-    left = 50%-180
-    top = 17%
-    width = 360
-    height = 104
+    left = 38%
+    top = 13%
+    width = 24%
+    height = 9%
 }
 
 # Boot entries — a centred column pulled up right under the logo (no big empty
