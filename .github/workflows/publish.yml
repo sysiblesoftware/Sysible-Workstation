@@ -67,8 +67,8 @@ jobs:
         env:
           SYSIBLE_GPG_PRIVATE_KEY: ${{ secrets.SYSIBLE_GPG_PRIVATE_KEY }}
         run: |
-          # Pass the key via env and printf (not inline ${{ }} interpolation into
-          # the shell text) so its bytes never land in the command line / logs.
+          # Pass the key via env and printf (not inline expression interpolation
+          # into the shell text) so its bytes never land in the command line/logs.
           printf '%s' "$SYSIBLE_GPG_PRIVATE_KEY" | gpg --batch --import
           # The secret must contain the exact key we sign with, and whose public
           # half is the committed keyring — otherwise clients can't verify.
