@@ -284,6 +284,23 @@ def avatar(size, mark_url=MARK):
     return canvas.convert("RGB")
 
 
+def grub_background(W, H):
+    """GRUB menu background: the topographic field with the horizontal lockup
+    BAKED IN, top-centre. The lockup is part of the picture on purpose — it is NOT
+    a separate GRUB `+ image` element, because arm64 GRUB ignored the width/height
+    on that element and drew the logo at full native size (huge, over the menu).
+    Baked in, GRUB only has to scale the background to the screen. Logo = 30% of
+    width, top 13%, centred — well above the boot menu at 40%. (Keep in sync with
+    theme.txt desktop-image-scale-method=crop.)"""
+    bg = field(W, H).convert("RGBA")
+    lw = int(W * 0.30)
+    logo = hlockup(1040, 300, FG_DARK)
+    lh = int(logo.height * lw / logo.width)
+    logo = logo.resize((lw, lh), Image.LANCZOS)
+    bg.alpha_composite(logo, ((W - lw) // 2, int(H * 0.13)))
+    return bg.convert("RGB")
+
+
 
 
 # ---------------------------------------------------------------- output map
@@ -296,7 +313,8 @@ def build():
 
     # Boot — GRUB theme (the asset that was drifting): 1040x300 horizontal lockup.
     A[C("boot/grub/themes/sysible/logo.png")] = hlockup(1040, 300, FG_DARK)
-    A[C("boot/grub/themes/sysible/background.png")] = field(1920, 1080)
+    # background = topo field with the lockup BAKED IN (see grub_background / theme.txt).
+    A[C("boot/grub/themes/sysible/background.png")] = grub_background(1920, 1080)
     # Boot — composed splashes.
     A[L("branding/splash.png")] = splash(1920, 1080)
     A[L("bootloaders/isolinux/splash.png")] = splash(800, 600)

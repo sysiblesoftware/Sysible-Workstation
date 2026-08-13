@@ -7,7 +7,7 @@ a81f1938ad8589d89c6af1392efd67bd1ba2c6fe73c9316f0dbb484000db717c  branding/logo/
 7c7df434c6b28ae75f1a3b67f072e47c9c69484ad6dab8e1e280a041de5796c9  live-build/config/includes.chroot/usr/share/pixmaps/sysible-logo-light.svg
 a81f1938ad8589d89c6af1392efd67bd1ba2c6fe73c9316f0dbb484000db717c  live-build/config/includes.chroot/usr/share/icons/hicolor/scalable/apps/sysible-controller.svg
 60ca32184e4bd73383e63e3a2a67a7aabcc1016c96661cbb3b0ed190d916da42  live-build/config/includes.chroot/boot/grub/themes/sysible/logo.png
-c3d604f8e5af5f30aabd5d98d73eed0c02e8b3e1e86f1b9354829960ff7f8902  live-build/config/includes.chroot/boot/grub/themes/sysible/background.png
+b04e4c7e1e429d519125e67aefcdaa74192efc7b6be8d221a6a89a48d42e6716  live-build/config/includes.chroot/boot/grub/themes/sysible/background.png
 e44dd9aecada448c25395292fc2d721ed057993b455772cac97f94bd2f7cc5ca  live-build/config/branding/splash.png
 280ba9bb2d27e3b774111f2b4f5d04fa9974760a8c2864e7cafc58f85f53cd11  live-build/config/bootloaders/isolinux/splash.png
 c43d0571daa8128828c7bf0091c1674fede63d167878e69d5a5dfbf0dc7ea0fb  live-build/config/binary_grub/splash.tga
