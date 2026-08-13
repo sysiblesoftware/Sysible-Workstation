@@ -18,11 +18,11 @@ cy = Window.GetY() + sh / 2;
 # not width. Width-driven sizing (sw*0.34) made the logo 40% of the height at
 # 1024x768 and 54% at 1920x1080 — i.e. it looked huge and got worse on bigger
 # screens (that was the "still too big" report). Height-driven keeps it a steady
-# ~24% of the screen height at EVERY resolution, so it never dominates the splash.
+# ~21% of the screen height at EVERY resolution, so it never dominates the splash.
 logo.image = Image("logo.png");
 logo.natw = logo.image.GetWidth();
 logo.nath = logo.image.GetHeight();
-logo.h = Math.Int(sh * 0.24);
+logo.h = Math.Int(sh * 0.21);
 if (logo.h > logo.nath) logo.h = logo.nath;
 logo.w = Math.Int(logo.natw * logo.h / logo.nath);
 logo.image = logo.image.Scale(logo.w, logo.h);
