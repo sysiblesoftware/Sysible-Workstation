@@ -1,0 +1,6 @@
+# Lock the wallpaper FIT MODE to zoom so a GNOME session write can't shadow it
+# back to spanned/stretched (which distorted the art on wide/fullscreen
+# displays). picture-uri is intentionally NOT locked — users can still change
+# which wallpaper is shown, just not the fit mode.
+/org/gnome/desktop/background/picture-options
+/org/gnome/desktop/screensaver/picture-options
