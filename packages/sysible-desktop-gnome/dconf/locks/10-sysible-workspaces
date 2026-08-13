@@ -1,0 +1,9 @@
+# Sysible: LOCK the fixed-workspace keys to the system-db values (dynamic
+# workspaces off, count = 4). Without the lock, GNOME's session (or a stray
+# per-user value) writes org.gnome.mutter/dynamic-workspaces back to `true` on
+# login, which shadows our default and collapses the four fixed workspaces down
+# to GNOME's dynamic 1–2. Locking makes the system value authoritative and
+# read-only, so four workspaces always stick. (The dock/extensions from the same
+# local db already applied — only these two keys were being shadowed.)
+/org/gnome/mutter/dynamic-workspaces
+/org/gnome/desktop/wm/preferences/num-workspaces

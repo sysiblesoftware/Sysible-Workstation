@@ -3,3 +3,4 @@ lib/refresh-wallpaper usr/lib/sysible
 dconf/05-sysible-extensions etc/dconf/db/local.d
 dconf/10-sysible-workspaces etc/dconf/db/local.d
 gnome-shell/extensions/sysible-sysmonitor@sysible.com usr/share/gnome-shell/extensions
+dconf/locks/10-sysible-workspaces etc/dconf/db/local.d/locks

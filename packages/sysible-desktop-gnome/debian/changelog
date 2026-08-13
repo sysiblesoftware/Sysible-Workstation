@@ -1,3 +1,9 @@
+sysible-desktop-gnome (0.1.6) sysible; urgency=medium
+
+  * lock the fixed-workspace dconf keys (dynamic-workspaces, num-workspaces) so a per-session write can no longer shadow them back to GNOME dynamic 1-2 — four workspaces now stick on every login
+
+ -- Sysible <maintainers@sysible.com>  Thu, 13 Aug 2026 16:09:17 +0000
+
 sysible-desktop-gnome (0.1.5) sysible; urgency=medium
 
   * deliver 4 fixed workspaces as an authoritative dconf system-db value (gschema default was being shadowed) so apt-upgraded systems get them

@@ -7,7 +7,10 @@
 #   Super+1..4          → switch to workspace N
 #   Super+Shift+1..4    → move the active window to workspace N
 #   Super+PgUp/PgDn     → previous / next workspace (Ctrl+Alt+arrows also kept)
-# Defaults only (not locked), so users can still change them.
+# The two count keys (dynamic-workspaces, num-workspaces) are LOCKED — see
+# dconf/locks/10-sysible-workspaces — because GNOME's session was writing
+# dynamic-workspaces back to true on login and shadowing the default. The
+# keybindings below stay unlocked, so users can still remap the shortcuts.
 
 [org/gnome/mutter]
 dynamic-workspaces=false
