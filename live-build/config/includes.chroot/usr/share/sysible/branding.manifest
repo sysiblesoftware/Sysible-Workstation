@@ -11,7 +11,7 @@ c3d604f8e5af5f30aabd5d98d73eed0c02e8b3e1e86f1b9354829960ff7f8902  live-build/con
 e44dd9aecada448c25395292fc2d721ed057993b455772cac97f94bd2f7cc5ca  live-build/config/branding/splash.png
 280ba9bb2d27e3b774111f2b4f5d04fa9974760a8c2864e7cafc58f85f53cd11  live-build/config/bootloaders/isolinux/splash.png
 c43d0571daa8128828c7bf0091c1674fede63d167878e69d5a5dfbf0dc7ea0fb  live-build/config/binary_grub/splash.tga
-12a3913daccaf1c315e69b11c5cd20e21a1047ff9f6f40ae1b36435412662b49  live-build/config/includes.chroot/usr/share/plymouth/themes/sysible/logo.png
+eb923115f847c64123661e212d219e10acef0d8ed2e101776e8712aa72912aec  live-build/config/includes.chroot/usr/share/plymouth/themes/sysible/logo.png
 6412291149c92bbe45542496650e878bdc3b0836f688a27a194ac9c0f7471536  live-build/config/includes.chroot/etc/calamares/branding/sysible/sysible-logo.png
 661df15911e688c69c33d746f93fc08773b68168226c2a66482c29ee94d41e33  live-build/config/includes.chroot/etc/calamares/branding/sysible/sysible-welcome.png
 d2c004736551d6a17546bd038ba65f08e09d8abf5646bf56a6325f79673098fa  live-build/config/includes.chroot/etc/calamares/branding/sysible/mark.png

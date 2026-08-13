@@ -304,7 +304,10 @@ def build():
     # Plymouth (boot animation) + Calamares (installer) + GDM.
     # Plymouth boot/shutdown splash: vertical lockup so the loading screen shows
     # the "SYSIBLE LINUX" wordmark under the mark (a bare mark read as unbranded).
-    A[C("usr/share/plymouth/themes/sysible/logo.png")] = vlockup(360, 320, FG_DARK)
+    # Rendered at 2x (was 360x320) so the baked "SYSIBLE LINUX" wordmark stays
+    # crisp on the boot splash — Plymouth blits the sprite 1:1, so a small source
+    # read soft/upscaled on HiDPI panels.
+    A[C("usr/share/plymouth/themes/sysible/logo.png")] = vlockup(720, 640, FG_DARK)
     A[C("etc/calamares/branding/sysible/sysible-logo.png")] = centred_mark(96, 104, pad=0.02)
     # Calamares HERO (productWelcome) + slideshow mark — the big centred logo.
     A[C("etc/calamares/branding/sysible/sysible-welcome.png")] = centred_mark(240, 260, pad=0.04)
