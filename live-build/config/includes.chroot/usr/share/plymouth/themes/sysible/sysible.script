@@ -11,11 +11,18 @@ sh = Window.GetHeight();
 cx = Window.GetX() + sw / 2;
 cy = Window.GetY() + sh / 2;
 
-# --- logo (hexagon + SYSIBLE LINUX wordmark) ---
+# --- logo (mark + SYSIBLE LINUX wordmark) ---
+# The source is rendered at 2x for sharpness; scale it DOWN to a proportion of
+# the screen so it stays crisp AND a sensible size at any boot resolution
+# (drawing the 720px sprite 1:1 filled the screen on a 1024x768 splash).
 logo.image = Image("logo.png");
+logo.natw = logo.image.GetWidth();
+logo.nath = logo.image.GetHeight();
+logo.w = Math.Int(sw * 0.34);
+if (logo.w > logo.natw) logo.w = logo.natw;
+logo.h = Math.Int(logo.nath * logo.w / logo.natw);
+logo.image = logo.image.Scale(logo.w, logo.h);
 logo.sprite = Sprite(logo.image);
-logo.w = logo.image.GetWidth();
-logo.h = logo.image.GetHeight();
 logo.top = cy - logo.h / 2 - 24;
 logo.sprite.SetX(cx - logo.w / 2);
 logo.sprite.SetY(logo.top);

@@ -10,17 +10,18 @@ desktop-color: "#0a0d13"
 message-color: "#a7b4cc"
 message-bg-color: "#0a0d13"
 
-# Sysible mark + wordmark. logo.png is 3.47:1; the box keeps that ratio (620x179).
-# Sized for a ~1080p gfxmode (see GRUB_GFXMODE in 20_sysible-theme.cfg, which now
-# prefers 1080p) so the live ISO menu and the installed menu land on the same
-# resolution and read identically — previously the installed system booted at a
-# higher native res where the old 440px logo shrank to a tiny cluster.
+# Sysible mark + wordmark. logo.png is 3.47:1; the box keeps that ratio (360x104).
+# Sized for the resolution GRUB actually renders at — firmware/VM GOP almost
+# always gives 1024x768 for the menu (native high-res only comes after the kernel
+# loads), so a modest 360px reads well there (~35% width) instead of the earlier
+# 620px that filled the screen. GRUB_GFXMODE also prefers 1024x768 so the
+# installed menu matches the live ISO menu.
 + image {
     file = "logo.png"
-    left = 50%-310
-    top = 15%
-    width = 620
-    height = 179
+    left = 50%-180
+    top = 17%
+    width = 360
+    height = 104
 }
 
 # Boot entries — a centred column pulled up right under the logo (no big empty
@@ -36,7 +37,7 @@ message-bg-color: "#0a0d13"
     height = 44%
     item_color = "#8a93a0"
     selected_item_color = "#ffffff"
-    item_height = 48
+    item_height = 40
     item_padding = 6
     item_spacing = 20
     selected_item_pixmap_style = "selbar_*.png"
