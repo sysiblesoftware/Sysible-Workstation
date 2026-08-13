@@ -10,39 +10,42 @@ desktop-color: "#0a0d13"
 message-color: "#a7b4cc"
 message-bg-color: "#0a0d13"
 
-# Sysible mark + wordmark, centred in the upper third (kept modest so it doesn't
-# crowd the menu). logo.png is 3.47:1, so the box keeps that ratio.
+# Sysible mark + wordmark. logo.png is 3.47:1; the box keeps that ratio (620x179).
+# Sized for a ~1080p gfxmode (see GRUB_GFXMODE in 20_sysible-theme.cfg, which now
+# prefers 1080p) so the live ISO menu and the installed menu land on the same
+# resolution and read identically — previously the installed system booted at a
+# higher native res where the old 440px logo shrank to a tiny cluster.
 + image {
     file = "logo.png"
-    left = 50%-220
+    left = 50%-310
     top = 15%
-    width = 440
-    height = 127
+    width = 620
+    height = 179
 }
 
-# Boot entries — a centred column; selected row = subtle card + green left bar.
+# Boot entries — a centred column pulled up right under the logo (no big empty
+# gap). Selected row = subtle card + green left bar.
 # Geometry note: the selected pill grows by item_padding on every side, so
 # item_spacing MUST stay larger than 2*item_padding or the pill bleeds into the
-# next entry (that was the old "one green box over both entries" bug). Here the
-# 9-slice corners are 14px, item_height is comfortably larger, and the spacing
-# (18) far exceeds 2*item_padding (8) — the pill is always exactly one clean row.
+# next entry (that was the old "one green box over both entries" bug). Here
+# item_spacing (20) far exceeds 2*item_padding (12) — always one clean row.
 + boot_menu {
-    left = 32%
-    width = 36%
-    top = 50%
-    height = 30%
+    left = 29%
+    width = 42%
+    top = 40%
+    height = 44%
     item_color = "#8a93a0"
     selected_item_color = "#ffffff"
-    item_height = 40
-    item_padding = 4
-    item_spacing = 18
+    item_height = 48
+    item_padding = 6
+    item_spacing = 20
     selected_item_pixmap_style = "selbar_*.png"
     scrollbar = false
 }
 
 # Footer tagline.
 + label {
-    top = 90%
+    top = 92%
     left = 0
     width = 100%
     align = "center"
