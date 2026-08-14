@@ -60,13 +60,16 @@ Recommends:
  btop, atop, iftop,
 # eza is Debian 13+; soft-depend so a bookworm build doesn't fail
  eza,
+# CherryTree — GPL hierarchical note-taking app, in Debian (installs on amd64 and
+# arm64). Replaces Obsidian (proprietary, not redistributable, no arm64 build).
+ cherrytree,
 # These come from third-party repos wired up by sysible-release; Recommends so a
 # missing upstream repo never blocks the whole install:
  docker-ce, docker-compose-plugin, containerd.io,
  kubectl, helm, k9s,
  terraform, opentofu, packer,
  awscli, sops, age,
- code,
+ codium,
  gh,
 Suggests:
  azure-cli, google-cloud-cli,

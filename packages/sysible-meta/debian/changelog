@@ -1,3 +1,12 @@
+sysible-meta (0.1.4) sysible; urgency=medium
+
+  * licensing: replace VS Code (code) with VSCodium (codium, the MIT Code-OSS
+    build) and Obsidian with CherryTree (GPL, in Debian) — both proprietary,
+    redistribution-restricted apps swapped for redistributable ones. CherryTree
+    also fixes an arm64 gap (Obsidian ships no arm64 build).
+
+ -- Sysible <maintainers@sysible.com>  Thu, 14 Aug 2026 00:00:00 +0000
+
 sysible-meta (0.1.3) sysible; urgency=medium
 
   * add libpam-pwquality (password-quality floor) as a hard dependency

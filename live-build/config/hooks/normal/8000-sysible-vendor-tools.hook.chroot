@@ -79,7 +79,23 @@ apt-get update
 apt-get install -y --no-install-recommends \
     docker-ce docker-compose-plugin docker-buildx-plugin \
     kubectl terraform packer \
-    google-cloud-cli azure-cli code
+    google-cloud-cli azure-cli
+
+# VSCodium — the Code-OSS build of VS Code (MIT, telemetry off). Shipped INSTEAD
+# of Microsoft's proprietary `code` .deb, which is NOT licensed for redistribution
+# inside another distro. VSCodium's apt repo carries both amd64 and arm64.
+echo "== vscodium (Code-OSS build of VS Code) =="
+install -d -m0755 /usr/share/keyrings
+if $CURL https://gitlab.com/paulcarroty/vscodium-deb-rpm-repo/raw/master/pub.gpg \
+     | gpg --dearmor -o /usr/share/keyrings/vscodium-archive-keyring.gpg; then
+    echo 'deb [signed-by=/usr/share/keyrings/vscodium-archive-keyring.gpg] https://download.vscodium.com/debs vscodium main' \
+        > /etc/apt/sources.list.d/vscodium.list
+    apt-get update
+    apt-get install -y --no-install-recommends codium \
+        && echo "vscodium ok" || echo "WARNING: vscodium install failed — skipping"
+else
+    echo "WARNING: could not fetch the VSCodium signing key — skipping vscodium"
+fi
 
 # helm: official binary (get.helm.sh is Google-hosted, complete chain). Required.
 echo "== helm (official binary) =="
@@ -200,23 +216,22 @@ else
     echo "ollama skipped (download) — sysible ai will guide install on first use"
 fi
 
-# Obsidian (desktop notes) — not in Debian. Proprietary freeware, so we download
-# the official .deb at build time (same as VS Code) rather than vendoring it.
-# Best-effort: Obsidian publishes no per-release checksum file, so integrity is
-# TLS-only, and a hiccup must not fail the ISO.
-echo "== obsidian (desktop notes) =="
-ob_ver=$($CURL https://api.github.com/repos/obsidianmd/obsidian-releases/releases/latest 2>/dev/null \
-    | grep -oE '"tag_name": *"v[0-9.]+"' | grep -oE '[0-9]+\.[0-9]+\.[0-9]+' | head -1)
-[ -n "$ob_ver" ] || ob_ver=1.8.10
-ob_url="https://github.com/obsidianmd/obsidian-releases/releases/download/v${ob_ver}/obsidian_${ob_ver}_${ARCH}.deb"
-if $CURL "$ob_url" -o /tmp/obsidian.deb 2>/dev/null; then
-    apt-get install -y --no-install-recommends /tmp/obsidian.deb 2>/dev/null \
-        || { dpkg -i /tmp/obsidian.deb 2>/dev/null || true; apt-get -y -f install 2>/dev/null || true; }
-    rm -f /tmp/obsidian.deb
-    { [ -x /usr/bin/obsidian ] || command -v obsidian >/dev/null 2>&1; } \
-        && echo "obsidian ${ob_ver} ok" || echo "obsidian install incomplete (non-fatal)"
-else
-    echo "obsidian skipped (download; check version ${ob_ver}/${ARCH}) — non-fatal"
+# Desktop notes: CherryTree (GPL, hierarchical note-taking) — it's in Debian, so
+# it installs via the toolkit package list on BOTH amd64 and arm64 (no fetch
+# here). It replaced Obsidian, which is proprietary freeware not licensed for
+# redistribution inside a distro (and ships no arm64 Linux build).
+#
+# The dock favourite (dconf) defaults to com.giuspen.cherrytree.desktop, but
+# Debian has shipped CherryTree under both that id and plain cherrytree.desktop
+# across versions — so point the favourite at whichever file actually exists, to
+# guarantee the dock never shows a blank icon. A later `dconf update` (9000 hook /
+# sysible-desktop-gnome postinst) recompiles the corrected value.
+FAV=/etc/dconf/db/local.d/00-sysible-desktop
+if [ -f "$FAV" ] && ! [ -f /usr/share/applications/com.giuspen.cherrytree.desktop ]; then
+    if [ -f /usr/share/applications/cherrytree.desktop ]; then
+        sed -i 's/com\.giuspen\.cherrytree\.desktop/cherrytree.desktop/' "$FAV"
+        echo "cherrytree: dock favourite pointed at cherrytree.desktop"
+    fi
 fi
 
 echo "== Sysible vendor tools done =="

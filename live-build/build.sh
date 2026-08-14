@@ -70,7 +70,7 @@ esac
 # source of truth: the metapackage control.
 awk '
     BEGIN {
-        split("docker-ce docker-compose-plugin containerd.io kubectl helm k9s terraform opentofu packer azure-cli google-cloud-cli code sops eza", v, " ")
+        split("docker-ce docker-compose-plugin containerd.io kubectl helm k9s terraform opentofu packer azure-cli google-cloud-cli codium sops eza", v, " ")
         for (i in v) VEND[v[i]] = 1
     }
     /^Description:/ { f=0 }

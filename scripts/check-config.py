@@ -214,7 +214,8 @@ shipped={Path(p).name for p in glob.glob(str(CHROOT/"usr/share/applications/*.de
 # Provided by installed .debs rather than includes.chroot: systerm.desktop ships
 # in the SysTerm package (built + included by build.sh); the rest are stock GNOME.
 SYSTEM_KNOWN={"org.gnome.Nautilus.desktop","firefox-esr.desktop",
-              "org.gnome.TextEditor.desktop","code.desktop","systerm.desktop"}
+              "org.gnome.TextEditor.desktop","codium.desktop","systerm.desktop",
+              "com.giuspen.cherrytree.desktop","cherrytree.desktop"}
 for db in glob.glob(str(CHROOT/"etc/dconf/db"/"**"),recursive=True):
     dp=Path(db)
     if dp.is_file():
