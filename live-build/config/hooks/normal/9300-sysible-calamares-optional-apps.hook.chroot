@@ -1,0 +1,72 @@
+#!/bin/sh
+# Calamares: wire the "Optional apps" page (netinstall) into the installer's
+# interactive sequence, right before the summary. The page lets the operator
+# tick proprietary / BUSL tools (VS Code, Terraform, Packer) that Sysible can't
+# bundle in the ISO; ticking one installs it from the official vendor apt repo
+# during setup. The module + package tree ship in includes.chroot
+# (/etc/calamares/modules/netinstall.conf and
+#  /etc/calamares/netinstall-optional-apps.yaml).
+#
+# Everything here is best-effort and non-blocking:
+#   * netinstall is `required: false` and the group is `critical: false`, so a
+#     missing network or a failed vendor download can never abort the install.
+#   * if the settings.conf format drifts and we can't wire the page in, we log a
+#     warning and leave the installer working WITHOUT the optional page rather
+#     than failing the build. (An installer that just omits an optional page is
+#     fine; a red build over a bonus feature is not.)
+set -e
+
+CAL=/etc/calamares
+[ -f "$CAL/settings.conf" ] || exit 0   # calamares-settings not installed
+
+# Already wired (idempotent re-run)?
+if grep -q '^[[:space:]]*-[[:space:]]*netinstall[[:space:]]*$' "$CAL/settings.conf"; then
+    echo "sysible: netinstall already present in calamares settings.conf"
+    exit 0
+fi
+
+# Insert '- netinstall' into the SHOW (interactive) sequence, just before the
+# first '- summary'. Indentation is copied from the matched line so the YAML
+# list stays valid. If there is no summary page, fall back to inserting after
+# the first '- users' (the interactive account page).
+awk '
+  !done && /^[[:space:]]*-[[:space:]]*summary[[:space:]]*$/ {
+    match($0, /^[[:space:]]*/); ind = substr($0, 1, RLENGTH)
+    print ind "- netinstall"
+    done = 1
+  }
+  { print }
+  END { if (!done) exit 3 }
+' "$CAL/settings.conf" > "$CAL/settings.conf.new" && SUMMARY_OK=1 || SUMMARY_OK=0
+
+if [ "$SUMMARY_OK" = 1 ] && grep -q '^[[:space:]]*-[[:space:]]*netinstall[[:space:]]*$' "$CAL/settings.conf.new"; then
+    mv "$CAL/settings.conf.new" "$CAL/settings.conf"
+else
+    rm -f "$CAL/settings.conf.new"
+    # Fallback: after the first interactive '- users' page.
+    awk '
+      !done && /^[[:space:]]*-[[:space:]]*users[[:space:]]*$/ {
+        match($0, /^[[:space:]]*/); ind = substr($0, 1, RLENGTH)
+        print
+        print ind "- netinstall"
+        done = 1
+        next
+      }
+      { print }
+    ' "$CAL/settings.conf" > "$CAL/settings.conf.new"
+    if grep -q '^[[:space:]]*-[[:space:]]*netinstall[[:space:]]*$' "$CAL/settings.conf.new"; then
+        mv "$CAL/settings.conf.new" "$CAL/settings.conf"
+    else
+        rm -f "$CAL/settings.conf.new"
+        echo "W: could not wire netinstall into calamares settings.conf; shipping installer without the Optional apps page" >&2
+        exit 0
+    fi
+fi
+
+# Sanity: the 'packages' exec module actually performs the install of whatever
+# netinstall selects. Debian's calamares-settings ships it; warn (don't fail) if
+# it's somehow absent so a build reviewer notices.
+grep -q '^[[:space:]]*-[[:space:]]*packages[[:space:]]*$' "$CAL/settings.conf" \
+    || echo "W: calamares 'packages' exec module not found; netinstall selections may not install" >&2
+
+echo "sysible: calamares 'Optional apps' (netinstall) page wired before summary."

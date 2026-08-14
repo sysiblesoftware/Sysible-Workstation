@@ -1,0 +1,45 @@
+#!/bin/sh
+# sysible-install-obsidian — install Obsidian from the OFFICIAL vendor release.
+#
+# Sysible Linux ships CherryTree (open source, and available on arm64) instead
+# of Obsidian, because Obsidian is proprietary — Sysible can't legally
+# redistribute it, and it has no apt repository, so it can't be offered as a
+# checkbox in the installer's Optional-apps page. You may still install it
+# yourself from the vendor: that's what this helper does. It downloads the
+# latest official .deb from github.com/obsidianmd/obsidian-releases and installs
+# it with apt.
+set -eu
+
+arch="$(dpkg --print-architecture)"
+if [ "$arch" != "amd64" ]; then
+    cat >&2 <<EOF
+Obsidian publishes an official .deb for amd64 only (there is no arm64 build —
+that gap is exactly why Sysible Linux ships CherryTree instead). On $arch, use
+CherryTree (already installed), or Obsidian's AppImage from https://obsidian.md.
+EOF
+    exit 1
+fi
+
+api="https://api.github.com/repos/obsidianmd/obsidian-releases/releases/latest"
+echo "Looking up the latest Obsidian release…"
+url="$(curl -fsSL "$api" \
+    | grep -oE 'https://[^"]+/obsidian_[0-9.]+_amd64\.deb' \
+    | head -n1)"
+
+if [ -z "${url:-}" ]; then
+    echo "Could not determine the download URL. Get the .deb from https://obsidian.md/download" >&2
+    exit 1
+fi
+
+tmp="$(mktemp -d)"
+trap 'rm -rf "$tmp"' EXIT
+deb="$tmp/obsidian.deb"
+
+echo "Downloading: $url"
+curl -fSL --retry 3 -o "$deb" "$url"
+
+echo "Installing Obsidian (you may be prompted for your password)…"
+sudo apt-get update -qq || true
+sudo apt-get install -y "$deb"
+
+echo "Obsidian installed. Launch it from the app grid or run: obsidian"

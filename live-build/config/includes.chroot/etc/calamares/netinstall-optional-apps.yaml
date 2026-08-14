@@ -1,0 +1,44 @@
+# Sysible Linux — optional-apps package tree (Calamares netinstall).
+#
+# One parent group with a checkbox per app. Everything is off by default and the
+# group is non-critical: if the network is down or a vendor package fails, the
+# install continues normally. Each package name below resolves against a vendor
+# apt repository that sysible-release has already configured, so `apt install`
+# Just Works without Sysible re-hosting any binaries.
+- name: "Optional apps (installed from the official vendor)"
+  description: >
+    Proprietary or source-available tools Sysible can't bundle in the ISO for
+    licensing reasons. Tick any you want — they're downloaded from the vendor's
+    own apt repository during setup. Needs a network connection; leaving them
+    unticked installs nothing. Open equivalents (VSCodium, OpenTofu, CherryTree)
+    are already installed.
+  hidden: false
+  selected: false
+  critical: false
+  expanded: true
+  subgroups:
+    - name: "Visual Studio Code — Microsoft build (proprietary)"
+      description: >
+        Microsoft's proprietary VS Code build, from packages.microsoft.com.
+        VSCodium — the open-source (MIT) build of the same editor — is already
+        installed.
+      selected: false
+      critical: false
+      packages:
+        - code
+    - name: "Terraform (HashiCorp, BUSL 1.1)"
+      description: >
+        HashiCorp Terraform, from apt.releases.hashicorp.com. OpenTofu — the
+        open (MPL) fork — is already installed and is command-compatible.
+      selected: false
+      critical: false
+      packages:
+        - terraform
+    - name: "Packer (HashiCorp, BUSL 1.1)"
+      description: >
+        HashiCorp Packer image builder, from apt.releases.hashicorp.com. There
+        is no mainstream open fork, so it isn't shipped by default.
+      selected: false
+      critical: false
+      packages:
+        - packer

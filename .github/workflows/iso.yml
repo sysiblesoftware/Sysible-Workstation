@@ -165,11 +165,18 @@ jobs:
           generate_release_notes: false
           append_body: false
           body: |
-            **Sysible Linux 1.0.1 “Ignition”** — the engineering & automation workstation.
+            **Sysible Linux 1.0.2 “Ignition”** — the engineering & automation workstation.
 
             A live Debian-stable image with the whole toolchain baked in: containers,
-            Kubernetes, infrastructure-as-code, cloud CLIs, VS Code and the SysTerm
+            Kubernetes, infrastructure-as-code, cloud CLIs, VSCodium and the SysTerm
             terminal — plus the Sysible Controller CE installer.
+
+            **New in 1.0.2:** the installer now has an **Optional apps** page. The ISO
+            ships only redistributable software (VSCodium, OpenTofu, CherryTree), but if
+            you want the proprietary/BUSL originals — VS Code, Terraform, Packer — you
+            can tick them during setup and they're installed straight from the official
+            vendor apt repositories. Obsidian (no apt repo, amd64-only) has a one-command
+            helper, `sysible-install-obsidian`. See `THIRD-PARTY-LICENSES.md`.
 
             ### Downloads (amd64 & arm64)
             The ISO is ~3.4 GB, over GitHub's 2 GB per-file limit, so each build ships
