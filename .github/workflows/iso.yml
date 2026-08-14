@@ -165,7 +165,7 @@ jobs:
           generate_release_notes: false
           append_body: false
           body: |
-            **Sysible Linux 1.0 “Ignition”** — the engineering & automation workstation.
+            **Sysible Linux 1.0.1 “Ignition”** — the engineering & automation workstation.
 
             A live Debian-stable image with the whole toolchain baked in: containers,
             Kubernetes, infrastructure-as-code, cloud CLIs, VS Code and the SysTerm
