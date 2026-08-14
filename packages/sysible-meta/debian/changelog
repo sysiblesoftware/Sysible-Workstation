@@ -1,3 +1,12 @@
+sysible-meta (0.1.5) sysible; urgency=medium
+
+  * licensing: drop Terraform and Packer (both BUSL 1.1, source-available but not
+    redistributable as FOSS). OpenTofu (MPL, the open Terraform fork) stays and
+    covers the Terraform use case; Packer has no mainstream open fork, so it is
+    removed with no replacement.
+
+ -- Sysible <maintainers@sysible.com>  Thu, 14 Aug 2026 01:00:00 +0000
+
 sysible-meta (0.1.4) sysible; urgency=medium
 
   * licensing: replace VS Code (code) with VSCodium (codium, the MIT Code-OSS

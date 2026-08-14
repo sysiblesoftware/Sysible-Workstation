@@ -78,7 +78,7 @@ apt-get update
 # below instead.
 apt-get install -y --no-install-recommends \
     docker-ce docker-compose-plugin docker-buildx-plugin \
-    kubectl terraform packer \
+    kubectl \
     google-cloud-cli azure-cli
 
 # VSCodium — the Code-OSS build of VS Code (MIT, telemetry off). Shipped INSTEAD

@@ -67,7 +67,7 @@ Recommends:
 # missing upstream repo never blocks the whole install:
  docker-ce, docker-compose-plugin, containerd.io,
  kubectl, helm, k9s,
- terraform, opentofu, packer,
+ opentofu,
  awscli, sops, age,
  codium,
  gh,
@@ -81,7 +81,7 @@ Description: Sysible Linux — engineering workstation (all-in-one)
  .
  Depends carries the must-haves (shell, networking, containers via podman, the
  modern CLI set, Python, Ansible, the Sysible CLI and SysTerm terminal). Recommends
- carries the heavier and GUI pieces (GNOME, VS Code, Docker CE, Kubernetes, Terraform,
+ carries the heavier and GUI pieces (GNOME, VSCodium, Docker CE, Kubernetes, OpenTofu,
  cloud CLIs, virtualization) so a lean build can drop them with --no-install-recommends.
  .
  Tools that are not in Debian (Docker CE, kubectl/helm, Terraform/OpenTofu, cloud
