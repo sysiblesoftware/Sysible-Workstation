@@ -1,6 +1,6 @@
 [Desktop Entry]
 Type=Application
-Name=Sysible Linux Installer (auto)
+Name=Sysible Workstation Installer (auto)
 Exec=sysible-live-installer
 Terminal=false
 NoDisplay=true

@@ -1,4 +1,4 @@
-# Sysible Linux — Calamares branding
+# Sysible Workstation — Calamares branding
 ---
 componentName:  sysible
 
@@ -10,13 +10,13 @@ windowSize:         800px,520px
 windowPlacement:    center
 
 strings:
-    productName:         Sysible Linux
-    shortProductName:    Sysible Linux
+    productName:         Sysible Workstation
+    shortProductName:    Sysible Workstation
     version:             0.1
     shortVersion:        0.1
-    versionedName:       Sysible Linux 0.1 (Ignition)
-    shortVersionedName:  Sysible Linux 0.1
-    bootloaderEntryName: Sysible Linux
+    versionedName:       Sysible Workstation 0.1 (Ignition)
+    shortVersionedName:  Sysible Workstation 0.1
+    bootloaderEntryName: Sysible Workstation
     productUrl:          https://sysible.com/
     supportUrl:          https://sysible.com/
     knownIssuesUrl:      https://sysible.com/

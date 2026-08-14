@@ -5,7 +5,7 @@
   </picture>
 </p>
 
-# Sysible Linux
+# Sysible Workstation
 
 A Debian-stable–based **engineering workstation**. Install it and start working —
 the Linux/DevOps/SRE/platform toolkit is there on first boot, no half-hour of `apt`

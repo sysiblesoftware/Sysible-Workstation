@@ -10,8 +10,8 @@ Rules-Requires-Root: no
 Package: sysible-release
 Architecture: all
 Depends: ${misc:Depends}, ca-certificates, gnupg, curl
-Description: Sysible Linux apt configuration and archive keyring
- Configures apt for Sysible Linux: the Sysible archive keyring and repository,
+Description: Sysible Workstation apt configuration and archive keyring
+ Configures apt for Sysible Workstation: the Sysible archive keyring and repository,
  plus the upstream vendor repositories (Docker CE, Kubernetes, Helm, HashiCorp,
  OpenTofu, VS Code, Google Cloud CLI) that back the tools sysible-workstation
  recommends but Debian does not ship. Vendor keyrings are installed by the bundled

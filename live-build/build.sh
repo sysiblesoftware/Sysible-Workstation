@@ -1,5 +1,5 @@
 #!/bin/sh
-# Build the Sysible Linux ISO. Run on a Debian host, or in a debian:bookworm
+# Build the Sysible Workstation ISO. Run on a Debian host, or in a debian:bookworm
 # container, with network access:  sudo ./build.sh
 #
 # Everything is baked in — nothing to install after first boot:
@@ -145,15 +145,15 @@ if [ -n "$ISO" ]; then
         echo "-- grub.cfg BEFORE --"; grep -iE 'menuentry|background_image|Live system|Debian' "$WORK/grub.cfg" | head
         cp config/branding/splash.png "$WORK/sysible-splash.png"
         # GRUB: rebrand titles, add a Sysible background, and clone the live entry
-        # into an "Install Sysible Linux" entry (adds sysible.install to the
+        # into an "Install Sysible Workstation" entry (adds sysible.install to the
         # cmdline, which the live session's autostart uses to launch Calamares).
         python3 - "$WORK/grub.cfg" <<'PY'
 import sys, re
 p = sys.argv[1]; s = open(p).read()
-s = re.sub(r'Live system \((.*?) fail-safe mode\)', r'Sysible Linux (Live, safe graphics) [\1]', s)
-s = re.sub(r'Live system \((.*?)\)', r'Sysible Linux (Live) [\1]', s)
-s = s.replace('Debian GNU/Linux', 'Sysible Linux')
-# Clone the first Live menuentry into "Install Sysible Linux" and place it
+s = re.sub(r'Live system \((.*?) fail-safe mode\)', r'Sysible Workstation (Live, safe graphics) [\1]', s)
+s = re.sub(r'Live system \((.*?)\)', r'Sysible Workstation (Live) [\1]', s)
+s = s.replace('Debian GNU/Linux', 'Sysible Workstation')
+# Clone the first Live menuentry into "Install Sysible Workstation" and place it
 # IMMEDIATELY AFTER the Live entry (not at the end of the file). The theme's
 # menu has scrollbar=false, so on a tall/stretched display any entry appended
 # last drops below the visible rows — which is why the Install entry wasn't
@@ -162,7 +162,7 @@ s = s.replace('Debian GNU/Linux', 'Sysible Linux')
 # writes entries — more robust than matching the first "\n}".
 m = re.search(r'(?ms)^menuentry\s+"[^"]*Live[^"]*".*?^\}', s)
 if m:
-    inst = re.sub(r'menuentry\s+"[^"]*"', 'menuentry "Install Sysible Linux"', m.group(0), count=1)
+    inst = re.sub(r'menuentry\s+"[^"]*"', 'menuentry "Install Sysible Workstation"', m.group(0), count=1)
     inst = re.sub(r'(\n\s*linux\s+\S+[^\n]*)', r'\1 sysible.install', inst, count=1)
     s = s[:m.end()] + "\n\n" + inst + s[m.end():]
 # Brand the live GRUB menu with the Sysible THEME (dark hex background, centered
@@ -201,13 +201,13 @@ PY
             python3 - "$WORK/live.cfg" <<'PY'
 import sys, re
 p = sys.argv[1]; s = open(p).read()
-s = re.sub(r'(menu label \^?)Live system \((.*?) fail-safe mode\)', r'\1Sysible Linux (Live, safe) [\2]', s)
-s = re.sub(r'(menu label \^?)Live system \((.*?)\)', r'\1Sysible Linux (Live) [\2]', s)
+s = re.sub(r'(menu label \^?)Live system \((.*?) fail-safe mode\)', r'\1Sysible Workstation (Live, safe) [\2]', s)
+s = re.sub(r'(menu label \^?)Live system \((.*?)\)', r'\1Sysible Workstation (Live) [\2]', s)
 m = re.search(r'(^label[^\n]*\n(?:[ \t]+[^\n]*\n)+)', s, re.M)
 if m:
     b = m.group(1)
     b = re.sub(r'^label[^\n]*', 'label install-sysible', b, count=1, flags=re.M)
-    b = re.sub(r'menu label [^\n]*', 'menu label ^Install Sysible Linux', b, count=1)
+    b = re.sub(r'menu label [^\n]*', 'menu label ^Install Sysible Workstation', b, count=1)
     b = re.sub(r'[ \t]*menu default[ \t]*\n', '', b)
     b = re.sub(r'(append[^\n]*)', r'\1 sysible.install', b, count=1)
     s = s + "\n" + b + "\n"

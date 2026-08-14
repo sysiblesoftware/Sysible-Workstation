@@ -193,9 +193,9 @@ def _distro():
             kv = dict(
                 line.rstrip().split("=", 1) for line in f if "=" in line
             )
-        return kv.get("PRETTY_NAME", "").strip('"') or "Sysible Linux"
+        return kv.get("PRETTY_NAME", "").strip('"') or "Sysible Workstation"
     except OSError:
-        return "Sysible Linux"
+        return "Sysible Workstation"
 
 
 def _trim(text, max_chars=6000):

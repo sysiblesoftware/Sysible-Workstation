@@ -1,6 +1,6 @@
 # sysible-release
 
-Bootstraps apt for Sysible Linux:
+Bootstraps apt for Sysible Workstation:
 
 - `usr/share/keyrings/sysible-archive-keyring.gpg` — the Sysible repo signing key
   (fingerprint CFA4 B4E9 5EF5 44E0 6CEE D401 FBF0 856C D302 1431).

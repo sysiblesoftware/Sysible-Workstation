@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Sysible Linux config regression sweep — validates every live-build input that
+"""Sysible Workstation config regression sweep — validates every live-build input that
 the package-build CI doesn't cover: shell hooks, dconf, gschema, .desktop files,
 the GRUB theme, the hicolor icon set, Calamares config, systemd units, the
 package list, and cross-references between them.

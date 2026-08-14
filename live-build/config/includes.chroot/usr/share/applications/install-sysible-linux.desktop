@@ -1,9 +1,9 @@
 [Desktop Entry]
 Type=Application
 Version=1.0
-Name=Install Sysible Linux
+Name=Install Sysible Workstation
 GenericName=System Installer
-Comment=Install Sysible Linux to your hard disk
+Comment=Install Sysible Workstation to your hard disk
 Exec=pkexec calamares
 Icon=sysible-install
 Terminal=false

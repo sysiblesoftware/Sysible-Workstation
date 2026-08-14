@@ -1,4 +1,4 @@
-/* Sysible Linux install slideshow — branded, multi-slide.
+/* Sysible Workstation install slideshow — branded, multi-slide.
    Highlights the baked-in toolchain, SysTerm, and Sysible Controller while the
    install runs. slideshowAPI 2. */
 import QtQuick 2.0;
@@ -38,7 +38,7 @@ Presentation {
                 Text {
                     anchors.horizontalCenter: parent.horizontalCenter
                     color: "#e8eefc"; font.pixelSize: 30; font.bold: true
-                    text: "Welcome to Sysible Linux"
+                    text: "Welcome to Sysible Workstation"
                 }
                 Text {
                     anchors.horizontalCenter: parent.horizontalCenter

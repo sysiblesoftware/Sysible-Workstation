@@ -1,4 +1,4 @@
-# Sysible Linux — Build Roadmap
+# Sysible Workstation — Build Roadmap
 
 A Debian-stable–based engineering **workstation**. We inherit everything we can
 from Debian and maintain only Sysible-specific packages + an opinionated toolkit.

@@ -1,4 +1,4 @@
-# Sysible Linux — the only repo Sysible itself publishes (sysible-* packages).
+# Sysible Workstation — the only repo Sysible itself publishes (sysible-* packages).
 # Everything else comes from Debian or the upstream vendor repos below.
 # Enabled: repo.sysible.com is live (Cloudflare R2). If you ever take the repo
 # down, set Enabled to no first — an enabled entry pointing at a dead host makes

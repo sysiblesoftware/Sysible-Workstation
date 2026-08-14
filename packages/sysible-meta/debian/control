@@ -74,8 +74,8 @@ Recommends:
 Suggests:
  azure-cli, google-cloud-cli,
  sysible-controller, sysible-agent,
-Description: Sysible Linux — engineering workstation (all-in-one)
- Turns a Debian base into the Sysible Linux engineering workstation: the tools a
+Description: Sysible Workstation — engineering workstation (all-in-one)
+ Turns a Debian base into the Sysible Workstation engineering workstation: the tools a
  Linux/DevOps/SRE/platform engineer reaches for, installed and ready on first boot,
  so there is no half-hour of apt after every fresh install.
  .

@@ -1,4 +1,4 @@
-# Sysible Linux — optional-apps package tree (Calamares netinstall).
+# Sysible Workstation — optional-apps package tree (Calamares netinstall).
 #
 # One parent group with a checkbox per app. Everything is off by default and the
 # group is non-critical: if the network is down or a vendor package fails, the

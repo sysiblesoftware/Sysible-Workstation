@@ -1,6 +1,6 @@
 #!/bin/sh
-# Put the "Install Sysible Linux" launcher on the desktop — but ONLY in the live
-# session, i.e. when Sysible Linux is running from the ISO and is not yet
+# Put the "Install Sysible Workstation" launcher on the desktop — but ONLY in the live
+# session, i.e. when Sysible Workstation is running from the ISO and is not yet
 # installed to disk. Debian live boots with `boot=live` on the kernel command
 # line; an installed system does not, so that flag is our "not installed" test.
 # (Once Calamares installs to disk, the icon simply won't be recreated.)

@@ -1,4 +1,4 @@
-# Authoritative default list of GNOME Shell extensions enabled on Sysible Linux.
+# Authoritative default list of GNOME Shell extensions enabled on Sysible Workstation.
 # It lives in the PACKAGE (not just the ISO's /etc/dconf) so `apt upgrade` can add
 # a newly-shipped extension — e.g. the Sysible system monitor — to systems that
 # were installed from an older image.

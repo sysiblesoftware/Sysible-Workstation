@@ -1,4 +1,4 @@
-# Sysible Linux — ISO (live-build)
+# Sysible Workstation — ISO (live-build)
 
 Builds a bootable GNOME workstation ISO with `sysible-workstation` preinstalled
 and a Calamares graphical installer.

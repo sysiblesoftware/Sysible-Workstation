@@ -1,6 +1,6 @@
 [Desktop Entry]
 Type=Application
-Name=Sysible Linux desktop installer icon
+Name=Sysible Workstation desktop installer icon
 Exec=sysible-live-desktop-icon
 Terminal=false
 NoDisplay=true

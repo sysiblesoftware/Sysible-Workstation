@@ -1,4 +1,4 @@
-"""`sysible verify` — validate that a Sysible Linux box is ready for engineering work.
+"""`sysible verify` — validate that a Sysible Workstation box is ready for engineering work.
 
 Each check returns a Result(status, detail). Status is one of:
     ok    — good to go

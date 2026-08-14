@@ -10,8 +10,8 @@ Rules-Requires-Root: no
 Package: sysible-cli
 Architecture: all
 Depends: ${python3:Depends}, ${misc:Depends}
-Description: Sysible Linux command-line tool (`sysible`)
- The `sysible` command for Sysible Linux. Ships `sysible verify`, which validates
+Description: Sysible Workstation command-line tool (`sysible`)
+ The `sysible` command for Sysible Workstation. Ships `sysible verify`, which validates
  that the box is ready for engineering work — network, DNS, SSH, container runtime,
  Ansible, Terraform/OpenTofu, Kubernetes tooling, virtualization, security posture,
  Sysible Controller reachability, and pending updates — with a human-readable report

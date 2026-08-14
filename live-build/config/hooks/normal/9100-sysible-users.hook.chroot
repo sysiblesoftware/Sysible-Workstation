@@ -1,5 +1,5 @@
 #!/bin/sh
-# Sysible Linux default identities: user 'sysible' / password 'sysible', and
+# Sysible Workstation default identities: user 'sysible' / password 'sysible', and
 # root / 'sysible'. CHANGE THESE before any public or production build.
 set -e
 DEFUSER=sysible

@@ -1,5 +1,5 @@
 #!/bin/sh
-# live-build configuration for the Sysible Linux ISO.
+# live-build configuration for the Sysible Workstation ISO.
 set -e
 
 # Architecture is parameterized (SYSIBLE_ARCH): amd64 (default) or arm64.
@@ -20,8 +20,8 @@ lb config noauto \
   --binary-images iso-hybrid \
   --debian-installer none \
   --bootappend-live "boot=live components username=sysible user-fullname=Sysible user-default-groups=sudo,kvm,libvirt,docker,wireshark,plugdev,netdev,video,audio" \
-  --iso-application "Sysible Linux" \
+  --iso-application "Sysible Workstation" \
   --iso-publisher "Sysible" \
-  --iso-volume "Sysible Linux" \
+  --iso-volume "Sysible Workstation" \
   --memtest none \
   "${@}"

@@ -1,4 +1,4 @@
-# Working agreement — Sysible Linux
+# Working agreement — Sysible Workstation
 
 ## 🚫 NEVER build an ISO unless explicitly told to — HARD RULE
 Do **NOT** trigger an ISO build under any circumstances unless the user, in that same

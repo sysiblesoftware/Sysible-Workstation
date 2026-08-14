@@ -1,4 +1,4 @@
-# Sysible Linux GNOME defaults. These set DEFAULT values only — a user is free
+# Sysible Workstation GNOME defaults. These set DEFAULT values only — a user is free
 # to change any of them; they just land on brand out of the box.
 [org.gnome.desktop.background]
 picture-uri='file:///usr/share/backgrounds/sysible/sysible-topographic-light.jpg'

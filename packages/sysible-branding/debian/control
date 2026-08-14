@@ -8,7 +8,7 @@ Standards-Version: 4.6.2
 Package: sysible-branding
 Architecture: all
 Depends: ${misc:Depends}
-Description: Sysible Linux visual branding (SES)
+Description: Sysible Workstation visual branding (SES)
  The SES brand assets that are not otherwise packaged: the GRUB boot theme, the
  GDM login/lock background, the Sysible application icons, and the Sora brand
  font. Installing or upgrading this package re-applies the current brand to the

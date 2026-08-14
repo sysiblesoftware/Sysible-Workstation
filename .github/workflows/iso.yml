@@ -1,6 +1,6 @@
 name: ISO
 
-# Build the COMPLETE Sysible Linux ISO on GitHub's runners, whose network is not
+# Build the COMPLETE Sysible Workstation ISO on GitHub's runners, whose network is not
 # HTTPS-inspected, so every vendor tool (Docker, Kubernetes, Terraform, cloud
 # CLIs, VS Code) bakes in. Download the finished .iso from the run's Artifacts,
 # or — on a version tag (v*) — from the published GitHub Release.
@@ -86,7 +86,7 @@ jobs:
           # Per-part checksums, for verifying the downloads BEFORE reassembly.
           sha256sum -b "$BASE".*.part > "SHA256SUMS.$A.parts"
           cat > "REASSEMBLE.$A.md" <<EOF
-          # Sysible Linux ($A) — reassemble the ISO
+          # Sysible Workstation ($A) — reassemble the ISO
 
           The ISO is ~3.4 GB, over GitHub's 2 GB per-file release limit, so it is
           split into \`$BASE.*.part\` pieces.
@@ -154,7 +154,7 @@ jobs:
           # On a tag push, use that tag; on a dispatch, create/use inputs.tag
           # at the checked-out commit (action creates the tag if it's new).
           tag_name: ${{ github.ref_type == 'tag' && github.ref_name || inputs.tag }}
-          name: Sysible Linux ${{ github.ref_type == 'tag' && github.ref_name || inputs.tag }}
+          name: Sysible Workstation ${{ github.ref_type == 'tag' && github.ref_name || inputs.tag }}
           files: |
             release/*.part
             release/SHA256SUMS.*
@@ -165,7 +165,7 @@ jobs:
           generate_release_notes: false
           append_body: false
           body: |
-            **Sysible Linux 1.0.2 “Ignition”** — the engineering & automation workstation.
+            **Sysible Workstation 1.0.2 “Ignition”** — the engineering & automation workstation.
 
             A live Debian-stable image with the whole toolchain baked in: containers,
             Kubernetes, infrastructure-as-code, cloud CLIs, VSCodium and the SysTerm

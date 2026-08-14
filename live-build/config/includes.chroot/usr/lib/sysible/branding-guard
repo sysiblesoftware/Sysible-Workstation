@@ -9,12 +9,12 @@ set -e
 [ "$(id -u)" = 0 ] || exit 0
 
 # 1) os-release — base-files upgrades rewrite /usr/lib/os-release back to Debian.
-want='PRETTY_NAME="Sysible Linux"'
+want='PRETTY_NAME="Sysible Workstation"'
 if ! grep -q "$want" /usr/lib/os-release 2>/dev/null && \
    ! grep -q "$want" /etc/os-release 2>/dev/null; then
     cat > /usr/lib/os-release <<'OSREL'
-PRETTY_NAME="Sysible Linux"
-NAME="Sysible Linux"
+PRETTY_NAME="Sysible Workstation"
+NAME="Sysible Workstation"
 ID=sysible
 ID_LIKE=debian
 VERSION="0.1 (Ignition)"
@@ -32,7 +32,7 @@ fi
 [ -x /usr/lib/sysible/apply-login-background ] && /usr/lib/sysible/apply-login-background || true
 
 # 3) GRUB entry titles — grub-common upgrades restore the stock 10_linux, turning
-#    "Sysible Linux" back into "Sysible GNU/Linux". Re-apply the one-line patch,
+#    "Sysible Workstation" back into "Sysible GNU/Linux". Re-apply the one-line patch,
 #    and only regenerate grub.cfg if we actually changed something.
 if [ -f /etc/grub.d/10_linux ] && \
    grep -q '${GRUB_DISTRIBUTOR} GNU/Linux' /etc/grub.d/10_linux; then

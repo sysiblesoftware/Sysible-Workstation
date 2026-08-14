@@ -1,6 +1,6 @@
-# Sysible Linux — third-party licenses & written offer for source
+# Sysible Workstation — third-party licenses & written offer for source
 
-Sysible Linux is a Debian-based live/installable system: an aggregate of many
+Sysible Workstation is a Debian-based live/installable system: an aggregate of many
 independent programs, each under its own license. This document (a) makes the
 GPL/LGPL written offer for corresponding source code, (b) lists the non-Debian
 components Sysible bundles and their licenses, and (c) records the software
@@ -21,7 +21,7 @@ carries its own license and copyright in
 ## 2. Written offer for corresponding source (GPL/LGPL/MPL §3)
 
 For any GPL-, LGPL-, MPL-, or other copyleft-licensed binary distributed as part
-of a Sysible Linux ISO, we make the following offer, **valid for three (3) years
+of a Sysible Workstation ISO, we make the following offer, **valid for three (3) years
 from the date you received the image**:
 
 > You may obtain the complete corresponding source code for any copyleft

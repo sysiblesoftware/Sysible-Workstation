@@ -1,8 +1,8 @@
 #!/bin/sh
-# Auto-launch the Sysible Linux installer, but ONLY when booted via the
-# "Install Sysible Linux" boot-menu entry (which adds `sysible.install` to the
+# Auto-launch the Sysible Workstation installer, but ONLY when booted via the
+# "Install Sysible Workstation" boot-menu entry (which adds `sysible.install` to the
 # kernel command line). The plain "Live" entry boots straight to the desktop,
-# where the "Install Sysible Linux" icon is still available on demand.
+# where the "Install Sysible Workstation" icon is still available on demand.
 grep -qw sysible.install /proc/cmdline 2>/dev/null || exit 0
 # let the GNOME session + polkit agent come up first
 sleep 6

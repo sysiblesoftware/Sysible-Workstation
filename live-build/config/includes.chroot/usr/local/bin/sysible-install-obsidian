@@ -1,7 +1,7 @@
 #!/bin/sh
 # sysible-install-obsidian — install Obsidian from the OFFICIAL vendor release.
 #
-# Sysible Linux ships CherryTree (open source, and available on arm64) instead
+# Sysible Workstation ships CherryTree (open source, and available on arm64) instead
 # of Obsidian, because Obsidian is proprietary — Sysible can't legally
 # redistribute it, and it has no apt repository, so it can't be offered as a
 # checkbox in the installer's Optional-apps page. You may still install it
@@ -14,7 +14,7 @@ arch="$(dpkg --print-architecture)"
 if [ "$arch" != "amd64" ]; then
     cat >&2 <<EOF
 Obsidian publishes an official .deb for amd64 only (there is no arm64 build —
-that gap is exactly why Sysible Linux ships CherryTree instead). On $arch, use
+that gap is exactly why Sysible Workstation ships CherryTree instead). On $arch, use
 CherryTree (already installed), or Obsidian's AppImage from https://obsidian.md.
 EOF
     exit 1

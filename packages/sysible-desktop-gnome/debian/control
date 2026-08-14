@@ -11,8 +11,8 @@ Package: sysible-desktop-gnome
 Architecture: all
 Depends: ${misc:Depends}, sysible-artwork, dconf-gsettings-backend
 Recommends: gnome-core, systerm
-Description: Sysible Linux GNOME desktop defaults
- Sets the out-of-the-box GNOME look for Sysible Linux: Mesh (Dark) as the default
+Description: Sysible Workstation GNOME desktop defaults
+ Sets the out-of-the-box GNOME look for Sysible Workstation: Mesh (Dark) as the default
  wallpaper and lock screen, dark colour scheme, the blue brand accent, SysTerm as
  the default terminal, and a sensible favourites bar. Ships as gschema default
  overrides, so every setting stays user-changeable.

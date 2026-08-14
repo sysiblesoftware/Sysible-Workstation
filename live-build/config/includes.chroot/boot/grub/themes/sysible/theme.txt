@@ -1,4 +1,4 @@
-# Sysible Linux — GRUB theme.
+# Sysible Workstation — GRUB theme.
 # Dark topographic background, Sysible lockup near the top, and a subtle
 # translucent card with a thin green left accent behind the selected entry
 # (a sliced pixmap, selbar_*.png) — no saturated "pill". Fonts are the GRUB
@@ -53,5 +53,5 @@ message-bg-color: "#0a0d13"
     width = 100%
     align = "center"
     color = "#6f7d94"
-    text = "Sysible Linux — engineering & automation workstation"
+    text = "Sysible Workstation — engineering & automation workstation"
 }

@@ -1,6 +1,6 @@
 [Plymouth Theme]
 Name=Sysible
-Description=Sysible Linux boot splash
+Description=Sysible Workstation boot splash
 ModuleName=script
 
 [script]

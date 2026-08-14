@@ -63,7 +63,7 @@ def _overall(results) -> str:
 
 
 def main(argv=None) -> int:
-    p = argparse.ArgumentParser(prog="sysible", description="Sysible Linux command-line tool.")
+    p = argparse.ArgumentParser(prog="sysible", description="Sysible Workstation command-line tool.")
     p.add_argument("-V", "--version", action="version", version=f"sysible {__version__}")
     sub = p.add_subparsers(dest="command")
 
