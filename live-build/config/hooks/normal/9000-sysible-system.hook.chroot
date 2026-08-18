@@ -35,6 +35,21 @@ LOGO=sysible-logo
 OSREL
 printf 'Sysible Workstation \\n \\l\n\n' > /etc/issue
 echo "Sysible Workstation" > /etc/issue.net
+
+# MOTD — remove the Debian boilerplate shown on a console login. Two sources:
+#   1. /etc/motd (base-files): "The programs included with the Debian GNU/Linux
+#      system are free software ... ABSOLUTELY NO WARRANTY ..."
+#   2. /etc/update-motd.d/10-uname: prints "Linux <host> <kernel> ... Debian ..."
+#      into /run/motd.dynamic, which pam_motd then displays.
+# Replace (1) with a short Sysible banner and disable (2).
+cat > /etc/motd <<'MOTD'
+
+Sysible Workstation — engineering & automation desktop
+Docs: https://sysible.com
+
+MOTD
+chmod -x /etc/update-motd.d/10-uname 2>/dev/null || true
+rm -f /run/motd.dynamic 2>/dev/null || true
 # SSH is intentionally NOT enabled by default (a desktop/workstation image should
 # not expose a network login surface out of the box). openssh-server's postinst
 # enables ssh on install, so DISABLE it here; users turn it on deliberately with
