@@ -11,11 +11,29 @@ jobs:
     # GRUB theme, hicolor icons, Calamares config, systemd units, package list)
     # that the package build below does not exercise.
     runs-on: ubuntu-latest
+    # Without a cap, a stuck apt (see below) hangs for GitHub's 6-hour default.
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
-      - name: Install validators
-        run: sudo apt-get update -qq && sudo apt-get install -y --no-install-recommends
-             python3-pil python3-yaml libxml2-utils
+      # These validators are OPTIONAL: check-config.py degrades gracefully when
+      # PIL / PyYAML / xmllint are missing, it just skips those checks. So
+      # installing them must never block or fail the job. It used to:
+      # `apt-get update && apt-get install` regularly stalls for 20+ minutes on
+      # the dpkg/apt lock held by the runner's own unattended-upgrades timer, and
+      # `-qq` prints nothing, so the step looks frozen with no output.
+      # Now: pip for the Python bits (no dpkg lock), apt ONLY if xmllint is
+      # genuinely absent, with a hard timeout plus a bounded lock wait.
+      - name: Install validators (best-effort, never blocking)
+        run: |
+          python3 -m pip install --quiet --disable-pip-version-check PyYAML Pillow || true
+          if ! command -v xmllint >/dev/null 2>&1; then
+            sudo timeout 120 apt-get update -qq || true
+            sudo timeout 180 env DEBIAN_FRONTEND=noninteractive \
+              apt-get install -y -o DPkg::Lock::Timeout=60 --no-install-recommends libxml2-utils || true
+          fi
+          python3 -c "import yaml; print('PyYAML ok')" || echo "PyYAML absent - YAML checks skipped"
+          python3 -c "import PIL;  print('Pillow ok')" || echo "Pillow absent - image checks skipped"
+          command -v xmllint >/dev/null && echo "xmllint ok" || echo "xmllint absent - XML checks skipped"
       - name: Check live-build config
         run: python3 scripts/check-config.py
 
