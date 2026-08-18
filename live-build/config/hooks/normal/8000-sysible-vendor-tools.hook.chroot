@@ -216,6 +216,30 @@ else
     echo "ollama skipped (download) — sysible ai will guide install on first use"
 fi
 
+# Magnitude — open-source AI coding agent (Apache-2.0, github.com/magnitudedev/
+# magnitude). Installed globally with npm (nodejs/npm come from the toolkit
+# package list, so they're present here). The `@magnitudedev/cli` package is a
+# thin launcher that runs under Node and, on first `magnitude` run, downloads its
+# platform binary — so first use needs network (like a model pull); the command
+# itself ships baked in. Fits the workstation's local-AI story: it can drive the
+# bundled Ollama or a cloud provider. Best-effort — a registry hiccup must never
+# fail the ISO.
+echo "== magnitude (AI coding agent CLI) =="
+if command -v npm >/dev/null 2>&1; then
+    if npm install -g @magnitudedev/cli --no-fund --no-audit >/tmp/magnitude.log 2>&1; then
+        mag_ver=$(npm ls -g @magnitudedev/cli 2>/dev/null | grep -oE '@magnitudedev/cli@[0-9][0-9.]*' | head -1)
+        command -v magnitude >/dev/null 2>&1 \
+            && echo "magnitude ok (${mag_ver:-@magnitudedev/cli}) — run: magnitude" \
+            || echo "WARNING: @magnitudedev/cli installed but 'magnitude' not on PATH"
+    else
+        echo "WARNING: 'npm i -g @magnitudedev/cli' failed — skipping magnitude"
+        tail -3 /tmp/magnitude.log 2>/dev/null | sed 's/^/   /'
+    fi
+    rm -f /tmp/magnitude.log
+else
+    echo "WARNING: npm not present in chroot — cannot install magnitude, skipping"
+fi
+
 # Desktop notes: CherryTree (GPL, hierarchical note-taking) — it's in Debian, so
 # it installs via the toolkit package list on BOTH amd64 and arm64 (no fetch
 # here). It replaced Obsidian, which is proprietary freeware not licensed for
