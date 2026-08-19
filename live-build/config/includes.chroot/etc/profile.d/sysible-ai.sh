@@ -32,31 +32,10 @@ sai() {
     return "$_rc"
 }
 
-# Optional post-command hint. After a command fails, print a dim one-liner
-# pointing at `sai !!`. Skipped for commands that routinely exit non-zero
-# (grep no-match, tests, diffs) so it isn't noisy. Disable with SYSIBLE_AI_HINT=0.
-if [ -n "$BASH_VERSION" ] && [ -n "$PS1" ]; then
-    __sysible_ai_hint() {
-        local _rc=$?
-        [ "${SYSIBLE_AI_HINT:-1}" = 0 ] && return "$_rc"
-        # Inside SysTerm's Atlas pane, the failure is surfaced there — no text hint.
-        [ -n "$SYSIBLE_ATLAS_FIFO" ] && return "$_rc"
-        if [ "$_rc" -ne 0 ] && [ "$_rc" -ne 130 ]; then
-            local _last _w
-            _last=$(HISTTIMEFORMAT= history 1 2>/dev/null | sed 's/^ *[0-9]*[ *]*//')
-            _w=${_last%% *}
-            case "$_w" in
-                grep|egrep|fgrep|rg|ag|test|'['|'[['|diff|cmp|pgrep|pkill|find|'') return "$_rc" ;;
-            esac
-            printf '\033[2m✦ exit %d · explain: \033[0m\033[1msai !!\033[0m\n' "$_rc"
-        fi
-        return "$_rc"
-    }
-    case ";${PROMPT_COMMAND};" in
-        *";__sysible_ai_hint;"*) : ;;
-        *) PROMPT_COMMAND="__sysible_ai_hint;${PROMPT_COMMAND:-}" ;;
-    esac
-fi
+# (The post-command "✦ exit N · explain: sai !!" auto-hint has been removed —
+# nothing prints automatically after a failed command. The `sai` command above
+# stays available for on-demand explanations, and the SysTerm Atlas integration
+# below is unaffected.)
 
 # --- Sysible Atlas: SysTerm AI companion integration -----------------------
 # When bash runs inside SysTerm with the Atlas pane wired, a per-pane FIFO is
