@@ -98,6 +98,14 @@ jobs:
         run: aws s3 sync --endpoint-url "$R2_ENDPOINT" "$STATE_URI" "$HOME/.aptly" || echo "no prior aptly state (first run)"
 
       - name: Build all packages
+        # Stamp a unique, monotonic version suffix onto every package so each
+        # publish lands at a fresh, never-cached pool path. This is the root-cause
+        # fix for the "File has unexpected size" apt failure: a same-version
+        # rebuild can no longer collide with an immutably-cached .deb at the edge,
+        # and it self-heals a stale repo on the next publish without a CDN purge.
+        # github.run_number is monotonic, so the version always sorts as an upgrade.
+        env:
+          SYSIBLE_VERSION_SUFFIX: "+ci${{ github.run_number }}"
         run: ./scripts/build-all.sh
 
       - name: Select suite
