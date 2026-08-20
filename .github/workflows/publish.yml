@@ -4,6 +4,13 @@ on:
   push:
     branches: [main]        # -> sysible-dev
     tags: ['v*']            # -> sysible-stable
+  workflow_dispatch:        # re-publish on demand (e.g. to refresh the repo + purge the CDN)
+    inputs:
+      suite:
+        description: 'Which suite to (re)publish'
+        type: choice
+        options: [dev, stable]
+        default: stable
 
 # Least privilege: this job only reads the repo and pushes to R2 (not to GitHub),
 # so the GITHUB_TOKEN needs no write scope.
@@ -95,8 +102,14 @@ jobs:
 
       - name: Select suite
         id: suite
+        env:
+          DISPATCH_SUITE: ${{ github.event.inputs.suite }}
         run: |
-          if [ "${GITHUB_REF#refs/tags/}" != "$GITHUB_REF" ]; then
+          # A manual re-publish (workflow_dispatch) picks its suite explicitly;
+          # otherwise a tag -> stable, a branch push -> dev.
+          if [ -n "$DISPATCH_SUITE" ]; then
+            echo "name=sysible-$DISPATCH_SUITE" >> "$GITHUB_OUTPUT"
+          elif [ "${GITHUB_REF#refs/tags/}" != "$GITHUB_REF" ]; then
             echo "name=sysible-stable" >> "$GITHUB_OUTPUT"
           else
             echo "name=sysible-dev" >> "$GITHUB_OUTPUT"
@@ -133,6 +146,43 @@ jobs:
           aws s3 cp "$HOME/aptly-public/dists/" "s3://sysible-apt/apt/dists/" \
             --recursive --endpoint-url "$R2_ENDPOINT" --no-progress \
             --cache-control "no-cache, max-age=0, must-revalidate"
+
+      - name: Purge Cloudflare cache
+        # Why this is required: pool/ .deb payloads are cached `immutable` for a
+        # year, but their paths are NOT content-addressed — so if the SAME package
+        # version is ever rebuilt with different bytes (a non-reproducible build,
+        # e.g. a timestamp change) and re-uploaded to the same path, the edge keeps
+        # serving the OLD cached .deb while the fresh no-cache index describes the
+        # NEW one, and apt fails with "File has unexpected size (... != ...)". A
+        # purge after every publish makes the edge re-fetch the current origin and
+        # eliminates that whole class of stale-artifact mismatch.
+        #
+        # Configure once: repo variable CLOUDFLARE_ZONE_ID + secret
+        # CLOUDFLARE_API_TOKEN (Zone.Cache Purge permission). Optional repo
+        # variable REPO_HOST (default repo.sysible.com) scopes the purge to just
+        # the apt host. No-op (with a warning) until the zone id is set, so this
+        # never blocks a publish.
+        if: ${{ vars.CLOUDFLARE_ZONE_ID != '' }}
+        env:
+          CF_ZONE: ${{ vars.CLOUDFLARE_ZONE_ID }}
+          CF_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CF_HOST: ${{ vars.REPO_HOST }}
+        run: |
+          if [ -z "$CF_TOKEN" ]; then
+            echo "::warning::CLOUDFLARE_ZONE_ID is set but the CLOUDFLARE_API_TOKEN secret is missing — skipping CDN purge. A same-version rebuild can then serve a stale .deb until the cache is purged by hand."
+            exit 0
+          fi
+          host="${CF_HOST:-repo.sysible.com}"
+          echo "Purging Cloudflare cache for host ${host} (zone ${CF_ZONE})…"
+          resp="$(curl -sS -X POST \
+            "https://api.cloudflare.com/client/v4/zones/${CF_ZONE}/purge_cache" \
+            -H "Authorization: Bearer ${CF_TOKEN}" \
+            -H "Content-Type: application/json" \
+            --data "{\"hosts\":[\"${host}\"]}")"
+          echo "$resp"
+          echo "$resp" | grep -q '"success":true' \
+            || { echo "::error::Cloudflare purge failed (see response above)."; exit 1; }
+          echo "Cache purged for ${host}."
 
       - name: Persist aptly database
         run: aws s3 sync --endpoint-url "$R2_ENDPOINT" "$HOME/.aptly" "$STATE_URI"
