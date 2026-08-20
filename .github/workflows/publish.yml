@@ -78,9 +78,19 @@ jobs:
           # into the shell text) so its bytes never land in the command line/logs.
           printf '%s' "$SYSIBLE_GPG_PRIVATE_KEY" | gpg --batch --import
           # The secret must contain the exact key we sign with, and whose public
-          # half is the committed keyring — otherwise clients can't verify.
+          # half is the committed keyring (packages/sysible-release/keyrings/
+          # sysible-archive-keyring.gpg = "$SYSIBLE_GPG_KEY") — otherwise clients
+          # can't verify the repo and `apt update` fails on every host.
           if ! gpg --list-secret-keys "$SYSIBLE_GPG_KEY" >/dev/null 2>&1; then
-            echo "::error::SYSIBLE_GPG_PRIVATE_KEY does not contain $SYSIBLE_GPG_KEY. Update the secret with: gpg --armor --export-secret-keys maintainers@sysible.com"
+            echo "::error::SYSIBLE_GPG_PRIVATE_KEY does not contain the signing key '$SYSIBLE_GPG_KEY' that clients trust."
+            # Show WHICH identities the secret DID hold (UIDs/emails are public, not
+            # secret) so the mismatch is obvious at a glance — a rotated-in wrong key
+            # is the usual cause.
+            echo "The secret actually contains these secret key(s):"
+            gpg --list-secret-keys --keyid-format=long | grep -E '^(sec|uid)' || true
+            echo "Fix: export the private half of the client-trusted key and update the secret:"
+            echo "  gpg --armor --export-secret-keys $SYSIBLE_GPG_KEY   # paste into SYSIBLE_GPG_PRIVATE_KEY"
+            echo "(Do NOT switch signing to the other key — clients trust only '$SYSIBLE_GPG_KEY' until a new sysible-release keyring reaches them.)"
             exit 1
           fi
 
