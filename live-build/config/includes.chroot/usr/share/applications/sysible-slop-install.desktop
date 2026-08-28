@@ -1,0 +1,12 @@
+[Desktop Entry]
+Type=Application
+Version=1.0
+Name=Install Sysible SLOP
+GenericName=Sysible SLOP Installer
+Comment=Install everything: the whole Sysible suite (Controller, SLEP, Connect) behind the SLOP gateway, plus all optional software (Terraform, Vault, Consul, Nomad, Packer, Boundary, AWS CLI, Obsidian)
+Exec=install-sysible slop
+Icon=sysible-logo
+Terminal=true
+Categories=System;Settings;
+Keywords=sysible;slop;install;controller;slep;connect;gateway;suite;everything;
+StartupNotify=true

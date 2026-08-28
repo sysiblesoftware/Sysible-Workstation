@@ -1,0 +1,169 @@
+#!/bin/sh
+# install-sysible — install the Sysible CE stack on a Sysible Workstation, on
+# demand. Nothing about the platform is baked into the ISO except this helper, so
+# a fresh workstation runs no Sysible services and opens no ports until you choose
+# to install them.
+#
+# Each product is cloned to /opt/sysible-src/<repo> and brought up as a container
+# via the suite's unified `sysible_ctl` CLI, which is also installed so you can
+# manage everything afterward (sysible_ctl update all, status, logs, …).
+#
+#   sudo install-sysible                 # pick from a menu (default: all apps)
+#   sudo install-sysible controller slep # install specific builds
+#   sudo install-sysible all             # Controller + SLEP + Connect
+#   sudo install-sysible slop            # ALL THREE + the SLOP gateway (one front
+#                                        # door: https://slop.lan/, app subdomains)
+set -eu
+
+SRC_DIR=/opt/sysible-src
+CTL_REPO="https://github.com/sysiblesoftware/sysible-controller"
+SLEP_REPO="https://github.com/sysiblesoftware/sysible-linux-engineering-platform"
+CONNECT_REPO="https://github.com/sysiblesoftware/sysible-connect"
+SLOP_REPO="https://github.com/sysiblesoftware/sysible-linux-operations-platform"
+
+# Sysible-green whiptail theme (matches sysible-tools).
+export NEWT_COLORS='root=,black
+window=,black
+border=green,black
+title=green,black
+button=black,green
+actbutton=black,green
+checkbox=white,black
+actcheckbox=black,green
+actlistbox=black,green
+compactbutton=green,black
+label=green,black
+'
+
+say()  { printf '%s\n' "$*"; }
+die()  { printf 'ERROR: %s\n' "$*" >&2; exit 1; }
+
+[ "$(id -u)" -eq 0 ] || exec sudo -- "$0" "$@"
+command -v git >/dev/null 2>&1 || die "git is required (it ships on the workstation — check your PATH)."
+command -v docker >/dev/null 2>&1 || die "docker is required. Install Docker Engine + the compose plugin, then re-run."
+
+# ---- choose which builds to install --------------------------------------
+# WANT = the apps to bring up; SLOP=1 also brings up the gateway that fronts them.
+WANT=""
+SLOP=0
+if [ "$#" -gt 0 ]; then
+  for a in "$@"; do
+    case "$a" in
+      all)                     WANT="controller slep connect" ;;
+      # 'slop' = the whole suite behind the single SLOP front door: it needs all
+      # three apps, so select them too.
+      slop)                    WANT="controller slep connect"; SLOP=1 ;;
+      controller|slep|connect) WANT="$WANT $a" ;;
+      *) die "unknown build '$a' (choose: controller slep connect all slop)" ;;
+    esac
+  done
+elif command -v whiptail >/dev/null 2>&1 && [ -t 0 ] && [ -t 1 ]; then
+  CHOICE="$(whiptail --backtitle "Sysible Workstation" --title " Install Sysible CE " \
+    --checklist "\nPick what to install. Each app runs as a container; manage them\nlater with 'sysible_ctl'. Tick SLOP to also put the single front door\n(https://slop.lan/) in front of all three.\n\n  [SPACE] toggle   [TAB] to buttons   [ENTER] confirm\n" \
+    18 76 4 \
+    controller "Sysible Controller — fleet management console" on \
+    slep       "Sysible LEP — infra automation (Terraform/Ansible/Salt)" on \
+    connect    "Sysible Connect — browser terminal workspace" on \
+    slop       "SLOP gateway — one URL/login in front of all three" on \
+    3>&1 1>&2 2>&3)" || { say "Cancelled."; exit 0; }
+  CHOICE="$(printf '%s' "$CHOICE" | tr -d '"')"
+  [ -n "$CHOICE" ] || { say "Nothing selected."; exit 0; }
+  for a in $CHOICE; do
+    case "$a" in
+      slop) SLOP=1 ;;
+      *)    WANT="$WANT $a" ;;
+    esac
+  done
+  # The gateway only makes sense in front of the apps, so if SLOP is ticked make
+  # sure all three are installed regardless of what else was checked.
+  [ "$SLOP" -eq 1 ] && WANT="controller slep connect"
+else
+  # No whiptail / not a TTY: default to everything.
+  WANT="controller slep connect"
+fi
+
+repo_for() { case "$1" in controller) echo "$CTL_REPO" ;; slep) echo "$SLEP_REPO" ;; connect) echo "$CONNECT_REPO" ;; slop) echo "$SLOP_REPO" ;; esac; }
+dirname_for() { basename "$(repo_for "$1")"; }
+envvar_for() { case "$1" in controller) echo SYSIBLE_CONTROLLER_DIR ;; slep) echo SYSIBLE_SLEP_DIR ;; connect) echo SYSIBLE_CONNECT_DIR ;; slop) echo SYSIBLE_SLOP_DIR ;; esac; }
+
+mkdir -p "$SRC_DIR"
+
+# Clone (or refresh) a product's repo into /opt/sysible-src.
+clone_one() {
+  _r="$(repo_for "$1")"; _d="$SRC_DIR/$(dirname_for "$1")"
+  if [ -d "$_d/.git" ]; then
+    say "== updating $(dirname_for "$1") =="; git -C "$_d" pull --ff-only || true
+  else
+    say "== cloning $(dirname_for "$1") =="; git clone --depth 1 "$_r" "$_d"
+  fi
+}
+
+# The Controller checkout ships the unified sysible_ctl. Ensure it's present (clone
+# the Controller even if not selected — it's the source of the CLI) and installed.
+CTL_DIR="$SRC_DIR/$(dirname_for controller)"
+clone_one controller
+if [ -x "$CTL_DIR/deploy/sysible_ctl" ]; then
+  ln -sf "$CTL_DIR/deploy/sysible_ctl" /usr/local/bin/sysible_ctl
+  say "Installed sysible_ctl -> /usr/local/bin/sysible_ctl"
+else
+  die "the Controller checkout has no deploy/sysible_ctl (older main?) — update the repo and retry."
+fi
+
+# ---- bring up each selected build ----------------------------------------
+for p in $WANT; do
+  clone_one "$p"
+  _dir="$SRC_DIR/$(dirname_for "$p")"
+  _var="$(envvar_for "$p")"
+  say
+  say "============================================================"
+  say " Bringing up: $p"
+  say "============================================================"
+  # SYSIBLE_<P>_DIR lets sysible_ctl find the checkout before any container exists.
+  env "$_var=$_dir" sysible_ctl "$p" up
+done
+
+# ---- bring up the SLOP gateway (optional) --------------------------------
+# The gateway fronts the three apps behind one domain/TLS/portal. It's a separate
+# container stack (just Caddy + the portal) managed by the same sysible_ctl, and
+# it proxies to the apps on the host ports they already publish — so it comes up
+# AFTER the apps.
+if [ "$SLOP" -eq 1 ]; then
+  clone_one slop
+  _dir="$SRC_DIR/$(dirname_for slop)"
+  say
+  say "============================================================"
+  say " Bringing up: SLOP gateway (single front door)"
+  say "============================================================"
+  env SYSIBLE_SLOP_DIR="$_dir" sysible_ctl slop up
+
+  # SLOP is the "everything" install, so also add the optional, separately-
+  # licensed software that the ISO can't bundle: the marketplace catalog
+  # (HashiCorp tools + AWS CLI) and Obsidian. Non-interactive — accept the
+  # HashiCorp BUSL notice up front (this is the explicit "install all" path).
+  # Each is best-effort: a vendor download failing never aborts the whole run.
+  say
+  say "============================================================"
+  say " Installing all optional software (HashiCorp tools, AWS CLI, Obsidian)"
+  say "============================================================"
+  if command -v sysible-tools >/dev/null 2>&1; then
+    SYSIBLE_TOOLS_ASSUME_YES=1 sysible-tools install \
+        terraform vault consul nomad packer boundary aws-cli \
+      || say "WARNING: one or more optional tools failed to install (see above)."
+  else
+    say "WARNING: sysible-tools not found — skipping the licensed-tools catalog."
+  fi
+  # Obsidian ships no apt repo and is amd64-only; the helper self-skips elsewhere.
+  if command -v sysible-install-obsidian >/dev/null 2>&1; then
+    sysible-install-obsidian </dev/null \
+      || say "WARNING: Obsidian was not installed (amd64-only, or download failed)."
+  fi
+fi
+
+say
+if [ "$SLOP" -eq 1 ]; then
+  say "Done. One front door is up: https://slop.lan/  (point slop.lan + the"
+  say "controller./slep./connect. subdomains at this host — DNS or /etc/hosts)."
+  say "Manage everything with:  sysible_ctl status   |   sysible_ctl update all"
+else
+  say "Done. Manage everything with:  sysible_ctl status   |   sysible_ctl update all"
+fi
