@@ -57,6 +57,18 @@ jobs:
           echo "R2_ENDPOINT=https://${acct}.r2.cloudflarestorage.com" >> "$GITHUB_ENV"
           echo "Using R2 endpoint host: ${acct}.r2.cloudflarestorage.com"
 
+      - name: Normalize R2 credentials
+        # R2 keys are whitespace-free, but a secret pasted with a trailing
+        # newline makes aws s3 fail with "Invalid header value ... \n ...". Strip
+        # any whitespace and re-export the values (masked) so a stray newline in
+        # the pasted secret can never break request signing.
+        run: |
+          id="$(printf %s "$AWS_ACCESS_KEY_ID" | tr -d "[:space:]")"
+          key="$(printf %s "$AWS_SECRET_ACCESS_KEY" | tr -d "[:space:]")"
+          echo "::add-mask::$id"; echo "::add-mask::$key"
+          echo "AWS_ACCESS_KEY_ID=$id" >> "$GITHUB_ENV"
+          echo "AWS_SECRET_ACCESS_KEY=$key" >> "$GITHUB_ENV"
+
       - name: Install tooling
         run: |
           sudo apt-get update
