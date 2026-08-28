@@ -101,7 +101,7 @@ clone_one() {
 # The Controller checkout ships the unified sysible_ctl. Ensure it's present (clone
 # the Controller even if not selected — it's the source of the CLI) and installed.
 CTL_DIR="$SRC_DIR/$(dirname_for controller)"
-clone_one controller
+clone_one controller || die "could not clone the Controller repo (check network/DNS) — nothing was installed."
 if [ -x "$CTL_DIR/deploy/sysible_ctl" ]; then
   ln -sf "$CTL_DIR/deploy/sysible_ctl" /usr/local/bin/sysible_ctl
   say "Installed sysible_ctl -> /usr/local/bin/sysible_ctl"
@@ -109,17 +109,36 @@ else
   die "the Controller checkout has no deploy/sysible_ctl (older main?) — update the repo and retry."
 fi
 
+# Everything below runs in containers, so the Docker daemon MUST be up. On a fresh
+# install it's enabled but may not have started yet — start it and wait briefly,
+# with a clear error (not a silent abort) if it never comes up.
+if ! docker info >/dev/null 2>&1; then
+  say "== starting the Docker daemon =="
+  systemctl start docker 2>/dev/null || service docker start 2>/dev/null || true
+  _i=0; while [ "$_i" -lt 10 ] && ! docker info >/dev/null 2>&1; do sleep 2; _i=$((_i+1)); done
+fi
+docker info >/dev/null 2>&1 || die "the Docker daemon is not running and could not be started (try: sudo systemctl start docker). Nothing can run in containers until it is up."
+
 # ---- bring up each selected build ----------------------------------------
+# Best-effort: one app failing to clone or build NEVER stops the others; failures
+# are collected and reported at the end instead of aborting (and closing) the run.
+FAILED=""
 for p in $WANT; do
-  clone_one "$p"
-  _dir="$SRC_DIR/$(dirname_for "$p")"
-  _var="$(envvar_for "$p")"
   say
   say "============================================================"
-  say " Bringing up: $p"
+  say " $p — cloning the code, then building + starting its container(s)"
   say "============================================================"
+  if ! clone_one "$p"; then
+    FAILED="$FAILED $p(clone)"; _warn "  could not clone $p — skipping it."; continue
+  fi
+  _dir="$SRC_DIR/$(dirname_for "$p")"
+  _var="$(envvar_for "$p")"
   # SYSIBLE_<P>_DIR lets sysible_ctl find the checkout before any container exists.
-  env "$_var=$_dir" sysible_ctl "$p" up
+  if env "$_var=$_dir" sysible_ctl "$p" up; then
+    say "  $p is up."
+  else
+    FAILED="$FAILED $p"; _warn "  $p did not come up — continuing with the rest (scroll up for the error)."
+  fi
 done
 
 # ---- bring up the SLOP gateway (optional) --------------------------------
@@ -128,13 +147,15 @@ done
 # it proxies to the apps on the host ports they already publish — so it comes up
 # AFTER the apps.
 if [ "$SLOP" -eq 1 ]; then
-  clone_one slop
-  _dir="$SRC_DIR/$(dirname_for slop)"
   say
   say "============================================================"
-  say " Bringing up: SLOP gateway (single front door)"
+  say " SLOP gateway — the single front door in front of the apps"
   say "============================================================"
-  env SYSIBLE_SLOP_DIR="$_dir" sysible_ctl slop up
+  if clone_one slop && env SYSIBLE_SLOP_DIR="$SRC_DIR/$(dirname_for slop)" sysible_ctl slop up; then
+    say "  SLOP gateway is up."
+  else
+    FAILED="$FAILED slop-gateway"; _warn "  the SLOP gateway did not come up (scroll up for the error)."
+  fi
 
   # SLOP is the "everything" install, so also add the optional, separately-
   # licensed software that the ISO can't bundle: the marketplace catalog
@@ -160,10 +181,19 @@ if [ "$SLOP" -eq 1 ]; then
 fi
 
 say
-if [ "$SLOP" -eq 1 ]; then
-  say "Done. One front door is up: https://slop.lan/  (point slop.lan + the"
-  say "controller./slep./connect. subdomains at this host — DNS or /etc/hosts)."
-  say "Manage everything with:  sysible_ctl status   |   sysible_ctl update all"
+if [ -n "$FAILED" ]; then
+  _warn "Finished WITH PROBLEMS — these did not come up:$FAILED"
+  _warn "Inspect with 'sysible_ctl status', retry one with e.g. 'sysible-install <name>',"
+  _warn "and check the errors scrolled above (usually network, DNS, or a Docker build)."
 else
-  say "Done. Manage everything with:  sysible_ctl status   |   sysible_ctl update all"
+  say "All done — the code is cloned under $SRC_DIR and everything is running in containers."
 fi
+if [ "$SLOP" -eq 1 ] && [ -z "$FAILED" ]; then
+  say "One front door is up: https://slop.lan/  (point slop.lan + the"
+  say "controller./slep./connect. subdomains at this host — DNS or /etc/hosts)."
+fi
+say "Manage everything with:  sysible_ctl status   |   sysible_ctl update all"
+
+# Keep the window open when launched from the app-grid icon (a Terminal=true
+# .desktop closes the terminal the instant the script exits, hiding the result).
+if [ -t 0 ] && [ -t 1 ]; then printf '\nPress Enter to close…'; read _ || true; fi
