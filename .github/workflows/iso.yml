@@ -60,9 +60,24 @@ jobs:
       - name: Name the ISO
         run: |
           cd live-build
-          iso=$(ls *.iso | head -1)
+          echo "ISO files produced by the build:"; ls -1 *.iso || true
           out="sysible-workstation-${SYSIBLE_ARCH}.iso"
+          # Pick the real image (iso-hybrid emits *.hybrid.iso), preferring one
+          # that isn't already the target name, and rename it to the branded name.
+          iso=$(ls *.hybrid.iso 2>/dev/null | head -1)
+          [ -n "$iso" ] || iso=$(ls *.iso 2>/dev/null | grep -vx "$out" | head -1)
+          [ -n "$iso" ] || iso="$out"
           [ "$iso" = "$out" ] || mv -v "$iso" "$out"
+          # Delete any OTHER stray .iso so the upload glob can only ever grab the
+          # single branded image — never a generic 'live-image-*'/leftover name.
+          for f in *.iso; do [ "$f" = "$out" ] || rm -vf "$f"; done
+          # Assert the branded ISO is the one and only .iso we ship.
+          left=$(ls -1 *.iso 2>/dev/null)
+          if [ "$left" != "$out" ]; then
+            echo "::error::expected exactly one ISO named '$out', got: $left" >&2
+            exit 1
+          fi
+          echo "Final ISO: $out"
 
       - name: Show result
         run: ls -lh live-build/*.iso
