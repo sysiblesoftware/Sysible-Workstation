@@ -20,11 +20,33 @@ EOF
     exit 1
 fi
 
-api="https://api.github.com/repos/obsidianmd/obsidian-releases/releases/latest"
 echo "Looking up the latest Obsidian release…"
-url="$(curl -fsSL "$api" \
-    | grep -oE 'https://[^"]+/obsidian_[0-9.]+_amd64\.deb' \
-    | head -n1)"
+
+# Resolve the download URL WITHOUT the GitHub API. Unauthenticated api.github.com
+# calls are rate-limited to 60/hour per IP and return HTTP 403 once that's spent
+# (common on a shared/NAT'd network or a fresh box) — which is exactly what makes
+# "the download link not work". Instead follow the /releases/latest browser
+# redirect, which is not rate-limited, to learn the latest tag, then build the
+# asset URL from it. Fall back to the API only if the redirect can't be read.
+url=""
+tag="$(curl -fsSL -o /dev/null -w '%{url_effective}' \
+        "https://github.com/obsidianmd/obsidian-releases/releases/latest" 2>/dev/null \
+        | sed -n 's#.*/releases/tag/##p')"
+if [ -n "$tag" ]; then
+    ver="${tag#v}"
+    cand="https://github.com/obsidianmd/obsidian-releases/releases/download/${tag}/obsidian_${ver}_amd64.deb"
+    # Confirm the asset actually exists (naming has been stable, but verify so a
+    # rename falls through to the API rather than 404-ing the download).
+    if curl -fsIL -o /dev/null "$cand" 2>/dev/null; then
+        url="$cand"
+    fi
+fi
+if [ -z "$url" ]; then
+    api="https://api.github.com/repos/obsidianmd/obsidian-releases/releases/latest"
+    url="$(curl -fsSL "$api" 2>/dev/null \
+        | grep -oE 'https://[^"]+/obsidian_[0-9.]+_amd64\.deb' \
+        | head -n1)"
+fi
 
 if [ -z "${url:-}" ]; then
     echo "Could not determine the download URL. Get the .deb from https://obsidian.md/download" >&2

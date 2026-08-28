@@ -34,6 +34,7 @@ CATALOG=(
   "packer|packer|packer|BUSL-1.1|Build machine images from a single source"
   "boundary|boundary|boundary|BUSL-1.1|Identity-aware access to remote hosts"
   "aws-cli|aws|-|Apache-2.0|Amazon Web Services CLI v2 (official installer)"
+  "obsidian|obsidian|-|Proprietary (free)|Markdown knowledge base — official vendor .deb (amd64 only; CherryTree ships by default)"
 )
 
 # HashiCorp ids are BUSL-1.1 and share the apt path + license gate.
@@ -173,7 +174,10 @@ install_one() {  # install_one <id>
   if is_installed "$id"; then echo "$id is already installed — skipping."; return 0; fi
   pkg="$(field "$row" 3)"
   case "$id" in
-    aws-cli) install_aws_cli ;;
+    aws-cli)  install_aws_cli ;;
+    # Obsidian is proprietary with no apt repo, so it has its own vendor-release
+    # installer (amd64-only; it self-skips on other arches).
+    obsidian) sysible-install-obsidian ;;
     *)  # apt path (HashiCorp)
         case "$HASHICORP_IDS" in *" $id "*) ensure_hashicorp_repo ;; esac
         install_apt "$pkg" ;;
@@ -287,7 +291,7 @@ sysible-tools — install optional, separately-licensed tools on demand.
   sysible-tools list            show the catalog and install state
   sysible-tools install <tool…> install specific tools non-interactively
 
-Tools: terraform vault consul nomad packer boundary aws-cli
+Tools: terraform vault consul nomad packer boundary aws-cli obsidian
 Env:   SYSIBLE_TOOLS_ASSUME_YES=1  accept the BUSL-1.1 notice non-interactively
 EOF
     ;;
