@@ -1,0 +1,12 @@
+[Desktop Entry]
+Type=Application
+Version=1.0
+Name=Sysible Tools — Optional Software
+GenericName=Optional software marketplace
+Comment=Install optional / separately-licensed tools (Terraform, Vault, Consul, Nomad, Packer, Boundary, AWS CLI) on demand
+Exec=sysible-tools
+Icon=system-software-install
+Terminal=true
+Categories=System;Settings;PackageManager;
+Keywords=sysible;tools;terraform;vault;consul;nomad;packer;boundary;aws;hashicorp;install;software;marketplace;
+StartupNotify=true

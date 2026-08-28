@@ -1,0 +1,295 @@
+#!/usr/bin/env bash
+# sysible-tools — install optional, separately-licensed tools on demand.
+#
+# Some tooling can't be baked into the Sysible Workstation image for LICENSING
+# reasons — most notably HashiCorp's products (Terraform, Vault, Consul, Nomad,
+# Packer, Boundary), which moved to the Business Source License (BUSL-1.1). The
+# ISO ships the open OpenTofu (`tofu`) in Terraform's place; this menu lets an
+# operator install the licensed originals AFTER boot, so the choice — and the
+# license acceptance — is theirs, not baked into the distributed image.
+#
+# Everything here installs from the VENDOR's own official channel:
+#   - HashiCorp tools: the apt repo already configured on the image
+#     (/etc/apt/sources.list.d/hashicorp.sources + /usr/share/keyrings/hashicorp.gpg).
+#   - AWS CLI v2: Amazon's official installer (not packaged in Debian).
+# gcloud and the Azure CLI are already in the image, so they're shown as
+# installed and skipped.
+#
+# Usage:
+#   sysible-tools            # interactive menu (whiptail, or a text fallback)
+#   sysible-tools list       # print the catalog and install state
+#   sysible-tools install terraform vault ...   # non-interactive
+set -euo pipefail
+
+KEYRING_SCRIPT=/usr/share/sysible/scripts/fetch-third-party-keyrings.sh
+HASHICORP_KEYRING=/usr/share/keyrings/hashicorp.gpg
+
+# ---- catalog -------------------------------------------------------------
+# id | binary to test for | apt package (or "-" for a custom installer) | license | one-line description
+CATALOG=(
+  "terraform|terraform|terraform|BUSL-1.1|Infrastructure as code (the licensed original; OpenTofu 'tofu' ships by default)"
+  "vault|vault|vault|BUSL-1.1|Secrets management and data protection"
+  "consul|consul|consul|BUSL-1.1|Service discovery and service mesh"
+  "nomad|nomad|nomad|BUSL-1.1|Workload orchestrator (containers, VMs, binaries)"
+  "packer|packer|packer|BUSL-1.1|Build machine images from a single source"
+  "boundary|boundary|boundary|BUSL-1.1|Identity-aware access to remote hosts"
+  "aws-cli|aws|-|Apache-2.0|Amazon Web Services CLI v2 (official installer)"
+)
+
+# HashiCorp ids are BUSL-1.1 and share the apt path + license gate.
+HASHICORP_IDS=" terraform vault consul nomad packer boundary "
+
+# ---- Sysible-green whiptail/newt theme -----------------------------------
+# whiptail reads NEWT_COLORS for its palette. Without it the menu is the stock
+# blue-and-red "awful" default; this dresses it in Sysible green so the picker
+# matches the rest of the server (status bar, boot splash, wallpapers).
+export NEWT_COLORS='
+root=,black
+window=,black
+border=green,black
+title=green,black
+button=black,green
+compactbutton=green,black
+actbutton=black,green
+checkbox=white,black
+actcheckbox=black,green
+entry=white,black
+label=green,black
+listbox=white,black
+actlistbox=black,green
+sellistbox=black,green
+textbox=white,black
+acttextbox=black,green
+roottext=green,black
+emptyscale=,black
+fullscale=,green
+helpline=green,black
+'
+BACKTITLE="Sysible Workstation  ·  optional software"
+
+# ---- helpers -------------------------------------------------------------
+field() { printf '%s' "$1" | cut -d'|' -f"$2"; }
+
+row_for() {  # row_for <id> -> the catalog line, or empty
+  local id="$1" row
+  for row in "${CATALOG[@]}"; do
+    [ "$(field "$row" 1)" = "$id" ] && { printf '%s' "$row"; return 0; }
+  done
+  return 1
+}
+
+is_installed() {  # is_installed <id>
+  local row bin
+  row="$(row_for "$1")" || return 1
+  bin="$(field "$row" 2)"
+  command -v "$bin" >/dev/null 2>&1
+}
+
+need_root() {
+  if [ "$(id -u)" -ne 0 ]; then
+    echo "sysible-tools needs root to install packages — re-running under sudo…" >&2
+    exec sudo -- "$0" "$@"
+  fi
+}
+
+ensure_hashicorp_repo() {
+  # The image ships the repo + keyring; re-fetch the keyring defensively if a
+  # given build somehow lacks it, so `apt install` never fails on a missing key.
+  if [ ! -s "$HASHICORP_KEYRING" ] && [ -x "$KEYRING_SCRIPT" ]; then
+    echo "== fetching HashiCorp signing key =="
+    "$KEYRING_SCRIPT" || true
+  fi
+  if [ ! -s "$HASHICORP_KEYRING" ]; then
+    echo "ERROR: HashiCorp signing key ($HASHICORP_KEYRING) is missing and could" >&2
+    echo "       not be fetched. Check network/DNS, then retry." >&2
+    return 1
+  fi
+}
+
+APT_UPDATED=0
+apt_update_once() {
+  [ "$APT_UPDATED" = "1" ] && return 0
+  echo "== apt-get update =="
+  DEBIAN_FRONTEND=noninteractive apt-get update
+  APT_UPDATED=1
+}
+
+install_apt() {  # install_apt <pkg>
+  apt_update_once
+  echo "== installing $1 =="
+  DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends "$1"
+}
+
+install_aws_cli() {
+  command -v aws >/dev/null 2>&1 && { echo "aws-cli already installed."; return 0; }
+  local arch url tmp
+  case "$(dpkg --print-architecture)" in
+    amd64) arch=x86_64 ;;
+    arm64) arch=aarch64 ;;
+    *) echo "ERROR: AWS CLI v2 has no build for this architecture." >&2; return 1 ;;
+  esac
+  for c in curl unzip; do
+    command -v "$c" >/dev/null 2>&1 || install_apt "$c"
+  done
+  url="https://awscli.amazonaws.com/awscli-exe-linux-${arch}.zip"
+  tmp="$(mktemp -d)"; trap 'rm -rf "$tmp"' RETURN
+  echo "== downloading AWS CLI v2 ($arch) =="
+  curl -fsSL --connect-timeout 20 --max-time 300 "$url" -o "$tmp/awscliv2.zip"
+  unzip -q "$tmp/awscliv2.zip" -d "$tmp"
+  echo "== installing AWS CLI v2 =="
+  "$tmp/aws/install" --update
+}
+
+license_ack() {  # license_ack <space-separated ids> ; returns 0 to proceed
+  local ids="$1" hc=""
+  for id in $ids; do
+    case "$HASHICORP_IDS" in *" $id "*) hc="$hc $id" ;; esac
+  done
+  [ -z "$hc" ] && return 0
+  cat <<EOF
+
+------------------------------------------------------------------
+ LICENSE NOTICE
+   These tools are distributed by HashiCorp under the Business
+   Source License 1.1 (BUSL-1.1), NOT open source. They are not
+   shipped in the Sysible Workstation image for that reason. Installing
+   them means YOU accept HashiCorp's license terms:
+       https://www.hashicorp.com/bsl
+   Affected:$hc
+------------------------------------------------------------------
+EOF
+  if [ "${SYSIBLE_TOOLS_ASSUME_YES:-0}" = "1" ]; then
+    echo "SYSIBLE_TOOLS_ASSUME_YES=1 — accepting BUSL-1.1 non-interactively."
+    return 0
+  fi
+  printf "Accept and continue? [y/N] "
+  read -r ans
+  case "$ans" in y|Y|yes|YES) return 0 ;; *) echo "Cancelled."; return 1 ;; esac
+}
+
+install_one() {  # install_one <id>
+  local id="$1" row pkg
+  row="$(row_for "$id")" || { echo "Unknown tool: $id" >&2; return 2; }
+  if is_installed "$id"; then echo "$id is already installed — skipping."; return 0; fi
+  pkg="$(field "$row" 3)"
+  case "$id" in
+    aws-cli) install_aws_cli ;;
+    *)  # apt path (HashiCorp)
+        case "$HASHICORP_IDS" in *" $id "*) ensure_hashicorp_repo ;; esac
+        install_apt "$pkg" ;;
+  esac
+}
+
+post_report() {  # post_report <space-separated ids>
+  echo
+  echo "== done =="
+  for id in $1; do
+    local row bin
+    row="$(row_for "$id")" || continue
+    bin="$(field "$row" 2)"
+    if command -v "$bin" >/dev/null 2>&1; then
+      printf '  %-10s %s\n' "$id" "$("$bin" --version 2>/dev/null | head -n1 || echo installed)"
+    else
+      printf '  %-10s NOT installed (see errors above)\n' "$id"
+    fi
+  done
+}
+
+do_install() {  # do_install <ids…>
+  local ids="$*"
+  # Validate every id up front so a typo fails fast (before sudo / apt).
+  for id in $ids; do
+    row_for "$id" >/dev/null || { echo "Unknown tool: $id (try: sysible-tools list)" >&2; exit 2; }
+  done
+  need_root "$@"
+  license_ack "$ids" || exit 1
+  local failed=0
+  for id in $ids; do
+    install_one "$id" || failed=1
+  done
+  post_report "$ids"
+  return $failed
+}
+
+cmd_list() {
+  printf '%-10s %-10s %-12s %s\n' "TOOL" "STATE" "LICENSE" "DESCRIPTION"
+  local row id lic desc state
+  for row in "${CATALOG[@]}"; do
+    id="$(field "$row" 1)"; lic="$(field "$row" 4)"; desc="$(field "$row" 5)"
+    if is_installed "$id"; then state="installed"; else state="available"; fi
+    printf '%-10s %-10s %-12s %s\n' "$id" "$state" "$lic" "$desc"
+  done
+  echo
+  echo "Already in the image: OpenTofu (tofu), gcloud, Azure CLI, Docker, kubectl, Helm, k9s, SOPS, Ansible, podman."
+}
+
+menu() {
+  # whiptail checklist when available; otherwise a plain numbered prompt.
+  local choices=() row id desc
+  for row in "${CATALOG[@]}"; do
+    id="$(field "$row" 1)"; desc="$(field "$row" 5)"
+    is_installed "$id" && continue   # only offer what isn't installed
+    choices+=("$id" "$desc" "off")
+  done
+  if [ "${#choices[@]}" -eq 0 ]; then
+    echo "All optional tools are already installed. Nothing to do."
+    exit 0
+  fi
+
+  if command -v whiptail >/dev/null 2>&1 && [ -t 0 ] && [ -t 1 ]; then
+    local picked
+    picked="$(whiptail --backtitle "$BACKTITLE" \
+      --title " Optional software " \
+      --checklist "\nThese tools are NOT bundled in the image — HashiCorp's are BUSL-1.1\nlicensed, AWS CLI ships from Amazon's own installer. Pick what to add:\n\n  [SPACE] toggle    [TAB] to buttons    [ENTER] confirm\n" \
+      20 82 8 "${choices[@]}" 3>&1 1>&2 2>&3)" || { echo "Cancelled."; exit 0; }
+    # whiptail returns space-separated, quote-wrapped ids
+    picked="$(printf '%s' "$picked" | tr -d '"')"
+    [ -z "$picked" ] && { echo "Nothing selected."; exit 0; }
+    do_install $picked
+  else
+    echo "Optional tools available to install:"
+    local i=1 ids=()
+    for row in "${CATALOG[@]}"; do
+      id="$(field "$row" 1)"
+      is_installed "$id" && continue
+      ids+=("$id")
+      printf '  %d) %-10s — %s\n' "$i" "$id" "$(field "$row" 5)"
+      i=$((i+1))
+    done
+    printf 'Enter numbers (space-separated), or "all", or blank to cancel: '
+    read -r sel
+    [ -z "$sel" ] && { echo "Cancelled."; exit 0; }
+    local want=()
+    if [ "$sel" = "all" ]; then
+      want=("${ids[@]}")
+    else
+      for n in $sel; do
+        case "$n" in
+          ''|*[!0-9]*) echo "Ignoring '$n' (not a number)." ;;
+          *) [ "$n" -ge 1 ] && [ "$n" -le "${#ids[@]}" ] && want+=("${ids[$((n-1))]}") ;;
+        esac
+      done
+    fi
+    [ "${#want[@]}" -eq 0 ] && { echo "Nothing selected."; exit 0; }
+    do_install "${want[@]}"
+  fi
+}
+
+case "${1:-menu}" in
+  menu|"") menu ;;
+  list)    cmd_list ;;
+  install) shift; [ "$#" -ge 1 ] || { echo "usage: sysible-tools install <tool…>" >&2; exit 2; }; do_install "$@" ;;
+  -h|--help|help)
+    cat <<EOF
+sysible-tools — install optional, separately-licensed tools on demand.
+
+  sysible-tools                 interactive menu
+  sysible-tools list            show the catalog and install state
+  sysible-tools install <tool…> install specific tools non-interactively
+
+Tools: terraform vault consul nomad packer boundary aws-cli
+Env:   SYSIBLE_TOOLS_ASSUME_YES=1  accept the BUSL-1.1 notice non-interactively
+EOF
+    ;;
+  *) echo "Unknown command: $1 (try: sysible-tools --help)" >&2; exit 2 ;;
+esac

@@ -42,3 +42,35 @@
       critical: false
       packages:
         - packer
+    - name: "Vault (HashiCorp, BUSL 1.1)"
+      description: >
+        HashiCorp Vault — secrets management and data protection, from
+        apt.releases.hashicorp.com.
+      selected: false
+      critical: false
+      packages:
+        - vault
+    - name: "Consul (HashiCorp, BUSL 1.1)"
+      description: >
+        HashiCorp Consul — service discovery and service mesh, from
+        apt.releases.hashicorp.com.
+      selected: false
+      critical: false
+      packages:
+        - consul
+    - name: "Nomad (HashiCorp, BUSL 1.1)"
+      description: >
+        HashiCorp Nomad — workload orchestrator for containers, VMs and
+        binaries, from apt.releases.hashicorp.com.
+      selected: false
+      critical: false
+      packages:
+        - nomad
+    - name: "Boundary (HashiCorp, BUSL 1.1)"
+      description: >
+        HashiCorp Boundary — identity-aware access to remote hosts, from
+        apt.releases.hashicorp.com.
+      selected: false
+      critical: false
+      packages:
+        - boundary
