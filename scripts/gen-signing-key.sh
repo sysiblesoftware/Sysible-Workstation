@@ -37,10 +37,47 @@ KP
     rm -f "$GNUPGHOME/keyparams"
 fi
 
-gpg --export maintainers@sysible.com > "$ROOT/packages/sysible-release/keyrings/sysible-archive-keyring.gpg"
+KEYRING="$ROOT/packages/sysible-release/keyrings/sysible-archive-keyring.gpg"
+gpg --export maintainers@sysible.com > "$KEYRING"
 FPR=$(gpg --list-keys --with-colons maintainers@sysible.com | awk -F: '/^fpr:/{print $10; exit}')
-echo
-echo "Public keyring written: packages/sysible-release/keyrings/sysible-archive-keyring.gpg"
-echo "Fingerprint: $FPR"
-echo "Now:  export GNUPGHOME=$GNUPGHOME ; export SYSIBLE_GPG_KEY=maintainers@sysible.com"
-echo "And commit the updated public keyring so apt clients trust this key."
+
+# The apt repo (repo.sysible.com) serves packages from BOTH the Workstation and the
+# Server, all signed by this ONE key — so the SAME public keyring must ship in every
+# repo's sysible-release, or apt clients from one ISO won't trust the other's builds.
+# Copy it into any sibling checkout found next to this one so a rotation updates them
+# all in one run.
+this_dir=$(cd "$(dirname "$KEYRING")" && pwd)
+for name in Sysible-Server sysible-server Sysible-Workstation sysible-workstation; do
+    dst="$ROOT/../$name/packages/sysible-release/keyrings/sysible-archive-keyring.gpg"
+    [ -d "$(dirname "$dst")" ] || continue
+    [ "$(cd "$(dirname "$dst")" && pwd)" = "$this_dir" ] && continue
+    cp -f "$KEYRING" "$dst" && echo "Also updated sibling keyring: $dst"
+done
+
+cat <<EOF
+
+======================================================================
+ New signing key created. Fingerprint: $FPR
+ Public keyring written to this repo (and any sibling above).
+======================================================================
+
+Finish the rotation FROM THIS MACHINE (it now holds the new private key):
+
+  1) Commit the public keyring in EVERY repo it was written to:
+       git -C "$ROOT" add packages/sysible-release/keyrings/sysible-archive-keyring.gpg
+       git -C "$ROOT" commit -m "release: rotate the archive signing key"
+       git -C "$ROOT" push
+     (repeat 'git -C <sibling-repo> ...' for each sibling listed above)
+
+  2) Set the NEW private key as the publish secret in BOTH repos
+     (piped, so it never lands in your shell history or a chat log):
+       gpg --armor --export-secret-keys maintainers@sysible.com \\
+         | gh secret set SYSIBLE_GPG_PRIVATE_KEY --repo sysiblesoftware/Sysible-Workstation
+       gpg --armor --export-secret-keys maintainers@sysible.com \\
+         | gh secret set SYSIBLE_GPG_PRIVATE_KEY --repo sysiblesoftware/Sysible-Server
+
+  3) Rebuild the ISOs (new installs trust the new key) and re-run Publish (stable).
+     Existing test VMs: reinstall from the new ISO, or import the new keyring by hand.
+
+  Env for this shell:  export GNUPGHOME=$GNUPGHOME ; export SYSIBLE_GPG_KEY=maintainers@sysible.com
+EOF
