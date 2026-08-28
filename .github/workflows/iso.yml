@@ -89,6 +89,11 @@ jobs:
           path: live-build/*.iso
           if-no-files-found: error
           compression-level: 0
+          # ISO artifacts are multi-GB; expire them quickly so old dev builds
+          # don't pile up in the account's Actions storage. Rebuild any time from
+          # the run's commit; published releases (softprops/action-gh-release
+          # below) are unaffected — they live in Releases, not Actions artifacts.
+          retention-days: 7
 
       # ---- release-only steps (tag push, or a dispatch with release=true) --
       - name: Split ISO for release
