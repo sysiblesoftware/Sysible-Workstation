@@ -57,13 +57,20 @@ jobs:
           cd live-build
           ./build.sh
 
+      - name: Name the ISO
+        run: |
+          cd live-build
+          iso=$(ls *.iso | head -1)
+          out="sysible-workstation-${SYSIBLE_ARCH}.iso"
+          [ "$iso" = "$out" ] || mv -v "$iso" "$out"
+
       - name: Show result
         run: ls -lh live-build/*.iso
 
       - name: Upload ISO (artifact)
         uses: actions/upload-artifact@v4
         with:
-          name: sysible-linux-${{ env.SYSIBLE_ARCH }}-iso
+          name: sysible-workstation-${{ env.SYSIBLE_ARCH }}
           path: live-build/*.iso
           if-no-files-found: error
           compression-level: 0
@@ -186,7 +193,7 @@ jobs:
             ```sh
             gpg --verify SHA256SUMS.<arch>.parts.gpg SHA256SUMS.<arch>.parts  # authenticity
             sha256sum -c SHA256SUMS.<arch>.parts   # verify the parts
-            cat live-image-<arch>.hybrid.iso.*.part > live-image-<arch>.hybrid.iso
+            cat sysible-workstation-<arch>.iso.*.part > sysible-workstation-<arch>.iso
             gpg --verify SHA256SUMS.<arch>.gpg SHA256SUMS.<arch>              # authenticity
             sha256sum -c SHA256SUMS.<arch>          # verify the whole ISO
             ```

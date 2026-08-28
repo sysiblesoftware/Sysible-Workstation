@@ -88,7 +88,7 @@ rm -rf /usr/share/backgrounds/gnome 2>/dev/null || true
 for f in /usr/share/applications/*.desktop; do
     [ -f "$f" ] || continue
     case "$f" in
-        */install-sysible-linux.desktop|*/sysible-controller-install.desktop) continue ;;
+        */install-sysible-workstation.desktop|*/sysible-controller-install.desktop) continue ;;
     esac
     if grep -qiE '^Exec=.*calamares' "$f" 2>/dev/null \
        || grep -qiE '^(Name|GenericName)=[[:space:]]*(Install System|Install Debian|Calamares)' "$f" 2>/dev/null; then
@@ -197,7 +197,7 @@ systemctl enable sysible-branding-guard.service 2>/dev/null || true
 #    screen. Pointing the key at a real (transparent) file is far more reliable
 #    than logo='' (which some GDM builds treat as "unset → fall back"): GDM draws
 #    our transparent image, i.e. nothing, so the branding is just the subtle
-#    "SYSIBLE LINUX" wordmark baked into the background — one sleek element, not a
+#    "SYSIBLE WORKSTATION" wordmark baked into the background — one sleek element, not a
 #    huge GDM-scaled lockup. A high-numbered keyfile wins keyfile ordering and the
 #    lock makes our value authoritative so nothing can flip it back.
 mkdir -p /etc/dconf/db/gdm.d /etc/dconf/db/gdm.d/locks

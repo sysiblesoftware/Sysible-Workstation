@@ -6,14 +6,14 @@
 # (Once Calamares installs to disk, the icon simply won't be recreated.)
 grep -qw boot=live /proc/cmdline 2>/dev/null || exit 0
 
-SRC=/usr/share/applications/install-sysible-linux.desktop
+SRC=/usr/share/applications/install-sysible-workstation.desktop
 [ -f "$SRC" ] || exit 0
 
 DESK="$HOME/Desktop"
 mkdir -p "$DESK"
-cp -f "$SRC" "$DESK/install-sysible-linux.desktop"
-chmod +x "$DESK/install-sysible-linux.desktop"
+cp -f "$SRC" "$DESK/install-sysible-workstation.desktop"
+chmod +x "$DESK/install-sysible-workstation.desktop"
 
 # Mark it trusted so GNOME / desktop-icons-ng launches it on double-click
 # instead of showing the "untrusted launcher" prompt.
-gio set "$DESK/install-sysible-linux.desktop" metadata::trusted true 2>/dev/null || true
+gio set "$DESK/install-sysible-workstation.desktop" metadata::trusted true 2>/dev/null || true

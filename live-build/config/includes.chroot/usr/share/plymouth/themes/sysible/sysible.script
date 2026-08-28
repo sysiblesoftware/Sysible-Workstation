@@ -11,7 +11,7 @@ sh = Window.GetHeight();
 cx = Window.GetX() + sw / 2;
 cy = Window.GetY() + sh / 2;
 
-# --- logo (mark + SYSIBLE LINUX wordmark) ---
+# --- logo (mark + SYSIBLE WORKSTATION wordmark) ---
 # The source is rendered at 2x for sharpness; scale it DOWN so it stays crisp AND
 # a sensible size at any boot resolution. This is a TALL, near-square lockup
 # (720x640: hex mark ABOVE the wordmark), so it MUST be sized off screen HEIGHT,

@@ -3,7 +3,7 @@
 
 A calm, atmospheric composition: a dark field with TOPOGRAPHIC contour lines
 (survey-map style — no honeycomb), a soft glow, a vignette, and the Sysible mark
-+ "SYSIBLE LINUX" wordmark (Sora) with a green accent underline, set a touch
++ "SYSIBLE WORKSTATION" wordmark (Sora) with a green accent underline, set a touch
 below centre so the top stays clear for GNOME's clock (lock) and user list
 (login). Output: a 4K wallpaper consumed by the GDM theme via the system hook.
 """
@@ -150,7 +150,7 @@ def render(W, H, out):
     base.alpha_composite(_glow(W, H, cx, int(H * 0.30), int(W * 0.26), BLUE, 46))
     base.alpha_composite(_vignette(W, H, 210))
 
-    # A small "SYSIBLE LINUX" wordmark anchored to the BOTTOM — no centred mark.
+    # A small "SYSIBLE WORKSTATION" wordmark anchored to the BOTTOM — no centred mark.
     # GNOME draws the login dialog / user list and the lock clock DEAD CENTRE, so
     # the middle must stay clear or they collide (the old centred S-tile did). The
     # greeter renders its own small logo beside the user list, so the background
@@ -164,7 +164,7 @@ def render(W, H, out):
     # underline + tagline ran off the bottom edge. 80% keeps the whole group
     # inside the safe zone on every aspect ratio while still reading as a footer.
     wy = int(H * 0.80)
-    tw = _wordmark(draw, "SYSIBLE LINUX", font, cx, wy, FG, int(H * 0.006))
+    tw = _wordmark(draw, "SYSIBLE WORKSTATION", font, cx, wy, FG, int(H * 0.006))
     # green accent underline
     uh = max(2, int(H * 0.0028))
     uy = wy + int(fs * 1.22)

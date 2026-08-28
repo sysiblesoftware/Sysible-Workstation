@@ -7,7 +7,7 @@ components Sysible bundles and their licenses, and (c) records the software
 Sysible deliberately does **not** ship and why.
 
 _A copy of this file ships on every installed system at
-`/usr/share/doc/sysible-linux/THIRD-PARTY-LICENSES.md`._
+`/usr/share/doc/sysible-workstation/THIRD-PARTY-LICENSES.md`._
 
 ---
 

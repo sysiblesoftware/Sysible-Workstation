@@ -42,7 +42,7 @@ FG_LIGHT = (20, 29, 56)      # wordmark on light
 GREEN = (109, 219, 115)      # #6ddb73
 BLUE = (122, 162, 255)       # #7aa2ff
 FONT = os.path.join(ROOT, "branding/fonts/Sora.ttf")   # Sora (OFL), SES rebrand
-WORDMARK = "SYSIBLE LINUX"
+WORDMARK = "SYSIBLE WORKSTATION"
 
 
 def _sora(size):
@@ -68,7 +68,7 @@ def _svg_png(url, size):
 
 
 def mark(size):
-    """The Sysible Linux brand mark, size x size, transparent background."""
+    """The Sysible Workstation brand mark, size x size, transparent background."""
     return _svg_png(MARK, size)
 
 
@@ -241,7 +241,7 @@ def _fit_font(text, max_w, cap_px, tracking_ratio):
 
 
 def hlockup(W, H, fg):
-    """Horizontal lockup: mark on the left, SYSIBLE LINUX to its right. Transparent.
+    """Horizontal lockup: mark on the left, SYSIBLE WORKSTATION to its right. Transparent.
     The wordmark is auto-fitted so the whole lockup always sits inside W x H."""
     canvas = Image.new("RGBA", (W, H), (0, 0, 0, 0))
     s = int(H * 0.80)
@@ -260,7 +260,7 @@ def hlockup(W, H, fg):
 
 
 def vlockup(W, H, fg):
-    """Vertical lockup: mark on top, SYSIBLE LINUX beneath. Transparent."""
+    """Vertical lockup: mark on top, SYSIBLE WORKSTATION beneath. Transparent."""
     canvas = Image.new("RGBA", (W, H), (0, 0, 0, 0))
     s = int(W * 0.58)
     m = mark(s)
@@ -321,8 +321,8 @@ def build():
     A[("tga", L("binary_grub/splash.tga"))] = splash(640, 480)
     # Plymouth (boot animation) + Calamares (installer) + GDM.
     # Plymouth boot/shutdown splash: vertical lockup so the loading screen shows
-    # the "SYSIBLE LINUX" wordmark under the mark (a bare mark read as unbranded).
-    # Rendered at 2x (was 360x320) so the baked "SYSIBLE LINUX" wordmark stays
+    # the "SYSIBLE WORKSTATION" wordmark under the mark (a bare mark read as unbranded).
+    # Rendered at 2x (was 360x320) so the baked "SYSIBLE WORKSTATION" wordmark stays
     # crisp on the boot splash — Plymouth blits the sprite 1:1, so a small source
     # read soft/upscaled on HiDPI panels.
     A[C("usr/share/plymouth/themes/sysible/logo.png")] = vlockup(720, 640, FG_DARK)
@@ -346,7 +346,7 @@ def build():
     A[C("usr/share/pixmaps/sysible-logo.png")] = centred_mark(256, 256, pad=0.04)
     A[C("usr/share/pixmaps/sysible-logo-dark.png")] = vlockup(512, 555, FG_DARK)
     A[C("usr/share/pixmaps/sysible-logo-light.png")] = vlockup(512, 555, FG_LIGHT)
-    A[C("usr/share/pixmaps/sysible-linux-logo.png")] = vlockup(512, 555, FG_DARK)
+    A[C("usr/share/pixmaps/sysible-workstation-logo.png")] = vlockup(512, 555, FG_DARK)
     # App-grid icon: keep the hicolor SVG byte-synced with the canonical mark, and
     # render its PNG sizes so themed environments have crisp rasters.
     for sz in (16, 22, 24, 32, 48, 64, 128, 256):
