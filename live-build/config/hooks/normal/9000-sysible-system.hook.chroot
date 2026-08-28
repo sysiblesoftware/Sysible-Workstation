@@ -88,7 +88,7 @@ rm -rf /usr/share/backgrounds/gnome 2>/dev/null || true
 for f in /usr/share/applications/*.desktop; do
     [ -f "$f" ] || continue
     case "$f" in
-        */install-sysible-workstation.desktop|*/sysible-controller-install.desktop) continue ;;
+        */install-sysible-workstation.desktop|*/sysible-controller-install.desktop|*/sysible-slop-install.desktop) continue ;;
     esac
     if grep -qiE '^Exec=.*calamares' "$f" 2>/dev/null \
        || grep -qiE '^(Name|GenericName)=[[:space:]]*(Install System|Install Debian|Calamares)' "$f" 2>/dev/null; then
