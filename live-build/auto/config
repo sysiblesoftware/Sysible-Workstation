@@ -19,7 +19,7 @@ lb config noauto \
   --bootloaders "$BOOTLOADERS" \
   --binary-images iso-hybrid \
   --debian-installer none \
-  --bootappend-live "boot=live components username=sysible user-fullname=Sysible user-default-groups=sudo,kvm,libvirt,docker,wireshark,plugdev,netdev,video,audio" \
+  --bootappend-live "boot=live components hostname=sysible-workstation username=sysible user-fullname=Sysible user-default-groups=sudo,kvm,libvirt,docker,wireshark,plugdev,netdev,video,audio" \
   --iso-application "Sysible Workstation" \
   --iso-publisher "Sysible" \
   --iso-volume "Sysible Workstation" \

@@ -1,6 +1,10 @@
 [org.gnome.shell]
 enabled-extensions=['ding@rastersoft.com', 'dash-to-dock@micxgx.gmail.com']
-favorite-apps=['systerm.desktop', 'firefox-esr.desktop', 'code.desktop', 'org.gnome.TextEditor.desktop', 'org.gnome.Nautilus.desktop']
+# NOTE: the dock's favorite-apps is defined ONCE, in the dconf system-db at
+# /etc/dconf/db/local.d/00-sysible-desktop (which wins over any gschema default),
+# so it is intentionally NOT set here. Keeping a second copy in a gschema drifted
+# the two lists apart (this one pinned the un-installed 'code.desktop' and a
+# different SysTerm id, yielding blank dock tiles). Single source of truth only.
 
 [org.gnome.desktop.default-applications.terminal]
 exec='systerm'

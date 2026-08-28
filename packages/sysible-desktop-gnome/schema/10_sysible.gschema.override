@@ -16,8 +16,11 @@ primary-color='#0b0d12'
 color-scheme='prefer-dark'
 accent-color='green'
 
-[org.gnome.shell]
-favorite-apps=['io.systerm.SysTerm.desktop', 'org.gnome.Nautilus.desktop', 'code.desktop', 'firefox-esr.desktop']
+# NOTE: the dock's favorite-apps lives in ONE place — the dconf system-db at
+# /etc/dconf/db/local.d/00-sysible-desktop — which overrides any gschema default,
+# so it is intentionally NOT redefined here. A prior copy here pinned a different
+# SysTerm id ('io.systerm.SysTerm.desktop') and the un-installed 'code.desktop',
+# which just produced blank dock tiles. Keep the single source of truth.
 
 # Kali-style FIXED workspaces: four static workspaces instead of GNOME's default
 # dynamic set (which grows/shrinks and usually shows just 1-2). Also delivered via

@@ -15,10 +15,15 @@ done
 printf '%s:%s\n' "$DEFUSER" "$DEFPASS" | chpasswd
 printf 'root:%s\n'  "$DEFPASS"          | chpasswd
 
-# Brand the hostname.
-echo sysible > /etc/hostname
+# Brand the hostname. This seeds the chroot; at LIVE boot live-config re-applies
+# the hostname from the `hostname=` kernel arg in auto/config's --bootappend-live
+# (without that arg live-config forces its built-in default 'debian', which is
+# what made Calamares' "name for this computer" field pre-fill 'debian'). Keep
+# both in sync at 'sysible-workstation' so the live host, the installer default,
+# and a from-skel install all read the same name.
+echo sysible-workstation > /etc/hostname
 if grep -q '^127\.0\.1\.1' /etc/hosts 2>/dev/null; then
-    sed -i 's/^127\.0\.1\.1.*/127.0.1.1\tsysible/' /etc/hosts
+    sed -i 's/^127\.0\.1\.1.*/127.0.1.1\tsysible-workstation/' /etc/hosts
 else
-    printf '127.0.1.1\tsysible\n' >> /etc/hosts
+    printf '127.0.1.1\tsysible-workstation\n' >> /etc/hosts
 fi

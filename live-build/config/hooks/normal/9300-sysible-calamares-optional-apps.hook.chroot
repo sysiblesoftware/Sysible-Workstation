@@ -58,15 +58,30 @@ else
         mv "$CAL/settings.conf.new" "$CAL/settings.conf"
     else
         rm -f "$CAL/settings.conf.new"
-        echo "W: could not wire netinstall into calamares settings.conf; shipping installer without the Optional apps page" >&2
-        exit 0
+        echo "E: could not wire netinstall into calamares settings.conf (settings format drift?)." >&2
+        echo "E: the Optional apps / marketplace page is a shipped Workstation feature — failing the build instead of silently dropping it." >&2
+        exit 1
     fi
 fi
 
-# Sanity: the 'packages' exec module actually performs the install of whatever
-# netinstall selects. Debian's calamares-settings ships it; warn (don't fail) if
-# it's somehow absent so a build reviewer notices.
-grep -q '^[[:space:]]*-[[:space:]]*packages[[:space:]]*$' "$CAL/settings.conf" \
-    || echo "W: calamares 'packages' exec module not found; netinstall selections may not install" >&2
+# The 'packages' EXEC module is what actually installs whatever the Optional apps
+# page selects — without it the page renders but its ticks are no-ops. Debian's
+# calamares-settings normally ships it in the exec sequence; if it is somehow
+# absent, INSERT it (before 'umount', the canonical last exec step) rather than
+# fail, so the marketplace's selections are always applied. Idempotent.
+if ! grep -q '^[[:space:]]*-[[:space:]]*packages[[:space:]]*$' "$CAL/settings.conf"; then
+    awk '
+      !done && /^[[:space:]]*-[[:space:]]*umount[[:space:]]*$/ {
+        match($0, /^[[:space:]]*/); ind = substr($0, 1, RLENGTH)
+        print ind "- packages"
+        done = 1
+      }
+      { print }
+      END { if (!done) exit 3 }
+    ' "$CAL/settings.conf" > "$CAL/settings.conf.new" \
+        && mv "$CAL/settings.conf.new" "$CAL/settings.conf" \
+        || { rm -f "$CAL/settings.conf.new"; echo "E: calamares exec sequence has no 'umount' to anchor 'packages' before; netinstall selections would not install. Failing the build." >&2; exit 1; }
+    echo "sysible: inserted 'packages' exec module (was missing) so Optional apps selections install."
+fi
 
-echo "sysible: calamares 'Optional apps' (netinstall) page wired before summary."
+echo "sysible: calamares 'Optional apps' (netinstall) page wired before summary; 'packages' installer present."
