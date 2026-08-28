@@ -65,3 +65,25 @@ sudo apt-get update -qq || true
 sudo apt-get install -y "$deb"
 
 echo "Obsidian installed. Launch it from the app grid or run: obsidian"
+
+# Retire THIS one-click installer launcher now that Obsidian is installed, so it
+# doesn't linger in the app grid next to the real Obsidian app and read as "why
+# isn't this done?". A user-level .desktop with the same id + NoDisplay=true
+# overrides the shipped /usr/share one. Best-effort and never fatal (the install
+# already succeeded). Written to the REAL user's home: this helper elevates only
+# apt via sudo, so when clicked directly $HOME is the user's; when SLOP's
+# installer runs it as root, SUDO_USER points back at that user.
+set +e
+if [ -n "${SUDO_USER:-}" ]; then
+    _home="$(getent passwd "$SUDO_USER" | cut -d: -f6)"
+else
+    _home="$HOME"
+fi
+if [ -n "$_home" ] && [ -d "$_home" ]; then
+    _appdir="$_home/.local/share/applications"
+    mkdir -p "$_appdir"
+    printf '[Desktop Entry]\nType=Application\nName=Install Obsidian\nNoDisplay=true\n' \
+        > "$_appdir/sysible-obsidian-install.desktop"
+    [ -n "${SUDO_USER:-}" ] && chown "$SUDO_USER": "$_appdir/sysible-obsidian-install.desktop"
+    update-desktop-database "$_appdir" 2>/dev/null
+fi

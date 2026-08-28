@@ -1,0 +1,12 @@
+[Desktop Entry]
+Type=Application
+Version=1.0
+Name=Install Sysible SLEP
+GenericName=Sysible LEP Installer
+Comment=Download and install the Sysible Linux Engineering Platform (infra automation — Terraform/Ansible/Salt) as a container
+Exec=install-sysible slep
+Icon=sysible-logo
+Terminal=true
+Categories=System;Settings;
+Keywords=sysible;slep;lep;install;automation;terraform;ansible;infrastructure;
+StartupNotify=true

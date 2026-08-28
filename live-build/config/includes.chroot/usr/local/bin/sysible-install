@@ -1,0 +1,8 @@
+#!/bin/sh
+# sysible-install — friendly alias for `install-sysible`.
+#
+# The unified installer is `install-sysible` (verb-noun, matching install-sysible-
+# controller). People reliably type it the other way round too, so this thin alias
+# makes BOTH names work — `sysible-install slop`, `install-sysible slop`, etc. are
+# identical. All arguments pass straight through.
+exec install-sysible "$@"
