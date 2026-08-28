@@ -41,7 +41,7 @@ jobs:
 
       - name: Preflight — required secrets
         run: |
-          if [ -z "${{ secrets.SYSIBLE_GPG_PRIVATE_KEY }}" ] || [ -z "${{ secrets.AWS_ACCESS_KEY_ID }}" ] || [ -z "${{ vars.R2_ACCOUNT_ID }}" ]; then
+          if [ -z "${{ secrets.SYSIBLE_GPG_PRIVATE_KEY }}" ] || [ -z "${{ secrets.AWS_ACCESS_KEY_ID }}" ] || [ -z "${{ vars.R2_ACCOUNT_ID || 'cbc0634508f9893f89bfb203dd46bfa6' }}" ]; then
             echo "::error::Set secrets SYSIBLE_GPG_PRIVATE_KEY + AWS_ACCESS_KEY_ID/AWS_SECRET_ACCESS_KEY (your Cloudflare R2 token) and the repo variable R2_ACCOUNT_ID before publishing."
             exit 1
           fi
@@ -50,7 +50,7 @@ jobs:
         run: |
           # Accept either the bare Cloudflare account id or a full endpoint URL
           # in the R2_ACCOUNT_ID variable, and normalise to the S3 endpoint host.
-          acct="${{ vars.R2_ACCOUNT_ID }}"
+          acct="${{ vars.R2_ACCOUNT_ID || 'cbc0634508f9893f89bfb203dd46bfa6' }}"
           acct="${acct#http://}"; acct="${acct#https://}"
           acct="${acct%%.r2.cloudflarestorage.com*}"
           acct="${acct%%/*}"
