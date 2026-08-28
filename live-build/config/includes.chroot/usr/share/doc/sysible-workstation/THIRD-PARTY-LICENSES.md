@@ -34,7 +34,7 @@ from the date you received the image**:
 >    version.
 > 2. **Sysible source** — for Sysible's own packages and for the build
 >    definition of the image itself, see
->    <https://github.com/sysiblesoftware/Sysible-Linux> and the other
+>    <https://github.com/sysiblesoftware/Sysible-Workstation> and the other
 >    repositories under <https://github.com/sysiblesoftware>.
 > 3. **By request** — if you cannot retrieve a specific component's source by
 >    (1) or (2), email **source@sysible.com** with the release tag (e.g.
