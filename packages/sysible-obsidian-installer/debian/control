@@ -1,0 +1,24 @@
+Source: sysible-obsidian-installer
+Section: editors
+Priority: optional
+Maintainer: Sysible <maintainers@sysible.com>
+Build-Depends: debhelper-compat (= 13)
+Standards-Version: 4.6.2
+Homepage: https://obsidian.md
+Rules-Requires-Root: no
+
+Package: sysible-obsidian-installer
+Architecture: all
+Depends: ${misc:Depends}, curl, ca-certificates
+Description: downloader/installer for Obsidian (proprietary; fetched from the vendor)
+ Obsidian is a proprietary Markdown knowledge base with no apt repository, so
+ Sysible cannot bundle it in the Workstation ISO. This tiny package instead
+ downloads the latest official Obsidian .deb from the vendor
+ (github.com/obsidianmd/obsidian-releases) and installs it at setup time — the
+ same approach Ubuntu uses for restricted extras. Nothing proprietary is
+ re-hosted by Sysible; only this installer is shipped.
+ .
+ Ticking "Obsidian" on the installer's Optional-apps page pulls in this package;
+ its post-install step fetches and installs Obsidian, with a one-shot first-boot
+ retry if the network isn't up yet. amd64 only (no official arm64 build — use
+ the bundled CherryTree there).

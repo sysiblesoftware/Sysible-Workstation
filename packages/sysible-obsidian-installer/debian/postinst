@@ -1,0 +1,16 @@
+#!/bin/sh
+set -e
+
+#DEBHELPER#
+
+# Best-effort immediate install during setup: the Optional-apps step runs with a
+# network connection, so fetch Obsidian now. If the vendor can't be reached right
+# now, the first-boot retry service (enabled by the #DEBHELPER# snippet above)
+# tries again once the installed system is online. Never fail the package here —
+# the Optional-apps group is non-critical and must not abort the installation.
+if [ "$1" = "configure" ] && [ -x /usr/bin/sysible-install-obsidian ]; then
+    /usr/bin/sysible-install-obsidian \
+        || echo "sysible-obsidian-installer: Obsidian not fetched yet — will retry on first boot." >&2
+fi
+
+exit 0

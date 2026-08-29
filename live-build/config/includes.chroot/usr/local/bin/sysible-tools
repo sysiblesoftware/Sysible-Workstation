@@ -34,7 +34,7 @@ CATALOG=(
   "packer|packer|packer|BUSL-1.1|Build machine images from a single source"
   "boundary|boundary|boundary|BUSL-1.1|Identity-aware access to remote hosts"
   "aws-cli|aws|-|Apache-2.0|Amazon Web Services CLI v2 (official installer)"
-  "obsidian|obsidian|-|Proprietary (free)|Markdown knowledge base — official vendor .deb (amd64 only; CherryTree ships by default)"
+  "obsidian|obsidian|sysible-obsidian-installer|Proprietary (free)|Markdown knowledge base — official vendor .deb (amd64 only; CherryTree ships by default)"
 )
 
 # HashiCorp ids are BUSL-1.1 and share the apt path + license gate.

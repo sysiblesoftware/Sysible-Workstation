@@ -1,0 +1,7 @@
+sysible-obsidian-installer (0.1.0) sysible; urgency=medium
+
+  * Initial release: fetch + install Obsidian from the official vendor release at
+    setup time, so it can be offered as a checkbox on the Optional-apps page
+    instead of a desktop launcher. Includes a one-shot first-boot retry service.
+
+ -- Sysible <maintainers@sysible.com>  Sat, 29 Aug 2026 00:00:00 +0000

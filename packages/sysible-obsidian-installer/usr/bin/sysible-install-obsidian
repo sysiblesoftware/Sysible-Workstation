@@ -1,0 +1,67 @@
+#!/bin/sh
+# sysible-install-obsidian — install Obsidian from the OFFICIAL vendor release.
+#
+# Obsidian is proprietary: Sysible can't legally redistribute it in the ISO and it
+# has no apt repository. This helper (shipped by the sysible-obsidian-installer
+# package, which the installer's "Optional apps" page can add) downloads the latest
+# official .deb from github.com/obsidianmd/obsidian-releases and installs it — the
+# same "download from the vendor at install time" model Ubuntu uses for restricted
+# extras. Idempotent and root-aware, so it's safe to run from a package postinst,
+# a first-boot retry service, or by hand.
+set -eu
+
+# apt/dpkg need root: run directly when already root (postinst / systemd), else sudo.
+_root() { if [ "$(id -u)" = 0 ]; then "$@"; else sudo "$@"; fi; }
+# Stop the first-boot retry service once we're done (installed, or can't on this arch).
+_retire() { _root systemctl disable sysible-obsidian-installer.service >/dev/null 2>&1 || true; }
+
+if dpkg -s obsidian >/dev/null 2>&1 || command -v obsidian >/dev/null 2>&1; then
+    echo "Obsidian is already installed."
+    _retire
+    exit 0
+fi
+
+arch="$(dpkg --print-architecture)"
+if [ "$arch" != "amd64" ]; then
+    echo "Obsidian publishes an official .deb for amd64 only (no arm64 build — that gap" >&2
+    echo "is why Sysible Workstation ships CherryTree instead). On $arch use CherryTree" >&2
+    echo "(already installed), or Obsidian's AppImage from https://obsidian.md." >&2
+    _retire
+    exit 0
+fi
+
+echo "Looking up the latest Obsidian release…"
+# Resolve the URL WITHOUT the GitHub API (unauthenticated api.github.com is rate-
+# limited to 60/h per IP and 403s once spent — a classic "the download link didn't
+# work"). Follow the non-rate-limited /releases/latest redirect to learn the tag,
+# build the asset URL, and verify it exists; fall back to the API only if needed.
+url=""
+tag="$(curl -fsSL -o /dev/null -w '%{url_effective}' \
+        "https://github.com/obsidianmd/obsidian-releases/releases/latest" 2>/dev/null \
+        | sed -n 's#.*/releases/tag/##p')"
+if [ -n "$tag" ]; then
+    ver="${tag#v}"
+    cand="https://github.com/obsidianmd/obsidian-releases/releases/download/${tag}/obsidian_${ver}_amd64.deb"
+    curl -fsIL -o /dev/null "$cand" 2>/dev/null && url="$cand"
+fi
+if [ -z "$url" ]; then
+    url="$(curl -fsSL "https://api.github.com/repos/obsidianmd/obsidian-releases/releases/latest" 2>/dev/null \
+        | grep -oE 'https://[^"]+/obsidian_[0-9.]+_amd64\.deb' | head -n1)"
+fi
+if [ -z "${url:-}" ]; then
+    echo "Could not determine the Obsidian download URL (no network?). Will retry on next boot." >&2
+    echo "Or install by hand from https://obsidian.md/download" >&2
+    exit 1
+fi
+
+tmp="$(mktemp -d)"; trap 'rm -rf "$tmp"' EXIT
+deb="$tmp/obsidian.deb"
+echo "Downloading: $url"
+curl -fSL --retry 3 -o "$deb" "$url"
+
+echo "Installing Obsidian…"
+_root apt-get update -qq || true
+_root apt-get install -y "$deb"
+
+echo "Obsidian installed. Launch it from the app grid or run: obsidian"
+_retire

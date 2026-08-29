@@ -17,6 +17,17 @@
   critical: false
   expanded: true
   subgroups:
+    - name: "Obsidian — Markdown knowledge base (proprietary)"
+      description: >
+        Obsidian, from the official vendor release. It has no apt repository, so
+        ticking this installs a tiny helper (sysible-obsidian-installer) that
+        downloads and installs the latest official .deb from obsidian.md at setup
+        time — nothing proprietary is re-hosted by Sysible. amd64 only; CherryTree
+        (open source) is already installed and is the arm64 alternative.
+      selected: false
+      critical: false
+      packages:
+        - sysible-obsidian-installer
     - name: "Visual Studio Code — Microsoft build (proprietary)"
       description: >
         Microsoft's proprietary VS Code build, from packages.microsoft.com.

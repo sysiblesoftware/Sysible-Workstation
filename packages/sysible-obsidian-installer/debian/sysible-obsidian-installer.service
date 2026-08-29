@@ -1,0 +1,15 @@
+[Unit]
+Description=Install Obsidian from the vendor (first-boot retry)
+Documentation=https://obsidian.md
+# Only meaningful until Obsidian is installed; the ExecStart script self-disables
+# this unit once it succeeds (or when it can't help on this architecture).
+Wants=network-online.target
+After=network-online.target
+ConditionPathExists=!/usr/bin/obsidian
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/sysible-install-obsidian
+
+[Install]
+WantedBy=multi-user.target
