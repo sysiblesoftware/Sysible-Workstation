@@ -59,6 +59,39 @@ deb="$tmp/obsidian.deb"
 echo "Downloading: $url"
 curl -fSL --retry 3 -o "$deb" "$url"
 
+# --- Defense-in-depth integrity check (see residual-risk note below) --------
+# HTTPS to github.com is the PRIMARY authenticity control for this 'latest'
+# download. As a second line of defense, if the Obsidian release publishes a
+# checksums manifest, verify the .deb against it and REFUSE to install on a
+# mismatch. Obsidian does not currently publish one for the .deb, so this stays
+# best-effort: a missing manifest is a logged note, not a failure, to preserve
+# the auto-'latest' model. A single pinned SHA-256 is deliberately NOT used
+# because it would break 'latest' and require a manual bump on every release.
+#
+# RESIDUAL RISK: with no vendor signature/checksum, a compromised upstream
+# GitHub release asset — or a trusted-CA MITM able to strip TLS — could serve a
+# trojaned .deb whose maintainer scripts run as root at install time, and
+# nothing here would detect the swap. LONG-TERM FIX: vendor Obsidian through
+# Sysible's own signed apt repo (repo.sysible.com) so apt's normal signature
+# chain covers the install end to end.
+remote_name="${url##*/}"; base="${url%/*}"; verified=0
+for sumfile in SHA256SUMS SHA256SUMS.txt sha256sums.txt checksums.txt; do
+    sums="$(curl -fsSL "$base/$sumfile" 2>/dev/null)" || continue
+    [ -n "$sums" ] || continue
+    want="$(printf '%s\n' "$sums" | awk -v f="$remote_name" \
+        '{ n=$2; sub(/^[*]/,"",n); if (n==f || n ~ ("/" f "$")) { print $1; exit } }')"
+    [ -n "$want" ] || continue
+    got="$(sha256sum "$deb" | awk '{print $1}')"
+    if [ "$want" = "$got" ]; then
+        echo "Integrity: verified $remote_name against $sumfile."
+        verified=1; break
+    fi
+    echo "FATAL: $remote_name sha256 mismatch ($sumfile expected $want, got $got) — refusing to install." >&2
+    exit 1
+done
+[ "$verified" = 1 ] || \
+    echo "Note: no checksums manifest published for this Obsidian release; relying on HTTPS only (see residual-risk note above)." >&2
+
 echo "Installing Obsidian…"
 _root apt-get update -qq || true
 _root apt-get install -y "$deb"

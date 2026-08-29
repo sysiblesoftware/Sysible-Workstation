@@ -1,9 +1,11 @@
 #!/bin/sh
-# Sysible Workstation default identities: user 'sysible' / password 'sysible', and
-# root / 'sysible'. CHANGE THESE before any public or production build.
+# Sysible Workstation live convenience account: user 'sysible' with NO baked
+# password. The live session logs in through live-config's GDM autologin
+# (username=sysible in auto/config --bootappend-live) with passwordless sudo,
+# so no static credential is shipped. root ships LOCKED; Calamares
+# (setRootPassword) establishes root on the installed target instead.
 set -e
 DEFUSER=sysible
-DEFPASS=sysible
 
 if ! id "$DEFUSER" >/dev/null 2>&1; then
     useradd -m -s /bin/bash -c "Sysible" "$DEFUSER"
@@ -12,8 +14,16 @@ for g in sudo kvm libvirt docker wireshark plugdev netdev video audio; do
     groupadd -f "$g" 2>/dev/null || true
     usermod -aG "$g" "$DEFUSER" 2>/dev/null || true
 done
-printf '%s:%s\n' "$DEFUSER" "$DEFPASS" | chpasswd
-printf 'root:%s\n'  "$DEFPASS"          | chpasswd
+# SECURITY: never bake a documented static password into the shipped image.
+#  - root is LOCKED here; Calamares' setRootPassword owns root on install.
+#  - 'sysible' ships WITHOUT a password (matching live-config's passwordless
+#    autologin model) and is force-expired, so it carries no shippable default
+#    credential and — if the account ever survives onto an installed disk (see
+#    9200-sysible-calamares-removeuser) — first interactive login demands a
+#    real password before the account can be used.
+passwd -l root
+passwd -d "$DEFUSER"
+chage -d 0 "$DEFUSER"
 
 # Brand the hostname. This seeds the chroot; at LIVE boot live-config re-applies
 # the hostname from the `hostname=` kernel arg in auto/config's --bootappend-live
