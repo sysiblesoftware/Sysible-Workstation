@@ -8,10 +8,15 @@ set -e
 # and aborts it with "Sub-process /usr/bin/dpkg returned an error code (1)" (it
 # only bit when the download actually succeeded, which is why it was intermittent).
 #
-# Instead the #DEBHELPER# snippet below enables sysible-obsidian-installer.service,
-# a first-boot oneshot that fetches + installs Obsidian once the system is up, dpkg
-# is idle, and the network is online — and self-disables when done. That's the only
-# safe place to run apt from. See usr/bin/sysible-install-obsidian.
+# Instead, the debhelper-generated systemd snippet below (from the token on its
+# own line further down) enables sysible-obsidian-installer.service — a first-boot
+# oneshot that fetches + installs Obsidian once the system is up, dpkg is idle, and
+# the network is online, then self-disables. That service is the only safe place to
+# run apt from. See usr/bin/sysible-install-obsidian.
+#
+# NOTE: never write the debhelper token in prose above — debhelper substitutes
+# EVERY occurrence, so a mention in a comment injects a second copy of the snippet
+# (and leaves the rest of that comment line as an executable command that fails).
 #DEBHELPER#
 
 exit 0
