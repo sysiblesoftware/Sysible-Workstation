@@ -28,7 +28,7 @@ pins_for() {
         microsoft.gpg)    echo "BC528686B50D79E339D3721CEB3E94ADBE1229CF" ;;
         github-cli.gpg)   echo "2C6106201985B60E6C7AC87323F3D4EA75716059 7F38BBB59D064DBCB3D84D725612B36462313325" ;;   # gh is mid-rotation: cli.github.com's CDN serves two keyring variants (old primary 2C61..., new primary 7F38...). Accept either; both come from GitHub's TLS endpoint.
         kubernetes.gpg)   echo "DE15B14486CD377B9E876E1A234654DA9A296436" ;;   # pkgs.k8s.io v1.31 signing key (observed on a trusted network)
-        google-cloud.gpg) echo "EB4C1BFD4F042F6DDDCCEC917721F63BD38B4796" ;;   # packages.cloud.google.com primary (Google's published Linux package signing key)
+        google-cloud.gpg) echo "EB4C1BFD4F042F6DDDCCEC917721F63BD38B4796 35BAA0B33E9EB396F59CA838C0BA5CE6DC6315A3" ;;   # packages.cloud.google.com apt-key.gpg is mid-rotation: old "Google Cloud Packages Automatic Signing Key" (EB4C...) + new "Artifact Registry Repository Signer <artifact-registry-repository-signer@google.com>" (35BA..., verified out-of-band on keyserver.ubuntu.com). Accept either; both come from Google's TLS endpoint.
         *)                echo "" ;;   # no pin -> refused as fatal below (fail-closed)
     esac
 }
