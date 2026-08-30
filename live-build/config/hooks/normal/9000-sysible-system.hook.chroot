@@ -22,7 +22,7 @@ done
 
 # os-release / issue branding. ID_LIKE=debian keeps third-party scripts happy.
 cat > /etc/os-release <<OSREL
-PRETTY_NAME="Sysible Workstation"
+PRETTY_NAME="Sysible Workstation — Engineering Automation Cloud"
 NAME="Sysible Workstation"
 ID=sysible
 ID_LIKE=debian
@@ -33,8 +33,8 @@ HOME_URL="https://sysible.com"
 SUPPORT_URL="https://sysible.com/controller"
 LOGO=sysible-logo
 OSREL
-printf 'Sysible Workstation \\n \\l\n\n' > /etc/issue
-echo "Sysible Workstation" > /etc/issue.net
+printf 'Sysible Workstation — Engineering Automation Cloud \\n \\l\n\n' > /etc/issue
+echo "Sysible Workstation — Engineering Automation Cloud" > /etc/issue.net
 
 # MOTD — remove the Debian boilerplate shown on a console login. Two sources:
 #   1. /etc/motd (base-files): "The programs included with the Debian GNU/Linux
@@ -44,7 +44,7 @@ echo "Sysible Workstation" > /etc/issue.net
 # Replace (1) with a short Sysible banner and disable (2).
 cat > /etc/motd <<'MOTD'
 
-Sysible Workstation — engineering & automation desktop
+Sysible Workstation — Engineering Automation Cloud
 Docs: https://sysible.com
 
 MOTD
@@ -57,6 +57,14 @@ rm -f /run/motd.dynamic 2>/dev/null || true
 # /etc/ssh/sshd_config.d/10-sysible.conf drop-in makes it key-only.
 for svc in gdm3 libvirtd docker; do systemctl enable "$svc" 2>/dev/null || true; done
 systemctl disable ssh ssh.socket 2>/dev/null || true
+# Never block boot waiting for a network that may not come up (no Wi-Fi firmware,
+# no cable) — a desktop must reach the login screen regardless. NetworkManager-
+# wait-online holds graphical.target until network-online (up to ~90s), which on
+# bare metal without a usable NIC looks like a boot "hang" at the networking step.
+# Mask it; NetworkManager still brings links up asynchronously once firmware/driver
+# are present. (Services that truly need the network are ordered After= it and just
+# run when it arrives.)
+systemctl mask NetworkManager-wait-online.service systemd-networkd-wait-online.service 2>/dev/null || true
 for grp in sudo kvm libvirt docker wireshark; do groupadd -f "$grp" 2>/dev/null || true; done
 
 # Never auto-suspend — a workstation/VM going to sleep on idle reads as a "freeze"

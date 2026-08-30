@@ -5,6 +5,8 @@
   </picture>
 </p>
 
+<p align="center"><strong>Sysible Workstation</strong> — Engineering Automation Cloud</p>
+
 # Sysible Workstation
 
 A Debian-stable–based **engineering workstation**. Install it and start working —

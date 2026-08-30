@@ -53,5 +53,5 @@ message-bg-color: "#0a0d13"
     width = 100%
     align = "center"
     color = "#6f7d94"
-    text = "Sysible Workstation — engineering & automation workstation"
+    text = "Sysible Workstation — Engineering Automation Cloud"
 }

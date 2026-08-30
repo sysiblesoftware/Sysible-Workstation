@@ -9,7 +9,12 @@ ConditionPathExists=!/usr/bin/obsidian
 
 [Service]
 Type=oneshot
-ExecStart=/usr/bin/sysible-install-obsidian
+# Best-effort: a no-network boot (or the vendor being unreachable) must NOT leave a
+# "failed" unit or mark the system degraded — it just means "try again next boot".
+# The `|| true` keeps the unit successful; sysible-install-obsidian self-disables it
+# only once Obsidian is actually installed (and ConditionPathExists above stops it
+# running thereafter), so it quietly retries until it succeeds.
+ExecStart=/bin/sh -c '/usr/bin/sysible-install-obsidian || true'
 
 [Install]
 WantedBy=multi-user.target

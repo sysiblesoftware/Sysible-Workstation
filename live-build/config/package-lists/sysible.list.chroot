@@ -1,6 +1,22 @@
 # Debian-provided pieces (the Sysible packages are included via config/packages.chroot)
 gnome-core
 gdm3
+# --- Non-free firmware for real laptop/desktop hardware (bare-metal, not just VMs).
+# The build enables the non-free-firmware archive area, but firmware is NOT pulled
+# in unless named. Without it, Wi-Fi/NICs are dead on physical machines — e.g. a
+# MacBook won't get network in the installer or after install (the first-boot
+# vendor/Obsidian fetches then fail, and boot can stall waiting for a network that
+# never comes up). firmware-linux pulls the broad set; the rest cover the common
+# wireless chips. NOTE: 2013-2015 MacBook/Air/Pro Wi-Fi is usually a Broadcom
+# BCM4360, which needs the DKMS `wl` driver (broadcom-sta-dkms), NOT firmware-brcm80211
+# alone — use a USB-Ethernet/tethering during install on those, or we add wl separately.
+firmware-linux
+firmware-linux-nonfree
+firmware-misc-nonfree
+firmware-brcm80211
+firmware-iwlwifi
+firmware-realtek
+firmware-atheros
 live-boot
 live-config
 live-config-systemd

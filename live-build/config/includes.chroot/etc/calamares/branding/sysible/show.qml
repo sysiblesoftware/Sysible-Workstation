@@ -44,7 +44,7 @@ Presentation {
                     anchors.horizontalCenter: parent.horizontalCenter
                     horizontalAlignment: Text.AlignHCenter
                     color: "#93a1b8"; font.pixelSize: 17
-                    text: "The engineering & automation workstation.\nSit tight — we're setting things up. It won't take long."
+                    text: "Engineering Automation Cloud.\nSit tight — we're setting things up. It won't take long."
                 }
                 Rectangle {
                     anchors.horizontalCenter: parent.horizontalCenter

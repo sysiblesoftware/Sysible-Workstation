@@ -192,7 +192,7 @@ jobs:
           generate_release_notes: false
           append_body: false
           body: |
-            **Sysible Workstation 1.0.2 “Ignition”** — the engineering & automation workstation.
+            **Sysible Workstation 1.0.2 “Ignition”** — Engineering Automation Cloud.
 
             A live Debian-stable image with the whole toolchain baked in: containers,
             Kubernetes, infrastructure-as-code, cloud CLIs, VSCodium and the SysTerm

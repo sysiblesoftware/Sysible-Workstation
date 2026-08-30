@@ -9,11 +9,11 @@ set -e
 [ "$(id -u)" = 0 ] || exit 0
 
 # 1) os-release — base-files upgrades rewrite /usr/lib/os-release back to Debian.
-want='PRETTY_NAME="Sysible Workstation"'
+want='PRETTY_NAME="Sysible Workstation — Engineering Automation Cloud"'
 if ! grep -q "$want" /usr/lib/os-release 2>/dev/null && \
    ! grep -q "$want" /etc/os-release 2>/dev/null; then
     cat > /usr/lib/os-release <<'OSREL'
-PRETTY_NAME="Sysible Workstation"
+PRETTY_NAME="Sysible Workstation — Engineering Automation Cloud"
 NAME="Sysible Workstation"
 ID=sysible
 ID_LIKE=debian
