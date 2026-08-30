@@ -7,9 +7,7 @@ gdm3
 # MacBook won't get network in the installer or after install (the first-boot
 # vendor/Obsidian fetches then fail, and boot can stall waiting for a network that
 # never comes up). firmware-linux pulls the broad set; the rest cover the common
-# wireless chips. NOTE: 2013-2015 MacBook/Air/Pro Wi-Fi is usually a Broadcom
-# BCM4360, which needs the DKMS `wl` driver (broadcom-sta-dkms), NOT firmware-brcm80211
-# alone — use a USB-Ethernet/tethering during install on those, or we add wl separately.
+# wireless chips.
 firmware-linux
 firmware-linux-nonfree
 firmware-misc-nonfree
@@ -17,6 +15,13 @@ firmware-brcm80211
 firmware-iwlwifi
 firmware-realtek
 firmware-atheros
+# 2013-2015 MacBook / Air / Pro Wi-Fi is a Broadcom BCM4360, which the open drivers
+# don't drive — it needs the proprietary `wl` module. broadcom-sta-dkms builds wl
+# against the shipped kernel headers at image-build time and installs a modprobe
+# blacklist for the conflicting open drivers (b43/brcmsmac/bcma/ssb) so wl binds the
+# card. linux-headers-amd64 (matching linux-image-amd64) is required for the DKMS build.
+linux-headers-amd64
+broadcom-sta-dkms
 live-boot
 live-config
 live-config-systemd
