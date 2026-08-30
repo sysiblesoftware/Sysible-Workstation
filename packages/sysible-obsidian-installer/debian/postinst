@@ -1,16 +1,17 @@
 #!/bin/sh
 set -e
 
+# Do NOT install Obsidian from here. This postinst runs while dpkg is mid-
+# transaction — during the live-build ISO chroot AND during Calamares' package
+# step — and sysible-install-obsidian shells out to `apt-get install` on the
+# downloaded .deb. That nested, non-reentrant dpkg call corrupts the parent run
+# and aborts it with "Sub-process /usr/bin/dpkg returned an error code (1)" (it
+# only bit when the download actually succeeded, which is why it was intermittent).
+#
+# Instead the #DEBHELPER# snippet below enables sysible-obsidian-installer.service,
+# a first-boot oneshot that fetches + installs Obsidian once the system is up, dpkg
+# is idle, and the network is online — and self-disables when done. That's the only
+# safe place to run apt from. See usr/bin/sysible-install-obsidian.
 #DEBHELPER#
-
-# Best-effort immediate install during setup: the Optional-apps step runs with a
-# network connection, so fetch Obsidian now. If the vendor can't be reached right
-# now, the first-boot retry service (enabled by the #DEBHELPER# snippet above)
-# tries again once the installed system is online. Never fail the package here —
-# the Optional-apps group is non-critical and must not abort the installation.
-if [ "$1" = "configure" ] && [ -x /usr/bin/sysible-install-obsidian ]; then
-    /usr/bin/sysible-install-obsidian \
-        || echo "sysible-obsidian-installer: Obsidian not fetched yet — will retry on first boot." >&2
-fi
 
 exit 0
