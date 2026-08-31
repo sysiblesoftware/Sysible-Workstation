@@ -183,10 +183,14 @@ def draw_banner(img_rgba, pal):
     ry = top + cap_h + int(cap * 0.24)
     draw.rectangle([x, ry, x + ww, ry + max(2, int(cap * 0.05))], fill=GREEN)
 
-    tf = _sora(int(cap * 0.24))
+    tf = _sora(int(cap * 0.42))
     tag = "ENGINEERING · AUTOMATION"
     raw = sum(draw.textlength(c, font=tf) for c in tag)
-    extra = max(0.0, (ww - raw)) / (len(tag) - 1)
+    # Justify to the wordmark width, but never stretch the letters so far apart that
+    # the tagline turns into sparse, unreadable spacing (the old cap*0.24 font did).
+    # With the larger font the natural width fills most of ww, so the tracking stays
+    # tight; cap any leftover so gaps never exceed a readable ~0.10*cap.
+    extra = min(cap * 0.10, max(0.0, (ww - raw)) / (len(tag) - 1))
     gy = ry + int(cap * 0.16)
     gx = x
     for ch in tag:
