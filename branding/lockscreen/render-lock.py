@@ -171,7 +171,7 @@ def render(W, H, out):
     draw.rectangle([cx - tw / 2, uy, cx + tw / 2, uy + uh], fill=GREEN)
     # tagline beneath the underline
     tfs = int(H * 0.0105)
-    _wordmark(draw, "ENGINEERING · AUTOMATION", _sora(tfs), cx, uy + int(H * 0.010),
+    _wordmark(draw, "ENGINEERING · AUTOMATION · CLOUD", _sora(tfs), cx, uy + int(H * 0.010),
               (150, 170, 205), int(H * 0.004))
 
     base.convert("RGB").save(out)

@@ -144,7 +144,7 @@ def glow_layer(W, H, draw_fn, blur_px, scale=4):
 
 # ============================================================================
 # BANNER — LOCKED design (banner_c_mock.py). small SYSIBLE WORKSTATION, green rule
-# directly UNDER the wordmark, ENGINEERING · AUTOMATION justified under the rule,
+# directly UNDER the wordmark, ENGINEERING · AUTOMATION · CLOUD justified under the rule,
 # bottom-left with ~11% left / ~13% bottom safe margin. Identical everywhere.
 # The 11% left inset keeps the wordmark clear of GNOME's `zoom` crop: on a
 # 16:10 display an 8K 16:9 wallpaper loses ~5% off each side, and a smaller
@@ -184,7 +184,7 @@ def draw_banner(img_rgba, pal):
     draw.rectangle([x, ry, x + ww, ry + max(2, int(cap * 0.05))], fill=GREEN)
 
     tf = _sora(int(cap * 0.42))
-    tag = "ENGINEERING · AUTOMATION"
+    tag = "ENGINEERING · AUTOMATION · CLOUD"
     raw = sum(draw.textlength(c, font=tf) for c in tag)
     # Justify to the wordmark width, but never stretch the letters so far apart that
     # the tagline turns into sparse, unreadable spacing (the old cap*0.24 font did).
