@@ -66,9 +66,9 @@ gnome-text-editor
 # /etc/profile.d/sysible-path.sh does the same for login shells.
 net-tools
 # openssh-server: SSH is ON by default on Sysible Workstation and accepts password
-# logins (see the 9000 system hook, which enables ssh, and the shipped
-# /etc/ssh/sshd_config.d/10-sysible.conf). GNOME core does not pull sshd, so it must
-# be named here or `systemctl enable ssh` has nothing to enable.
+# logins (see the 9000 system hook, which enables ssh and sets PasswordAuthentication
+# yes in the stock /etc/ssh/sshd_config — no Sysible drop-in). GNOME core does not
+# pull sshd, so it must be named here or `systemctl enable ssh` has nothing to enable.
 openssh-server
 # Graphical boot/shutdown splash — themed as Sysible (the system hook sets our
 # theme as the default; the installer rebuilds the target initramfs so the splash

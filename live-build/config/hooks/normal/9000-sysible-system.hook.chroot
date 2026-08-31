@@ -51,14 +51,22 @@ MOTD
 chmod -x /etc/update-motd.d/10-uname 2>/dev/null || true
 rm -f /run/motd.dynamic 2>/dev/null || true
 # SSH is ON by default on Sysible Workstation and accepts password logins (it's an
-# engineering workstation you're expected to reach over the network). The shipped
-# /etc/ssh/sshd_config.d/10-sysible.conf drop-in sets the policy (PasswordAuthentication
-# yes; root only via key). Host keys are NOT baked into the image — the firstboot
+# engineering workstation you're expected to reach over the network). No Sysible
+# drop-in — we use the stock /etc/ssh/sshd_config and just make sure password auth
+# is on there (Debian's default is already yes; set it explicitly so it's the
+# documented default). Host keys are NOT baked into the image — the firstboot
 # service (9600 hook) regenerates them per machine. Enable the service (unit is
 # `ssh`; disable the socket-activation unit so the daemon just runs, and fail2ban's
 # ssh jail — shipped active — guards it against brute force).
 for svc in gdm3 libvirtd docker ssh; do systemctl enable "$svc" 2>/dev/null || true; done
 systemctl disable ssh.socket 2>/dev/null || true
+if [ -f /etc/ssh/sshd_config ]; then
+    if grep -qiE '^[#[:space:]]*PasswordAuthentication' /etc/ssh/sshd_config; then
+        sed -i 's/^[#[:space:]]*[Pp]assword[Aa]uthentication.*/PasswordAuthentication yes/' /etc/ssh/sshd_config
+    else
+        printf '\nPasswordAuthentication yes\n' >> /etc/ssh/sshd_config
+    fi
+fi
 # Never block boot waiting for a network that may not come up (no Wi-Fi firmware,
 # no cable) — a desktop must reach the login screen regardless. The wait-online
 # services hold network-online.target (pulled in by docker.service et al.) until
@@ -79,14 +87,16 @@ for svc in NetworkManager-wait-online.service systemd-networkd-wait-online.servi
 done
 for grp in sudo kvm libvirt docker wireshark; do groupadd -f "$grp" 2>/dev/null || true; done
 
-# Never auto-suspend — a workstation/VM going to sleep on idle reads as a "freeze"
-# (especially in a VM, whose virtual display may not wake). Mask the sleep targets
-# at the systemd level so nothing can suspend/hibernate the machine, regardless of
-# GNOME's power settings (belt-and-suspenders with 16_sysible-power.gschema.override,
-# which also stops the screen blank/dim/lock). Done by hand (ln -> /dev/null) so it
-# works inside the build chroot where `systemctl mask` may be a no-op.
+# Idle auto-suspend is disabled via GNOME (16_sysible-power.gschema.override sets
+# sleep-inactive-*-type='nothing'), so a workstation/VM never drops to sleep on idle
+# and "freezes". But suspend itself is LEFT AVAILABLE: a laptop must be able to
+# suspend on lid-close or on request. We used to also mask the systemd sleep targets
+# (ln -> /dev/null), which made suspend fail hard on laptops — "suspend.target is
+# masked, refusing operation" / "Failed to execute suspend operation: Permission
+# denied" on every lid close. Do NOT mask them. (If any were masked by a previous
+# image, unmask them.)
 for t in sleep.target suspend.target hibernate.target hybrid-sleep.target suspend-then-hibernate.target; do
-    ln -sf /dev/null "/etc/systemd/system/$t"
+    [ -L "/etc/systemd/system/$t" ] && rm -f "/etc/systemd/system/$t"
 done
 
 # Drop Debian's (and GNOME's stock) default wallpapers — Sysible ships its own
