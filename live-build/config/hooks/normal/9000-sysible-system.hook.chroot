@@ -58,13 +58,23 @@ rm -f /run/motd.dynamic 2>/dev/null || true
 for svc in gdm3 libvirtd docker; do systemctl enable "$svc" 2>/dev/null || true; done
 systemctl disable ssh ssh.socket 2>/dev/null || true
 # Never block boot waiting for a network that may not come up (no Wi-Fi firmware,
-# no cable) — a desktop must reach the login screen regardless. NetworkManager-
-# wait-online holds graphical.target until network-online (up to ~90s), which on
-# bare metal without a usable NIC looks like a boot "hang" at the networking step.
-# Mask it; NetworkManager still brings links up asynchronously once firmware/driver
-# are present. (Services that truly need the network are ordered After= it and just
-# run when it arrives.)
-systemctl mask NetworkManager-wait-online.service systemd-networkd-wait-online.service 2>/dev/null || true
+# no cable) — a desktop must reach the login screen regardless. The wait-online
+# services hold network-online.target (pulled in by docker.service et al.) until
+# the network is up, up to ~90s, which on bare metal without a usable NIC looks
+# like a boot "hang" at the networking step ("A start job is running for Wait for
+# Network to be Configured"). Mask them so network-online.target is reached
+# immediately; NetworkManager still brings links up asynchronously once the
+# firmware/driver are present, and services that truly need the network are ordered
+# After= it and just run when it arrives.
+#
+# Done by hand (ln -> /dev/null), NOT `systemctl mask`: inside the live-build
+# chroot there is no running systemd/dbus, so `systemctl mask` is a silent no-op
+# and the mask never lands in the image (this is exactly why it kept hanging). The
+# symlink IS the mask on disk and always persists — same technique as the sleep
+# targets below.
+for svc in NetworkManager-wait-online.service systemd-networkd-wait-online.service; do
+    ln -sf /dev/null "/etc/systemd/system/$svc"
+done
 for grp in sudo kvm libvirt docker wireshark; do groupadd -f "$grp" 2>/dev/null || true; done
 
 # Never auto-suspend — a workstation/VM going to sleep on idle reads as a "freeze"
