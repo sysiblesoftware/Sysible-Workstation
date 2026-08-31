@@ -1,0 +1,67 @@
+#!/bin/sh
+# Best-effort out-of-tree Wi-Fi drivers for chips Debian's kernel does NOT drive
+# and Debian does NOT package — so the only way to ship them is to fetch the source
+# and DKMS-build it against the image's kernel here, exactly like broadcom-sta-dkms
+# (which covers the Mac's BCM4360). These fill the well-known gaps:
+#
+#   * Realtek RTL8821CE  — the PCIe Wi-Fi in a huge number of budget Acer / HP /
+#                          Lenovo / Dell laptops; dead on a stock Debian install.
+#   * Realtek RTL88x2AU  — the chipset in most cheap USB Wi-Fi dongles (8811AU /
+#                          8812AU / 8821AU).
+#
+# In-kernel drivers + the firmware-* packages already cover the MAJORITY of Wi-Fi
+# (Intel iwlwifi, MediaTek mt76, Atheros/Qualcomm ath*, in-kernel Realtek rtw88/89,
+# Broadcom brcmfmac). These two are the notorious leftovers.
+#
+# GUARDED END-TO-END: `set +e`, per-step timeouts, and every failure path just
+# skips that driver. This hook must NEVER slow to a crawl or abort `lb build` — a
+# missing network, a DKMS build error, or absent kernel headers all degrade to "no
+# extra driver", and the ISO still ships with full firmware coverage.
+set +e
+
+# The image's kernel (NOT the build host's uname -r), so DKMS builds for what boots.
+KVER="$(ls -1 /lib/modules 2>/dev/null | grep -E '^[0-9]' | sort -V | tail -n1)"
+if [ -z "$KVER" ]; then
+    echo "sysible-wifi: no /lib/modules kernel found — skipping out-of-tree Wi-Fi drivers."
+    exit 0
+fi
+if [ ! -d "/lib/modules/$KVER/build" ] && [ ! -d "/usr/src/linux-headers-$KVER" ]; then
+    echo "sysible-wifi: no kernel headers for '$KVER' (arm64 build, or headers absent) — skipping."
+    exit 0
+fi
+command -v dkms >/dev/null 2>&1 || { echo "sysible-wifi: dkms not installed — skipping."; exit 0; }
+command -v git  >/dev/null 2>&1 || { echo "sysible-wifi: git not installed — skipping."; exit 0; }
+
+# Build+install one driver from a git repo that carries a dkms.conf. Reads the
+# module name/version FROM dkms.conf (so we never hard-code a version that drifts),
+# stages it at /usr/src/<name>-<version>, and DKMS-installs it for $KVER.
+_wifi_dkms() {
+    _repo="$1"; _tmp="$(mktemp -d)"
+    echo "sysible-wifi: fetching $_repo ..."
+    if ! timeout 150 git clone --depth 1 "$_repo" "$_tmp" >/dev/null 2>&1; then
+        echo "sysible-wifi: clone of $_repo failed/timed out — skipping."; rm -rf "$_tmp"; return 0
+    fi
+    if [ ! -f "$_tmp/dkms.conf" ]; then
+        echo "sysible-wifi: $_repo has no dkms.conf — skipping."; rm -rf "$_tmp"; return 0
+    fi
+    _n="$(sed -n 's/.*PACKAGE_NAME="\{0,1\}\([^"]*\)"\{0,1\}.*/\1/p' "$_tmp/dkms.conf" | head -n1)"
+    _v="$(sed -n 's/.*PACKAGE_VERSION="\{0,1\}\([^"]*\)"\{0,1\}.*/\1/p' "$_tmp/dkms.conf" | head -n1)"
+    if [ -z "$_n" ] || [ -z "$_v" ]; then
+        echo "sysible-wifi: couldn't parse name/version from $_repo dkms.conf — skipping."; rm -rf "$_tmp"; return 0
+    fi
+    _src="/usr/src/${_n}-${_v}"
+    rm -rf "$_src"; mv "$_tmp" "$_src"
+    if timeout 300 dkms add     -m "$_n" -v "$_v"           >/dev/null 2>&1 \
+    && timeout 900 dkms build   -m "$_n" -v "$_v" -k "$KVER" >/dev/null 2>&1 \
+    && timeout 300 dkms install -m "$_n" -v "$_v" -k "$KVER" >/dev/null 2>&1; then
+        echo "sysible-wifi: installed $_n $_v for kernel $KVER."
+    else
+        echo "sysible-wifi: DKMS build of $_n $_v failed for $KVER — skipping (not fatal)."
+        dkms remove -m "$_n" -v "$_v" --all >/dev/null 2>&1 || true
+    fi
+}
+
+_wifi_dkms https://github.com/tomaspinho/rtl8821ce        # RTL8821CE (budget laptops)
+_wifi_dkms https://github.com/morrownr/8812au-20210629    # RTL8811AU/8812AU (USB dongles)
+
+exit 0

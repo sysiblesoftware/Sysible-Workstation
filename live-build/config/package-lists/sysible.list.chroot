@@ -15,6 +15,20 @@ firmware-brcm80211
 firmware-iwlwifi
 firmware-realtek
 firmware-atheros
+# Broaden Wi-Fi coverage to the rest of the common laptop/desktop chips (all are
+# Architecture:all firmware blobs, so they're safe on every arch and just sit
+# unused when the matching hardware isn't present):
+#   mediatek       — MT7921/MT7922 (very common in 2021+ AMD/Intel laptops) + mt76 USB
+#   ti-connectivity— TI WiLink (some x86 tablets/embedded)
+#   libertas       — Marvell 88w8xxx (mwifiex)
+#   zd1211         — ZyDAS ZD1211 USB adapters
+firmware-mediatek
+firmware-ti-connectivity
+firmware-libertas
+firmware-zd1211
+# git: used by the best-effort out-of-tree Wi-Fi driver hook (Realtek chips Debian
+# doesn't package — see hooks/normal/8100-sysible-wifi-drivers.hook.chroot).
+git
 # 2013-2015 MacBook / Air / Pro Wi-Fi is a Broadcom BCM4360, which the open drivers
 # don't drive — it needs the proprietary `wl` module. broadcom-sta-dkms builds wl
 # against the shipped kernel headers at image-build time and installs a modprobe
