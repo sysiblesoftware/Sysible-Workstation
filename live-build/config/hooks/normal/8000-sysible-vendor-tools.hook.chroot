@@ -56,11 +56,27 @@ apt-get install -y --reinstall ca-certificates >/dev/null 2>&1 \
 update-ca-certificates --fresh >/dev/null 2>&1 || update-ca-certificates || true
 certs=$(grep -c 'BEGIN CERTIFICATE' /etc/ssl/certs/ca-certificates.crt 2>/dev/null || echo 0)
 echo "   trusted roots: $certs"
-if ! curl -fsS --connect-timeout 20 --max-time 60 -o /dev/null https://download.docker.com/linux/debian/gpg; then
-    echo "FATAL: HTTPS still fails to verify inside the chroot after rebuilding the"
-    echo "       CA store. The build network is intercepting TLS with a private CA."
-    echo "       Build on a clean network (the GitHub Actions runner) or drop the"
-    echo "       intercepting CA into live-build/config/extra-ca/ so it is trusted."
+# Confirm HTTPS actually verifies before we depend on it — but DON'T treat a single
+# transient blip as a fatal "TLS is intercepted". A connection reset / CDN hiccup is
+# common on CI runners (this build died on `curl (35) Recv failure: Connection reset
+# by peer` against one host). Only a CONSISTENT failure across several independent,
+# well-known HTTPS hosts means the trust store is really broken or a private CA is
+# intercepting TLS. Retry each host (--retry-all-errors covers a reset), and accept
+# the FIRST that verifies.
+_probe="curl -fsS --connect-timeout 20 --max-time 60 --retry 5 --retry-delay 3 --retry-all-errors -o /dev/null"
+_https_ok=0
+for _u in https://download.docker.com/linux/debian/gpg \
+          https://api.github.com \
+          https://deb.debian.org; do
+    if $_probe "$_u"; then _https_ok=1; echo "   HTTPS verify OK via $_u"; break; fi
+    echo "   (HTTPS probe failed for $_u after retries — trying the next host)"
+done
+if [ "$_https_ok" -ne 1 ]; then
+    echo "FATAL: HTTPS fails to verify inside the chroot against EVERY probe host even"
+    echo "       after retries — the CA trust store is broken, or the build network is"
+    echo "       intercepting TLS with a private CA. Build on a clean network (the"
+    echo "       GitHub Actions runner) or drop the intercepting CA into"
+    echo "       live-build/config/extra-ca/ so it is trusted."
     exit 1
 fi
 
