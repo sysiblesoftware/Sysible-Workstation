@@ -50,13 +50,15 @@ Docs: https://sysible.com
 MOTD
 chmod -x /etc/update-motd.d/10-uname 2>/dev/null || true
 rm -f /run/motd.dynamic 2>/dev/null || true
-# SSH is intentionally NOT enabled by default (a desktop/workstation image should
-# not expose a network login surface out of the box). openssh-server's postinst
-# enables ssh on install, so DISABLE it here; users turn it on deliberately with
-# `sudo systemctl enable --now ssh`. When they do, the shipped
-# /etc/ssh/sshd_config.d/10-sysible.conf drop-in makes it key-only.
-for svc in gdm3 libvirtd docker; do systemctl enable "$svc" 2>/dev/null || true; done
-systemctl disable ssh ssh.socket 2>/dev/null || true
+# SSH is ON by default on Sysible Workstation and accepts password logins (it's an
+# engineering workstation you're expected to reach over the network). The shipped
+# /etc/ssh/sshd_config.d/10-sysible.conf drop-in sets the policy (PasswordAuthentication
+# yes; root only via key). Host keys are NOT baked into the image — the firstboot
+# service (9600 hook) regenerates them per machine. Enable the service (unit is
+# `ssh`; disable the socket-activation unit so the daemon just runs, and fail2ban's
+# ssh jail — shipped active — guards it against brute force).
+for svc in gdm3 libvirtd docker ssh; do systemctl enable "$svc" 2>/dev/null || true; done
+systemctl disable ssh.socket 2>/dev/null || true
 # Never block boot waiting for a network that may not come up (no Wi-Fi firmware,
 # no cable) — a desktop must reach the login screen regardless. The wait-online
 # services hold network-online.target (pulled in by docker.service et al.) until

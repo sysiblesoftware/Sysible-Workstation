@@ -1,6 +1,6 @@
-# Sysible fail2ban defaults. SSH is OFF by default on Sysible, so this jail is
-# dormant until the user enables ssh (`sudo systemctl enable --now ssh`); once
-# SSH is on, brute-force sources get banned. Reads the systemd journal.
+# Sysible fail2ban defaults. SSH is ON by default on Sysible and accepts password
+# logins, so this jail is active out of the box: it watches the systemd journal and
+# bans a source after too many failed logins (5 tries in 10m -> 1h ban).
 [DEFAULT]
 backend = systemd
 bantime = 1h

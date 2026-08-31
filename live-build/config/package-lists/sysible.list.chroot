@@ -18,11 +18,14 @@ firmware-atheros
 # Broaden Wi-Fi coverage to the rest of the common laptop/desktop chips (all are
 # Architecture:all firmware blobs, so they're safe on every arch and just sit
 # unused when the matching hardware isn't present):
-#   mediatek       — MT7921/MT7922 (very common in 2021+ AMD/Intel laptops) + mt76 USB
 #   ti-connectivity— TI WiLink (some x86 tablets/embedded)
 #   libertas       — Marvell 88w8xxx (mwifiex)
 #   zd1211         — ZyDAS ZD1211 USB adapters
-firmware-mediatek
+# NOTE: there is NO separate `firmware-mediatek` package in Debian bookworm (it was
+# split out only in Debian 13/trixie). The MediaTek MT7921/MT7922 + mt76 blobs ship
+# inside firmware-misc-nonfree (already installed above), so MediaTek Wi-Fi is
+# covered without it — naming the nonexistent package aborted the ISO build with
+# "E: Unable to locate package firmware-mediatek".
 firmware-ti-connectivity
 firmware-libertas
 firmware-zd1211
@@ -55,9 +58,18 @@ open-vm-tools-desktop
 python3-nautilus
 firefox-esr
 gnome-text-editor
-# net-tools is already pulled via the metapackage; listed here explicitly so
-# ifconfig is guaranteed present (its PATH is fixed via /etc/profile.d).
+# net-tools ships ifconfig/route/netstat. GNOME does NOT pull it, so name it here
+# to guarantee it's present. It installs into /usr/sbin, which is NOT on a regular
+# user's PATH by default on Debian — so ifconfig reads as "not installed" in a
+# terminal even though it is. /etc/environment (shipped in includes.chroot) puts
+# the sbin dirs on PATH for every session (graphical terminal, SSH, tty), and
+# /etc/profile.d/sysible-path.sh does the same for login shells.
 net-tools
+# openssh-server: SSH is ON by default on Sysible Workstation and accepts password
+# logins (see the 9000 system hook, which enables ssh, and the shipped
+# /etc/ssh/sshd_config.d/10-sysible.conf). GNOME core does not pull sshd, so it must
+# be named here or `systemctl enable ssh` has nothing to enable.
+openssh-server
 # Graphical boot/shutdown splash — themed as Sysible (the system hook sets our
 # theme as the default; the installer rebuilds the target initramfs so the splash
 # lands on installed systems), replacing Debian's Plymouth theme.

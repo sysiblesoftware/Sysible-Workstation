@@ -1,0 +1,11 @@
+# Sysible Workstation — session-wide environment (read by pam_env for EVERY login:
+# the graphical GDM session, SSH, and the text consoles).
+#
+# Put the sbin directories on PATH for all users. Sysible is an engineering/admin
+# workstation, and Debian normally exposes /usr/sbin, /sbin, /usr/local/sbin only
+# to root — so admin tools that live there (ifconfig, route, ethtool, ip's sbin
+# helpers, fdisk, …) read as "command not found" in a normal user's terminal even
+# though they're installed. Setting PATH here fixes that for non-login shells too
+# (e.g. GNOME's terminal), which /etc/profile.d/sysible-path.sh alone does not
+# reach. This is the canonical full Debian PATH with the sbin dirs merged in.
+PATH="/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/local/games:/usr/games"
