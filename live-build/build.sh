@@ -103,14 +103,25 @@ echo "Debian toolkit: $(grep -c . config/package-lists/sysible-toolkit.list.chro
 # present in the target after unpackfs and (b) available in the offline pool for
 # Calamares' apt step. Arch-selected here (the list is shared across arches, and
 # grub-efi-amd64 has no arm64 candidate / vice-versa, which would abort the build).
+# SECURE BOOT: the *-signed packages are what let the ISO boot on stock Windows
+# PCs, which ship with Secure Boot ENABLED. shim-signed is Microsoft-signed, so the
+# firmware trusts it with no key enrollment; it chainloads grub-efi-<arch>-signed
+# (Debian-signed). live-build detects these in the chroot and lays shim down as the
+# default EFI binary (/EFI/boot/bootx64.efi) with the signed grub beside it —
+# exactly how Debian's own live images boot under Secure Boot. With them absent the
+# ISO is rejected on any Secure-Boot machine until the user disables it in firmware.
+# Macs and Secure-Boot-off PCs still boot the same shim → grub path, so this is
+# strictly additive. mokutil lets a user manage keys if they ever need to.
 if [ "$ARCH" = "arm64" ]; then
-    printf '%s\n' grub-efi-arm64 grub-efi-arm64-bin grub-common \
+    printf '%s\n' grub-efi-arm64 grub-efi-arm64-bin grub-efi-arm64-signed \
+                  shim-signed mokutil grub-common \
         > config/package-lists/sysible-grub.list.chroot
 else
     # amd64: grub-efi-amd64 covers UEFI targets (the common case, incl. VMs and
     # Apple-silicon guests). grub-pc-bin coexists with grub-efi (only the grub-pc
     # metapackage conflicts) so BIOS grub-install has its modules in the pool too.
-    printf '%s\n' grub-efi-amd64 grub-efi-amd64-bin grub-pc-bin grub-common \
+    printf '%s\n' grub-efi-amd64 grub-efi-amd64-bin grub-efi-amd64-signed \
+                  shim-signed mokutil grub-pc-bin grub-common \
         > config/package-lists/sysible-grub.list.chroot
 fi
 echo "Target bootloader packages: $(tr '\n' ' ' < config/package-lists/sysible-grub.list.chroot)"
@@ -274,3 +285,40 @@ for sp in $(find binary -maxdepth 4 -name 'splash.png' 2>/dev/null); do
     echo "md5 $sp vs our override:"; md5sum "$sp" config/bootloaders/isolinux/splash.png 2>/dev/null
 done
 echo "===== end verification ====="
+
+# --- BOOT-COMPATIBILITY GATE: fail the build rather than ship a dud ----------
+# This is the automated "does it boot on real machines" test. It cannot power on a
+# Mac or a Windows PC, but it proves the ISO carries every structure those machines
+# need to boot — the exact things whose absence has bitten us. If any is missing we
+# EXIT NON-ZERO so CI fails and no broken ISO is ever uploaded.
+#   * UEFI boot entry            -> Macs and modern PCs (they boot UEFI only)
+#   * BIOS boot entry (amd64)    -> older / legacy-CSM PCs
+#   * shim + signed grub in ESP  -> Secure Boot (ON by default on stock Windows PCs)
+#   * live kernel/initrd/squashfs-> the payload the initramfs mounts (no BusyBox)
+echo "===== BOOT-COMPATIBILITY GATE ====="
+BOOTFAIL=0
+GATE_ISO=$(find . -maxdepth 1 -name '*.iso' 2>/dev/null | head -1)
+if [ -z "$GATE_ISO" ]; then
+    echo "FATAL: no ISO was produced."; exit 1
+fi
+ELT=$($SUDO xorriso -indev "$GATE_ISO" -report_el_torito plain 2>/dev/null || true)
+echo "$ELT" | grep -qiE 'uefi|0xef' \
+    || { echo "FATAL: ISO has NO UEFI boot entry — Macs and UEFI-only PCs cannot boot it."; BOOTFAIL=1; }
+if [ "$ARCH" != "arm64" ]; then
+    echo "$ELT" | grep -qiE 'bios|0x00|0x80' \
+        || { echo "FATAL: ISO has NO BIOS boot entry — legacy PCs cannot boot it."; BOOTFAIL=1; }
+fi
+EFIB=$(find binary -ipath '*efi/boot/*' -type f 2>/dev/null)
+echo "$EFIB" | grep -qiE 'boot(x64|aa64)\.efi' \
+    || { echo "FATAL: no default EFI boot binary (bootx64/bootaa64.efi) in the ESP."; BOOTFAIL=1; }
+echo "$EFIB" | grep -qiE 'grub(x64|aa64)\.efi' \
+    || { echo "FATAL: no signed grub beside shim in the ESP — Secure Boot will REJECT this ISO (Windows ships with Secure Boot ON)."; BOOTFAIL=1; }
+find binary -ipath '*live*' -name 'vmlinuz*'          2>/dev/null | grep -q . || { echo "FATAL: missing live/vmlinuz."; BOOTFAIL=1; }
+find binary -ipath '*live*' -name 'initrd.img*'       2>/dev/null | grep -q . || { echo "FATAL: missing live/initrd.img."; BOOTFAIL=1; }
+find binary -ipath '*live*' -name 'filesystem.squashfs' 2>/dev/null | grep -q . || { echo "FATAL: missing live/filesystem.squashfs."; BOOTFAIL=1; }
+if [ "$BOOTFAIL" -ne 0 ]; then
+    echo "===== BOOT-COMPATIBILITY GATE FAILED — refusing to ship this ISO ====="
+    exit 1
+fi
+echo "Boot gate PASSED: UEFI + $( [ "$ARCH" = arm64 ] && echo '(no BIOS on arm64)' || echo 'BIOS' ) + Secure-Boot shim/grub + live kernel/initrd/squashfs all present."
+echo "===== end BOOT-COMPATIBILITY GATE ====="
