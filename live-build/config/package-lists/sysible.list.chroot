@@ -19,9 +19,12 @@ firmware-atheros
 # don't drive — it needs the proprietary `wl` module. broadcom-sta-dkms builds wl
 # against the shipped kernel headers at image-build time and installs a modprobe
 # blacklist for the conflicting open drivers (b43/brcmsmac/bcma/ssb) so wl binds the
-# card. linux-headers-amd64 (matching linux-image-amd64) is required for the DKMS build.
-linux-headers-amd64
-broadcom-sta-dkms
+# card. This needs linux-headers-amd64 (matching linux-image-amd64), and the wl
+# source only compiles on x86 — so both are injected by build.sh into an
+# amd64-ONLY list (sysible-hw.list.chroot). They must NOT live in this shared list:
+# on an arm64 build linux-headers-amd64 has no candidate (and the wl DKMS build
+# would fail), either of which aborts `lb build` — the same arch-split build.sh
+# already does for grub-efi-<arch>.
 live-boot
 live-config
 live-config-systemd
@@ -42,7 +45,8 @@ gnome-text-editor
 # ifconfig is guaranteed present (its PATH is fixed via /etc/profile.d).
 net-tools
 # Graphical boot/shutdown splash — themed as Sysible (the system hook sets our
-# theme as default and rebuilds the initramfs), replacing Debian's Plymouth theme.
+# theme as the default; the installer rebuilds the target initramfs so the splash
+# lands on installed systems), replacing Debian's Plymouth theme.
 plymouth
 plymouth-themes
 # glib-compile-resources — used by the system hook to rebuild the GNOME Shell

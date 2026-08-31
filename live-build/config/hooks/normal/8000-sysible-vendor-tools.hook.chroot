@@ -90,9 +90,17 @@ if $CURL https://gitlab.com/paulcarroty/vscodium-deb-rpm-repo/raw/master/pub.gpg
      | gpg --dearmor -o /usr/share/keyrings/vscodium-archive-keyring.gpg; then
     echo 'deb [signed-by=/usr/share/keyrings/vscodium-archive-keyring.gpg] https://download.vscodium.com/debs vscodium main' \
         > /etc/apt/sources.list.d/vscodium.list
-    apt-get update
-    apt-get install -y --no-install-recommends codium \
-        && echo "vscodium ok" || echo "WARNING: vscodium install failed — skipping"
+    # VSCodium is optional — keep its repo failures from aborting the whole ISO.
+    # Under `set -e` a failed `apt-get update` (vscodium repo down / TLS hiccup)
+    # would kill the build BEFORE the intended "skipping" below, so guard both the
+    # update and the install in one condition. On any failure, drop the vscodium
+    # source so it can't break a later apt-get update, and carry on.
+    if apt-get update && apt-get install -y --no-install-recommends codium; then
+        echo "vscodium ok"
+    else
+        echo "WARNING: vscodium install failed — skipping"
+        rm -f /etc/apt/sources.list.d/vscodium.list
+    fi
 else
     echo "WARNING: could not fetch the VSCodium signing key — skipping vscodium"
 fi

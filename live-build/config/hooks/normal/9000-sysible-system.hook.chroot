@@ -186,13 +186,19 @@ fi
 
 # Boot/shutdown splash: make the shipped Sysible Plymouth theme the default so
 # boot and reboot show the Sysible mark, not Debian's "debian 12" splash. This
-# writes the default into the live rootfs; the installer copies it to disk and
-# rebuilds the target initramfs, so installed systems inherit it too.
+# writes ONLY the default-theme config into the rootfs (plymouth-set-default-theme
+# without -R does not touch the initramfs). The installer copies it to disk and
+# rebuilds the TARGET initramfs on install, so installed systems get the splash.
+#
+# Do NOT run `update-initramfs -u` here. Regenerating the initramfs inside the
+# live-build chroot replaces the working live-boot initramfs (the one that knows
+# how to find and mount the squashfs) with one that cannot — so the LIVE boot drops
+# to a BusyBox (initramfs) prompt and never reaches systemd. live-build already
+# built a bootable live initramfs when live-boot was installed; leave it alone. The
+# live session just boots without the custom splash (cosmetic); the installed
+# system still gets it via the Calamares initramfs rebuild above.
 if command -v plymouth-set-default-theme >/dev/null 2>&1; then
     plymouth-set-default-theme sysible 2>/dev/null || true
-    # Rebuild the live initramfs so the live boot uses it as well (harmless if
-    # this warns inside the chroot).
-    update-initramfs -u 2>/dev/null || true
 fi
 
 # Lock / login screen: brand the GDM greeter + unlock dialog with the Sysible

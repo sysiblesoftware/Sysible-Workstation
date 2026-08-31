@@ -115,6 +115,19 @@ else
 fi
 echo "Target bootloader packages: $(tr '\n' ' ' < config/package-lists/sysible-grub.list.chroot)"
 
+# --- arch-specific hardware packages (kept OUT of the shared list) ----------
+# linux-headers-amd64 and the Broadcom `wl` DKMS source are x86-only: on arm64
+# linux-headers-amd64 has no candidate and the wl module won't compile, either of
+# which aborts the build. Same arch-split as grub above — inject them only for
+# amd64, where the BCM4360 MacBook Wi-Fi needs them (see sysible.list.chroot).
+if [ "$ARCH" = "arm64" ]; then
+    : > config/package-lists/sysible-hw.list.chroot
+else
+    printf '%s\n' linux-headers-amd64 broadcom-sta-dkms \
+        > config/package-lists/sysible-hw.list.chroot
+fi
+echo "Arch hardware packages: $(tr '\n' ' ' < config/package-lists/sysible-hw.list.chroot)"
+
 # --- assemble -------------------------------------------------------------
 # Boot branding is done with source-level bootloader overrides that live-build
 # consumes while building the ISO: config/bootloaders/isolinux/ (BIOS menu title
