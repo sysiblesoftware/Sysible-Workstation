@@ -28,7 +28,11 @@ OSREL
     echo "sysible-guard: os-release re-branded"
 fi
 
-# 2) GDM login background — gnome-shell-common upgrades overwrite the gresource.
+# 2) GDM greeter branding — safe dconf-based re-assert only. We no longer rebuild
+#    the gnome-shell theme gresource (that was the non-stock delta that could wedge
+#    the greeter on some GPUs); apply-login-background is now a boot-safe stub that
+#    just re-runs `dconf update` so the gdm profile (logo removal, background hint)
+#    stays authoritative after an upgrade.
 [ -x /usr/lib/sysible/apply-login-background ] && /usr/lib/sysible/apply-login-background || true
 
 # 3) GRUB entry titles — grub-common upgrades restore the stock 10_linux, turning

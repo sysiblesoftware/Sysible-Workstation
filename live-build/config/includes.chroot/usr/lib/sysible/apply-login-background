@@ -1,56 +1,21 @@
 #!/bin/sh
-# Paint the Sysible login/lock background into the GNOME Shell theme gresource.
-# The greeter on Debian ignores the desktop-background gsetting, so the reliable
-# method is to rebuild gnome-shell-theme.gresource with our #lockDialogGroup
-# style. That gresource is OWNED by gnome-shell-common, so a gnome-shell upgrade
-# reverts it — this script is therefore called BOTH at build time and by the
-# branding guard after upgrades. Idempotent + cheap: if our marker is already in
-# the gresource, do nothing.
+# Sysible greeter branding — SAFE method only.
+#
+# We deliberately do NOT rebuild /usr/share/gnome-shell/gnome-shell-theme.gresource
+# anymore. Replacing gnome-shell's OWN compiled theme resource is a single point of
+# failure that sits directly in the boot-to-greeter path: it renders fine on most
+# GPUs but can wedge the GDM greeter on some (kernel alive, desktop never appears).
+# Stock Debian reaches the desktop on the exact same hardware, so the universal rule
+# is: brand only where it cannot stop the greeter from coming up, and never overwrite
+# a core gnome-shell resource. If the safe method can't paint a custom greeter
+# background on a given machine, the failure is cosmetic (stock GNOME dark greeter),
+# never a black screen.
+#
+# The greeter logo removal + background hint now live entirely in the gdm dconf
+# profile (/etc/dconf/db/gdm.d/95-sysible-login, applied with `dconf update`), which
+# is the supported, boot-safe path. This script remains as a stable entry point for
+# the branding guard and simply re-asserts that dconf state; it never touches the
+# gresource.
 set -e
-GRES=/usr/share/gnome-shell/gnome-shell-theme.gresource
-LOGIN_BG=/usr/share/backgrounds/sysible/sysible-login.png
-
-command -v gresource >/dev/null 2>&1 || exit 0
-[ -f "$GRES" ] && [ -f "$LOGIN_BG" ] || exit 0
-# Already branded? (marker = our login image compiled into the resource)
-if gresource list "$GRES" 2>/dev/null | grep -q 'sysible-login.png'; then
-    exit 0
-fi
-command -v glib-compile-resources >/dev/null 2>&1 || exit 0
-
-WORK=$(mktemp -d)
-ok=1
-for res in $(gresource list "$GRES" 2>/dev/null); do
-    rel=${res#/org/gnome/shell/theme/}
-    mkdir -p "$WORK/$(dirname "$rel")"
-    gresource extract "$GRES" "$res" > "$WORK/$rel" 2>/dev/null || ok=0
-done
-if [ "$ok" = 1 ]; then
-    cp "$LOGIN_BG" "$WORK/sysible-login.png"
-    for css in gnome-shell.css gnome-shell-dark.css gnome-shell-light.css \
-               gnome-shell-high-contrast.css gdm.css gdm3.css; do
-        [ -f "$WORK/$css" ] || continue
-        cat >> "$WORK/$css" <<'CSS'
-
-/* Sysible lock / login background */
-#lockDialogGroup {
-  background: #0a0d13 url('resource:///org/gnome/shell/theme/sysible-login.png');
-  background-size: cover;
-  background-repeat: no-repeat;
-  background-position: center;
-}
-CSS
-    done
-    {
-        echo '<?xml version="1.0" encoding="UTF-8"?>'
-        echo '<gresources><gresource prefix="/org/gnome/shell/theme">'
-        ( cd "$WORK" && find . -type f ! -name 'sysible.gresource.xml' \
-            | sed 's|^\./||' | sort | while read -r f; do echo "  <file>$f</file>"; done )
-        echo '</gresource></gresources>'
-    } > "$WORK/sysible.gresource.xml"
-    ( cd "$WORK" && glib-compile-resources --sourcedir="$WORK" \
-        --target="$GRES" sysible.gresource.xml ) 2>/dev/null \
-        && echo "sysible: login background applied" \
-        || echo "sysible: gresource rebuild skipped"
-fi
-rm -rf "$WORK"
+command -v dconf >/dev/null 2>&1 && dconf update 2>/dev/null || true
+exit 0

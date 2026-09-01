@@ -213,28 +213,24 @@ if command -v plymouth-set-default-theme >/dev/null 2>&1; then
     plymouth-set-default-theme sysible 2>/dev/null || true
 fi
 
-# Display server: run the GNOME session on Xorg, not Wayland. Sysible is Debian
-# bookworm underneath, and stock Debian reaches the desktop on the same hardware —
-# so a machine that boots Debian but wedges here (kernel alive, panel dead as the
-# desktop starts, classic on Broadwell-era Intel/Apple GPUs) is failing in the
-# GNOME/Wayland display layer, not the driver. Xorg is far more forgiving on those
-# old Intel panels. Force it in GDM's daemon.conf (uncomment/add WaylandEnable=false
-# under [daemon]); harmless on modern hardware, which runs GNOME on Xorg just fine.
+# Display server: leave GDM's default (Wayland where the hardware supports it,
+# automatic fallback to Xorg otherwise) — exactly what stock Debian does. Stock
+# Debian reaches the desktop on the same hardware we were wedging on, so the
+# universal rule is to match its graphical path rather than force a non-stock
+# delta. Forcing WaylandEnable=false was tried (ISO #22) and did NOT fix the
+# greeter wedge, which confirms the display server was never the cause. If an
+# earlier build left the override in place, strip it back to stock.
 if [ -f /etc/gdm3/daemon.conf ]; then
-    if grep -qE '^\s*#?\s*WaylandEnable' /etc/gdm3/daemon.conf; then
-        sed -i 's/^\s*#\?\s*WaylandEnable\s*=.*/WaylandEnable=false/' /etc/gdm3/daemon.conf
-    elif grep -q '^\[daemon\]' /etc/gdm3/daemon.conf; then
-        sed -i '/^\[daemon\]/a WaylandEnable=false' /etc/gdm3/daemon.conf
-    else
-        printf '[daemon]\nWaylandEnable=false\n' >> /etc/gdm3/daemon.conf
-    fi
+    sed -i 's/^\s*WaylandEnable\s*=.*/#WaylandEnable=false/' /etc/gdm3/daemon.conf
 fi
 
-# Lock / login screen: brand the GDM greeter + unlock dialog with the Sysible
-# background by rebuilding the GNOME Shell theme gresource (the reliable method
-# on Debian, where the greeter ignores the desktop-background gsetting). The logic
-# lives in /usr/lib/sysible/apply-login-background so the branding guard can
-# re-run it after a gnome-shell upgrade reverts the (package-owned) gresource.
+# Lock / login screen branding — SAFE method only. We do NOT rebuild the GNOME
+# Shell theme gresource anymore: overwriting gnome-shell's own compiled resource
+# is the single non-stock delta that sits in the boot-to-greeter path and can
+# wedge the greeter on some GPUs (stock Debian reaches the desktop on the same
+# hardware). Greeter logo removal + background hint live entirely in the gdm dconf
+# profile written below (the supported, boot-safe path). apply-login-background is
+# now a boot-safe no-op stub that only re-asserts that dconf state.
 chmod 0755 /usr/lib/sysible/apply-login-background /usr/lib/sysible/branding-guard 2>/dev/null || true
 /usr/lib/sysible/apply-login-background || true
 
