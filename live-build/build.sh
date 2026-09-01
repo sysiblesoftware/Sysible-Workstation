@@ -196,15 +196,15 @@ if m:
             e = re.sub(r'(\n\s*linux\s+\S+[^\n]*)',
                        lambda mo: mo.group(1) + ' ' + extra, e, count=1)
         return e
-    # The Install entry (as before), PLUS Mac-keyboard-friendly diagnostic/recovery
-    # entries selectable with arrows + Enter alone (no GRUB line editing / Ctrl-X,
-    # which a MacBook's internal keyboard can't send). Placed right after the Live
-    # entry so they're always visible near the top.
+    # Just the two entries a user needs: boot the live desktop (the base Live entry
+    # above) or install it. The Install entry is cloned from the real Live entry so
+    # its kernel/initrd paths are always correct, and placed right after it so it's
+    # visible near the top at any resolution.
+    # (The old text-mode / no-splash / extra-graphics diagnostic entries were
+    # temporary aids used to bisect the "no login screen" hang; that was traced to
+    # GDM never being enabled at boot and fixed in the 9000 hook, so they're gone.)
     clones = [
         _clone("Install Sysible Workstation", "sysible.install"),
-        _clone("Sysible Workstation (text mode - no desktop)", "3 systemd.unit=multi-user.target"),
-        _clone("Sysible Workstation (no boot splash)", "plymouth.enable=0"),
-        _clone("Sysible Workstation (extra Intel graphics)", "i915.enable_fbc=0 i915.enable_guc=0"),
     ]
     s = s[:m.end()] + "\n\n" + "\n\n".join(clones) + s[m.end():]
 # Brand the live GRUB menu with the Sysible THEME (dark hex background, centered
@@ -236,7 +236,7 @@ vis = ('\n\n# --- Sysible branding (appended last so it wins) ---\n'
        'export theme\n'
        # Appended last so it wins: give ~30s to arrow down to a diagnostic entry
        # (the default still boots on its own if untouched).
-       'set timeout=30\nset timeout_style=menu\n')
+       'set timeout=10\nset timeout_style=menu\n')
 open(p, 'w').write(s + vis)
 PY
         # isolinux (BIOS): rebrand the entry labels + clone an install entry.
