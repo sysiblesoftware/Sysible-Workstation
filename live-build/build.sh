@@ -186,9 +186,27 @@ s = s.replace('Debian GNU/Linux', 'Sysible Workstation')
 # writes entries — more robust than matching the first "\n}".
 m = re.search(r'(?ms)^menuentry\s+"[^"]*Live[^"]*".*?^\}', s)
 if m:
-    inst = re.sub(r'menuentry\s+"[^"]*"', 'menuentry "Install Sysible Workstation"', m.group(0), count=1)
-    inst = re.sub(r'(\n\s*linux\s+\S+[^\n]*)', r'\1 sysible.install', inst, count=1)
-    s = s[:m.end()] + "\n\n" + inst + s[m.end():]
+    base = m.group(0)
+    # Clone the real Live entry (so the kernel/initrd paths are always correct) into
+    # extra entries, each APPENDING kernel params to its `linux` line. A lambda
+    # replacement avoids backslash/escape surprises from the appended text.
+    def _clone(title, extra):
+        e = re.sub(r'menuentry\s+"[^"]*"', 'menuentry "%s"' % title, base, count=1)
+        if extra:
+            e = re.sub(r'(\n\s*linux\s+\S+[^\n]*)',
+                       lambda mo: mo.group(1) + ' ' + extra, e, count=1)
+        return e
+    # The Install entry (as before), PLUS Mac-keyboard-friendly diagnostic/recovery
+    # entries selectable with arrows + Enter alone (no GRUB line editing / Ctrl-X,
+    # which a MacBook's internal keyboard can't send). Placed right after the Live
+    # entry so they're always visible near the top.
+    clones = [
+        _clone("Install Sysible Workstation", "sysible.install"),
+        _clone("Sysible Workstation (text mode - no desktop)", "3 systemd.unit=multi-user.target"),
+        _clone("Sysible Workstation (no boot splash)", "plymouth.enable=0"),
+        _clone("Sysible Workstation (extra Intel graphics)", "i915.enable_fbc=0 i915.enable_guc=0"),
+    ]
+    s = s[:m.end()] + "\n\n" + "\n\n".join(clones) + s[m.end():]
 # Brand the live GRUB menu with the Sysible THEME (dark hex background, centered
 # mark, GREEN TEXT highlight — not a solid bar — and the "GNU GRUB version" line
 # hidden). This MUST be APPENDED, not prepended: live-build's generated grub.cfg
@@ -215,7 +233,10 @@ vis = ('\n\n# --- Sysible branding (appended last so it wins) ---\n'
        'set menu_color_normal=light-gray/black\n'
        'set menu_color_highlight=light-green/black\n'
        'set theme=($root)/boot/grub/themes/sysible/theme.txt\n'
-       'export theme\n')
+       'export theme\n'
+       # Appended last so it wins: give ~30s to arrow down to a diagnostic entry
+       # (the default still boots on its own if untouched).
+       'set timeout=30\nset timeout_style=menu\n')
 open(p, 'w').write(s + vis)
 PY
         # isolinux (BIOS): rebrand the entry labels + clone an install entry.
