@@ -213,6 +213,23 @@ if command -v plymouth-set-default-theme >/dev/null 2>&1; then
     plymouth-set-default-theme sysible 2>/dev/null || true
 fi
 
+# Display server: run the GNOME session on Xorg, not Wayland. Sysible is Debian
+# bookworm underneath, and stock Debian reaches the desktop on the same hardware —
+# so a machine that boots Debian but wedges here (kernel alive, panel dead as the
+# desktop starts, classic on Broadwell-era Intel/Apple GPUs) is failing in the
+# GNOME/Wayland display layer, not the driver. Xorg is far more forgiving on those
+# old Intel panels. Force it in GDM's daemon.conf (uncomment/add WaylandEnable=false
+# under [daemon]); harmless on modern hardware, which runs GNOME on Xorg just fine.
+if [ -f /etc/gdm3/daemon.conf ]; then
+    if grep -qE '^\s*#?\s*WaylandEnable' /etc/gdm3/daemon.conf; then
+        sed -i 's/^\s*#\?\s*WaylandEnable\s*=.*/WaylandEnable=false/' /etc/gdm3/daemon.conf
+    elif grep -q '^\[daemon\]' /etc/gdm3/daemon.conf; then
+        sed -i '/^\[daemon\]/a WaylandEnable=false' /etc/gdm3/daemon.conf
+    else
+        printf '[daemon]\nWaylandEnable=false\n' >> /etc/gdm3/daemon.conf
+    fi
+fi
+
 # Lock / login screen: brand the GDM greeter + unlock dialog with the Sysible
 # background by rebuilding the GNOME Shell theme gresource (the reliable method
 # on Debian, where the greeter ignores the desktop-background gsetting). The logic
