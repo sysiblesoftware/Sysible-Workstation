@@ -58,8 +58,27 @@ rm -f /run/motd.dynamic 2>/dev/null || true
 # service (9600 hook) regenerates them per machine. Enable the service (unit is
 # `ssh`; disable the socket-activation unit so the daemon just runs, and fail2ban's
 # ssh jail — shipped active — guards it against brute force).
-for svc in gdm3 libvirtd docker ssh; do systemctl enable "$svc" 2>/dev/null || true; done
-systemctl disable ssh.socket 2>/dev/null || true
+# Enable the boot services. IMPORTANT: `systemctl enable` is UNRELIABLE inside the
+# live-build chroot — there is no running systemd/dbus, so it can be a silent no-op
+# (the exact same trap documented for the wait-online masks below). That is what left
+# graphical.target.wants/ WITHOUT a display manager: a normal boot reached
+# graphical.target and then sat at the last message with no greeter, while a manual
+# `systemctl start gdm3` worked fine. Use deb-systemd-helper, which manages the enable
+# symlinks OFFLINE (it's what dpkg postinsts use), with systemctl only as a fallback.
+for svc in gdm3 libvirtd docker ssh; do
+    deb-systemd-helper enable "$svc.service" 2>/dev/null \
+        || systemctl enable "$svc" 2>/dev/null || true
+done
+# Belt-and-suspenders for the display manager specifically (the boot-critical one):
+# guarantee graphical.target starts GDM by laying the want symlink down BY HAND — a
+# .wants/ symlink IS the dependency, independent of the unit's [Install] quirks or any
+# chroot tooling. Also register GDM as the default display manager (gdm3's own postinst
+# skips enabling itself when this file is missing or points elsewhere).
+mkdir -p /etc/systemd/system/graphical.target.wants
+ln -sf /lib/systemd/system/gdm3.service /etc/systemd/system/graphical.target.wants/gdm3.service
+echo /usr/sbin/gdm3 > /etc/X11/default-display-manager 2>/dev/null || true
+# Also disable the ssh SOCKET unit the chroot-safe way, so the daemon just runs.
+deb-systemd-helper disable ssh.socket 2>/dev/null || systemctl disable ssh.socket 2>/dev/null || true
 if [ -f /etc/ssh/sshd_config ]; then
     if grep -qiE '^[#[:space:]]*PasswordAuthentication' /etc/ssh/sshd_config; then
         sed -i 's/^[#[:space:]]*[Pp]assword[Aa]uthentication.*/PasswordAuthentication yes/' /etc/ssh/sshd_config
