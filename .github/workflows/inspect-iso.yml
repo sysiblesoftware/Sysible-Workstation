@@ -1,0 +1,97 @@
+name: Inspect ISO
+
+# INSPECT ONLY — never builds. Downloads an ALREADY-BUILT ISO artifact from a
+# given ISO workflow run, pulls the live rootfs (live/filesystem.squashfs) out of
+# it, and prints the facts that decide whether the greeter (GDM) is actually
+# wired to start at boot. Exists because the build sandbox can't fetch artifacts
+# (egress policy) and the only way to know what LANDED in the image is to read
+# the image. Nothing here touches the build or publishes anything.
+on:
+  workflow_dispatch:
+    inputs:
+      run_id:
+        description: 'ISO workflow run id whose artifact to inspect'
+        type: string
+        required: true
+      artifact:
+        description: 'Artifact name'
+        type: string
+        default: sysible-workstation-amd64
+
+permissions:
+  actions: read
+  contents: read
+
+jobs:
+  inspect:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Tools
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq xorriso squashfs-tools >/dev/null
+
+      - name: Download the built ISO artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: ${{ inputs.artifact }}
+          run-id: ${{ inputs.run_id }}
+          github-token: ${{ github.token }}
+          path: art
+
+      - name: Extract the live rootfs
+        run: |
+          set -e
+          ISO=$(ls -1 art/*.iso | head -1)
+          echo "ISO: $ISO ($(stat -c%s "$ISO") bytes)"
+          xorriso -osirrox on -indev "$ISO" -extract /live/filesystem.squashfs fs.squashfs 2>/dev/null
+          ls -la fs.squashfs
+          mkdir -p root
+          # Pull only what we need to decide the GDM question (no full extract).
+          unsquashfs -q -d root fs.squashfs \
+            etc/systemd/system \
+            etc/X11/default-display-manager \
+            etc/gdm3/daemon.conf \
+            usr/lib/systemd/system/graphical.target \
+            usr/lib/systemd/system/gdm.service \
+            usr/lib/systemd/system/gdm3.service \
+            usr/lib/systemd/system/display-manager.service \
+            var/lib/dpkg/info/gdm3.list \
+            lib 2>&1 | tail -3 || true
+
+      - name: "FACT 1 — what graphical.target.wants actually contains"
+        run: |
+          echo "----- /etc/systemd/system/graphical.target.wants -----"
+          ls -la root/etc/systemd/system/graphical.target.wants/ 2>&1 || echo "(dir missing)"
+          echo
+          echo "----- /etc/systemd/system/display-manager.service (the alias graphical.target Wants) -----"
+          ls -la root/etc/systemd/system/display-manager.service 2>&1 || echo "MISSING — nothing satisfies graphical.target's Wants=display-manager.service"
+
+      - name: "FACT 2 — which gdm unit file is REAL vs alias"
+        run: |
+          echo "----- /lib is merged-usr? -----"; ls -la root/lib 2>&1 | head -2
+          echo "----- gdm unit files shipped in usr/lib/systemd/system -----"
+          ls -la root/usr/lib/systemd/system/ 2>/dev/null | grep -iE "gdm|display-manager" || echo "(none matched)"
+          echo "----- dpkg -L gdm3 | systemd -----"
+          grep -E "systemd/system" root/var/lib/dpkg/info/gdm3.list 2>&1 || echo "(gdm3.list missing)"
+          echo "----- does my symlink TARGET exist as a real file? -----"
+          for f in root/usr/lib/systemd/system/gdm3.service root/usr/lib/systemd/system/gdm.service; do
+            if [ -L "$f" ]; then echo "$f -> SYMLINK to $(readlink "$f")";
+            elif [ -f "$f" ]; then echo "$f = REAL FILE";
+            else echo "$f = DOES NOT EXIST"; fi
+          done
+
+      - name: "FACT 3 — the real gdm unit's [Unit]/[Install] + graphical.target Wants"
+        run: |
+          for f in root/usr/lib/systemd/system/gdm.service root/usr/lib/systemd/system/gdm3.service; do
+            [ -e "$f" ] || continue
+            echo "===== $f ====="; sed -n '1,60p' "$f"; echo
+          done
+          echo "===== graphical.target ====="; cat root/usr/lib/systemd/system/graphical.target 2>&1
+          echo
+          echo "===== /etc/X11/default-display-manager ====="; cat root/etc/X11/default-display-manager 2>&1
+          echo
+          echo "===== /etc/gdm3/daemon.conf (Wayland/autologin) ====="; grep -vE '^\s*#|^\s*$' root/etc/gdm3/daemon.conf 2>&1 || true
+
+      - name: "FACT 4 — every symlink under /etc/systemd/system (enable state on disk)"
+        run: |
+          find root/etc/systemd/system -maxdepth 2 -type l -printf '%p -> %l\n' 2>/dev/null | sed 's#^root##' | sort
