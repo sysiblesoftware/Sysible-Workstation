@@ -95,3 +95,32 @@ jobs:
       - name: "FACT 4 — every symlink under /etc/systemd/system (enable state on disk)"
         run: |
           find root/etc/systemd/system -maxdepth 2 -type l -printf '%p -> %l\n' 2>/dev/null | sed 's#^root##' | sort
+
+      - name: "FACT 5 — could GDM be failing INSTANTLY at start? (greeter stack, wrapper, generate-config)"
+        run: |
+          mkdir -p root2
+          unsquashfs -q -d root2 fs.squashfs \
+            usr/sbin/gdm3 usr/share/gdm/generate-config usr/libexec \
+            var/lib/dpkg/status etc/default/locale etc/gdm3 \
+            usr/lib/live/config usr/lib/systemd/system/plymouth-quit.service \
+            usr/lib/systemd/system/plymouth-quit-wait.service usr/lib/systemd/system/plymouth-start.service \
+            usr/lib/systemd/system/getty@.service 2>&1 | tail -2 || true
+          echo "----- ExecStart / ExecStartPre targets exist + are executable? -----"
+          for f in root2/usr/sbin/gdm3 root2/usr/share/gdm/generate-config; do
+            if [ -e "$f" ]; then ls -la "$f"; file "$f" | sed 's#root2##'; else echo "$f MISSING"; fi
+          done
+          echo "----- /usr/sbin/gdm3 wrapper (first 60 lines, if a script) -----"
+          [ -f root2/usr/sbin/gdm3 ] && head -c 4000 root2/usr/sbin/gdm3 | head -60 || true
+          echo "----- generate-config (first 40 lines) -----"
+          [ -f root2/usr/share/gdm/generate-config ] && head -40 root2/usr/share/gdm/generate-config || true
+          echo "----- greeter stack dpkg status (Status line + Version) -----"
+          for p in gdm3 libgdm1 gnome-shell gnome-session gnome-session-bin mutter xwayland xserver-xorg-core xserver-xorg plymouth live-config live-config-systemd; do
+            awk -v P="$p" '$0=="Package: "P{f=1} f&&/^Status:/{s=$0} f&&/^Version:/{v=$0} f&&/^$/{if(s!=""||v!="")print P": "s" | "v; f=0;s="";v=""}' root2/var/lib/dpkg/status
+          done
+          echo "----- /etc/gdm3 contents -----"; ls -la root2/etc/gdm3 2>&1
+          echo "----- /etc/default/locale (EnvironmentFile for gdm) -----"; cat root2/etc/default/locale 2>&1 || true
+          echo "----- live-config gdm3 component (it rewrites daemon.conf at live boot) -----"
+          ls root2/usr/lib/live/config/ 2>/dev/null | grep -iE "gdm|autologin|user" || echo "(none matched)"
+          for c in $(ls root2/usr/lib/live/config/ 2>/dev/null | grep -iE "gdm3?$"); do echo "== $c =="; sed -n '1,80p' "root2/usr/lib/live/config/$c"; done
+          echo "----- plymouth units gdm interacts with -----"
+          for u in plymouth-quit plymouth-quit-wait plymouth-start; do echo "== $u.service =="; grep -vE '^\s*#|^\s*$' "root2/usr/lib/systemd/system/$u.service" 2>&1; done
