@@ -20,7 +20,7 @@ lb config noauto \
   --binary-images iso-hybrid \
   --image-name "sysible-workstation" \
   --debian-installer none \
-  --bootappend-live "boot=live components i915.enable_psr=0 i915.enable_dc=0 hostname=sysible-workstation username=sysible user-fullname=Sysible user-default-groups=sudo,kvm,libvirt,docker,wireshark,plugdev,netdev,video,audio" \
+  --bootappend-live "boot=live components plymouth.enable=0 i915.enable_psr=0 i915.enable_dc=0 hostname=sysible-workstation username=sysible user-fullname=Sysible user-default-groups=sudo,kvm,libvirt,docker,wireshark,plugdev,netdev,video,audio" \
   --iso-application "Sysible Workstation" \
   --iso-publisher "Sysible" \
   --iso-volume "Sysible Workstation" \

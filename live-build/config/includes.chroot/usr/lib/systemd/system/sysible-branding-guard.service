@@ -1,11 +1,15 @@
 [Unit]
 Description=Re-assert Sysible branding after package upgrades
-# Run before the display manager so the greeter picks up a corrected background.
-Before=gdm.service display-manager.service
+# Deliberately NOT ordered Before=gdm.service. Cosmetic branding must never be
+# able to gate the login screen: anything slow or wedged here would hold the
+# greeter forever. The avatar/background are re-read on demand, so arriving a
+# moment after the greeter draws costs nothing, while blocking login is fatal.
 ConditionPathExists=/usr/lib/sysible/branding-guard
 
 [Service]
 Type=oneshot
+# Bounded: never let this stall the boot.
+TimeoutStartSec=30
 ExecStart=/usr/lib/sysible/branding-guard
 RemainAfterExit=yes
 

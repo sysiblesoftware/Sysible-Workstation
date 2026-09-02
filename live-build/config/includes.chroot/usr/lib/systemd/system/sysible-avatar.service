@@ -1,13 +1,15 @@
 [Unit]
 Description=Seed the Sysible avatar into AccountsService for human users
-# Run before the display manager so the login screen shows the avatar on first
-# draw. accounts-daemon picks up the files on demand, so no ordering vs. it is
-# required.
-Before=gdm.service display-manager.service
+# Deliberately NOT ordered Before=gdm.service. Cosmetic branding must never be
+# able to gate the login screen: anything slow or wedged here would hold the
+# greeter forever. The avatar/background are re-read on demand, so arriving a
+# moment after the greeter draws costs nothing, while blocking login is fatal.
 ConditionPathExists=/usr/share/pixmaps/sysible-face.png
 
 [Service]
 Type=oneshot
+# Bounded: never let this stall the boot.
+TimeoutStartSec=30
 ExecStart=/usr/local/bin/sysible-set-avatar
 RemainAfterExit=yes
 

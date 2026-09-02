@@ -81,4 +81,23 @@ done < "$BMAN"
 [ "$checked" -gt 0 ] || fail "branding manifest matched no in-image assets"
 echo "sysible-verify: OK — $checked branded assets match the canonical mark (incl. GRUB boot logo)."
 
+# 7) The greeter must not be gated by our own units, and Plymouth must not be able
+# to deadlock the live boot. Root cause of the "boots to a black screen with no
+# login screen" hang: gdm.service is ordered After=plymouth-quit.service AND
+# Conflicts= it, while plymouth-quit-wait.service runs `plymouth --wait` with
+# TimeoutSec=0 (infinite). If plymouthd wedges on the panel, the wait never
+# returns, multi-user.target never completes, graphical.target is never reached and
+# GDM NEVER STARTS (journalctl -u gdm shows no entries at all) — yet a manual
+# `systemctl start gdm3` works, because that bypasses the target dependency. The
+# live boot requests no splash and never rebuilds the initramfs, so Plymouth adds
+# nothing there; plymouth.enable=0 in the live cmdline removes the deadlock. The
+# INSTALLED system is unaffected (it has its own cmdline via /etc/default/grub.d).
+for _u in /usr/lib/systemd/system/sysible-avatar.service \
+          /usr/lib/systemd/system/sysible-branding-guard.service; do
+    [ -f "$_u" ] || continue
+    ! grep -q '^Before=.*\(gdm\|display-manager\)' "$_u" \
+        || fail "$_u is ordered Before=gdm — cosmetic branding must never gate the login screen"
+done
+echo "sysible-verify: OK — no Sysible unit gates the display manager."
+
 echo "sysible-verify: OK — SysTerm $V, Run Command menu, and new icon all present."
