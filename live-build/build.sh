@@ -196,15 +196,24 @@ if m:
             e = re.sub(r'(\n\s*linux\s+\S+[^\n]*)',
                        lambda mo: mo.group(1) + ' ' + extra, e, count=1)
         return e
-    # Just the two entries a user needs: boot the live desktop (the base Live entry
-    # above) or install it. The Install entry is cloned from the real Live entry so
-    # its kernel/initrd paths are always correct, and placed right after it so it's
+    # The entries a user needs: boot the live desktop (the base Live entry above),
+    # install it, or — if the graphical boot ever fails — a text recovery console.
+    # The Install/recovery entries are cloned from the real Live entry so their
+    # kernel/initrd paths are always correct, and placed right after it so they're
     # visible near the top at any resolution.
-    # (The old text-mode / no-splash / extra-graphics diagnostic entries were
-    # temporary aids used to bisect the "no login screen" hang; that was traced to
-    # GDM never being enabled at boot and fixed in the 9000 hook, so they're gone.)
+    #   * Recovery console: boots multi-user.target (no GDM) and passes
+    #     `sysible.recovery`, which activates the 9000-hook autologin-root service on
+    #     tty1 — a passwordless root shell on the visible screen (root ships locked
+    #     and the live user has no console password, so this is the only way in when
+    #     the greeter doesn't come up). From it, `systemctl start gdm3` / `journalctl
+    #     -b` diagnose a greeter wedge. Inert on the normal entries (the service's
+    #     ConditionKernelCommandLine only passes when this entry sets the flag).
+    # (The old text-mode / no-splash / extra-graphics bisect entries are gone; this
+    # single recovery entry replaces them with one that's actually loggable-into.)
     clones = [
         _clone("Install Sysible Workstation", "sysible.install"),
+        _clone("Sysible Workstation (recovery console)",
+               "systemd.unit=multi-user.target sysible.recovery"),
     ]
     s = s[:m.end()] + "\n\n" + "\n\n".join(clones) + s[m.end():]
 # Brand the live GRUB menu with the Sysible THEME (dark hex background, centered

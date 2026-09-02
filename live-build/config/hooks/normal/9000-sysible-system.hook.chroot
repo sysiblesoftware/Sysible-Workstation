@@ -77,6 +77,44 @@ done
 mkdir -p /etc/systemd/system/graphical.target.wants
 ln -sf /lib/systemd/system/gdm3.service /etc/systemd/system/graphical.target.wants/gdm3.service
 echo /usr/sbin/gdm3 > /etc/X11/default-display-manager 2>/dev/null || true
+
+# --- Recovery console (opt-in, via the GRUB "recovery console" entry) --------
+# The live session ships root LOCKED and the 'sysible' user WITHOUT a usable
+# password (GDM autologins it; a plain getty login can't). So if the graphical
+# boot ever fails again, there'd be no way to log in at a text console to look. This
+# gives one: a passwordless root shell ON tty1 (the visible screen — no VT switching
+# needed), but ONLY when the kernel cmdline carries `sysible.recovery`. The recovery
+# GRUB entry adds that flag AND boots multi-user.target, so GDM is out of the way and
+# systemctl works for diagnosis (e.g. `systemctl start gdm3`). agetty --autologin
+# root uses `login -f` (auth skipped), so the locked root password is not in the way.
+# On a NORMAL boot the ConditionKernelCommandLine fails, the unit is skipped, and the
+# standard getty@tty1 is untouched — the entry is fully inert unless chosen.
+cat > /etc/systemd/system/sysible-recovery-shell.service <<'RECOV'
+[Unit]
+Description=Sysible recovery root shell on tty1 (sysible.recovery only)
+Documentation=https://sysible.com
+ConditionKernelCommandLine=sysible.recovery
+Conflicts=getty@tty1.service
+After=getty@tty1.service systemd-user-sessions.service plymouth-quit-wait.service
+[Service]
+Type=idle
+ExecStart=-/sbin/agetty --autologin root --noclear --keep-baud tty1 $TERM
+Restart=always
+UtmpIdentifier=tty1
+TTYPath=/dev/tty1
+TTYReset=yes
+TTYVHangup=yes
+KillMode=process
+[Install]
+WantedBy=multi-user.target
+RECOV
+# Enable it OFFLINE (chroot-safe: `systemctl enable` is a silent no-op in this chroot
+# — the same trap the GDM want above documents). ConditionKernelCommandLine keeps it
+# inert unless the recovery entry is chosen, so a normal boot never sees it.
+mkdir -p /etc/systemd/system/multi-user.target.wants
+ln -sf /etc/systemd/system/sysible-recovery-shell.service \
+    /etc/systemd/system/multi-user.target.wants/sysible-recovery-shell.service
+
 # Also disable the ssh SOCKET unit the chroot-safe way, so the daemon just runs.
 deb-systemd-helper disable ssh.socket 2>/dev/null || systemctl disable ssh.socket 2>/dev/null || true
 if [ -f /etc/ssh/sshd_config ]; then
