@@ -7,4 +7,4 @@ grep -qw sysible.install /proc/cmdline 2>/dev/null || exit 0
 # let the GNOME session + polkit agent come up first (the wrapper tries
 # pkexec first and falls back to passwordless sudo if polkit refuses)
 sleep 6
-exec sysible-install
+exec sysible-os-installer

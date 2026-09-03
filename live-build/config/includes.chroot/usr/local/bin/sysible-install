@@ -1,47 +1,8 @@
 #!/bin/sh
-# Launch the Sysible Workstation installer with root privileges, without ever
-# asking for a password that does not exist.
+# sysible-install — friendly alias for `install-sysible`.
 #
-# The live account ships LOCKED (no usable credential — see 9100-sysible-users),
-# which is right for a public ISO but breaks the obvious way to start Calamares:
-# `pkexec calamares` authenticates through polkit, polkit does NOT read sudoers,
-# and it asks a member of the 'sudo' group for their OWN password. That dialog
-# was unanswerable, so the ISO could not be installed at all.
-#
-# A polkit rule now grants the live user that one action, and this wrapper makes
-# the outcome not depend on it: if polkit refuses for ANY reason — the rule not
-# read, a different action id, a polkitd without JS rules — we fall back to the
-# passwordless sudo the live session is guaranteed to have. Two independent paths
-# to the same place; the installer starts either way.
-#
-# Order matters. pkexec goes first because it is the upstream-supported way to
-# run Calamares as root and is known to bring up its GUI correctly; sudo is the
-# fallback, not the default, so the normal path stays the proven one.
-set -eu
-
-if [ "$(id -u)" = 0 ]; then
-    exec calamares "$@"
-fi
-
-if command -v pkexec >/dev/null 2>&1; then
-    pkexec calamares "$@" && exit 0
-    rc=$?
-    # 126 = authorization could not be obtained (dialog dismissed or failed),
-    # 127 = not authorized / pkexec itself failed. Anything else came from
-    # Calamares having actually run, so pass it straight through rather than
-    # starting the installer a second time.
-    if [ "$rc" -ne 126 ] && [ "$rc" -ne 127 ]; then
-        exit "$rc"
-    fi
-    echo "sysible-install: polkit refused (exit $rc) — falling back to sudo." >&2
-fi
-
-# Passwordless by construction in the live session (/etc/sudoers.d/010-sysible-live).
-# -E keeps DISPLAY / WAYLAND_DISPLAY / XDG_RUNTIME_DIR so the GUI can open.
-if sudo -n true 2>/dev/null; then
-    exec sudo -E calamares "$@"
-fi
-
-echo "sysible-install: cannot become root to run the installer." >&2
-echo "  Open a terminal and run:  sudo calamares" >&2
-exit 1
+# The unified installer is `install-sysible` (verb-noun, matching install-sysible-
+# controller). People reliably type it the other way round too, so this thin alias
+# makes BOTH names work — `sysible-install slop`, `install-sysible slop`, etc. are
+# identical. All arguments pass straight through.
+exec install-sysible "$@"
