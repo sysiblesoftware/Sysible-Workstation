@@ -151,11 +151,20 @@ grep -q 'lock-enabled=false' "$_LC" || fail "$_LC no longer disables the live lo
 grep -q 'polkit.addRule' "$_LC" || fail "$_LC no longer grants the live user the installer's polkit action — 'Install Sysible Workstation' would ask for a password that does not exist"
 grep -q 'calamares' "$_LC" || fail "$_LC's polkit rule no longer mentions calamares"
 grep -q 'subject.active' "$_LC" || fail "$_LC's polkit rule no longer requires a local ACTIVE session — it must not grant a remote or background caller"
-# The launchers this rule exists for. If they stop using pkexec the rule is dead
-# weight and the real path is unverified, so keep them in step.
+# Both launchers must go through the wrapper, and the wrapper must keep BOTH
+# routes to root. The polkit rule alone is a single point of failure — a rule that
+# is not read, a different action id, a polkitd without JS rules, and the operator
+# is back at an unanswerable password dialog with an ISO that cannot be installed.
+# The wrapper's sudo fallback is what makes that impossible, so it is checked as
+# hard as the rule itself.
+_LAUNCH=/usr/local/bin/sysible-install
+[ -x "$_LAUNCH" ] || fail "$_LAUNCH is missing or not executable — the installer has no launcher"
+grep -q 'pkexec' "$_LAUNCH" || fail "$_LAUNCH no longer tries pkexec (the supported path)"
+grep -q 'sudo -E calamares' "$_LAUNCH" || fail "$_LAUNCH lost its sudo fallback — a polkit failure would leave the ISO uninstallable"
 for _d in /usr/share/applications/install-sysible-workstation.desktop /usr/local/bin/sysible-live-installer; do
     [ -f "$_d" ] || fail "$_d is missing — the installer has no launcher"
-    grep -q 'pkexec' "$_d" || fail "$_d no longer uses pkexec, so the live polkit rule no longer covers how the installer is actually started"
+    grep -q 'sysible-install' "$_d" || fail "$_d does not start the installer through $_LAUNCH"
+    grep -q 'pkexec calamares' "$_d" && fail "$_d still calls pkexec directly, bypassing the sudo fallback"
 done
 if command -v visudo >/dev/null 2>&1; then
     _t=$(mktemp)

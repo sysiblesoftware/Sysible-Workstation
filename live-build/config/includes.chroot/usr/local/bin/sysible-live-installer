@@ -4,6 +4,7 @@
 # kernel command line). The plain "Live" entry boots straight to the desktop,
 # where the "Install Sysible Workstation" icon is still available on demand.
 grep -qw sysible.install /proc/cmdline 2>/dev/null || exit 0
-# let the GNOME session + polkit agent come up first
+# let the GNOME session + polkit agent come up first (the wrapper tries
+# pkexec first and falls back to passwordless sudo if polkit refuses)
 sleep 6
-exec pkexec calamares
+exec sysible-install
