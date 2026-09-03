@@ -130,4 +130,29 @@ else
     fail "live user '$_LU' is missing from the image"
 fi
 
+# 9) The live session must have a route to root and no lock screen.
+# These are the consequences of section 8: the live account is LOCKED, so it can
+# neither authenticate to sudo nor unlock a lock screen. Without a passwordless
+# sudoers entry the live session has no way to become root at all; without the
+# lock being disabled, closing a laptop lid suspends, GNOME locks on resume, and
+# the session is unrecoverable. Both are set up by the live-config script below,
+# which runs ONLY on a live boot — assert it ships, is executable, and that the
+# sudoers line it writes actually parses. A malformed sudoers.d file does not
+# degrade gracefully: sudo refuses to run at all, which would be a worse failure
+# than the one this prevents.
+_LC=/lib/live/config/2999-sysible-live-session
+[ -f "$_LC" ] || fail "$_LC is missing — the live session would have no passwordless sudo and an unescapable lock screen"
+[ -x "$_LC" ] || fail "$_LC is not executable, so live-config will not run it"
+grep -q 'NOPASSWD' "$_LC" || fail "$_LC no longer grants the live user passwordless sudo"
+grep -q 'lock-enabled=false' "$_LC" || fail "$_LC no longer disables the live lock screen"
+if command -v visudo >/dev/null 2>&1; then
+    _t=$(mktemp)
+    printf '%s ALL=(ALL) NOPASSWD: ALL\n' "$_LU" > "$_t"
+    visudo -c -f "$_t" >/dev/null 2>&1 || { rm -f "$_t"; fail "the sudoers line for '$_LU' does not parse — sudo would refuse to run"; }
+    rm -f "$_t"
+    echo "sysible-verify: OK — live sudoers line parses; lock screen disabled for the live session."
+else
+    echo "sysible-verify: OK — live-config session script present (visudo unavailable to parse-check)."
+fi
+
 echo "sysible-verify: OK — SysTerm $V, Run Command menu, and new icon all present."

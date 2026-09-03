@@ -3,8 +3,9 @@
 # system once the operator has created their own (different) account, so an
 # installed machine never carries a leftover default-credential login.
 #
-# The live session and a fresh first boot still use sysible/sysible for
-# convenience — this only changes what Calamares leaves on disk. If the
+# The live session logs in as 'sysible' through GDM autologin with NO password
+# (the account ships locked — see 9100-sysible-users), so there is no credential
+# to leave behind either way; this only changes what Calamares leaves on disk. If the
 # operator names their OWN account 'sysible', it is kept (that account is now
 # theirs, with the password they chose). The removal only fires when a
 # different human account exists.

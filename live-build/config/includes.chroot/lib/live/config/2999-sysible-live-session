@@ -1,0 +1,52 @@
+#!/bin/sh
+# LIVE-SESSION-ONLY setup. live-config runs /lib/live/config/* on a live boot and
+# never on an installed system, and Calamares unpacks the squashfs rather than the
+# live overlay, so nothing this writes can reach an installed disk.
+#
+# Both items exist because 9100-sysible-users stopped baking a credential: the
+# live user now ships LOCKED ('!' in shadow), which no password can ever match.
+# That is correct — an ISO anyone can download must not carry a login — but it
+# has two consequences that have to be handled here or the live session is a
+# dead end.
+#
+#   1. There must be a route to root that does not involve a password. Normally
+#      live-config's own 'sudo' component writes this; making it explicit means a
+#      change to live-config's component list can never leave the session with a
+#      locked account AND no way to become root.
+#
+#   2. The screen must not lock. A lock screen asks for a password the account
+#      cannot satisfy, so locking is unrecoverable: on a laptop, closing the lid
+#      suspends, GNOME locks on resume, and the only way out is a reboot that
+#      loses the session. Idle activation is already off
+#      (16_sysible-power.gschema.override sets idle-delay=0), but Super+L and
+#      lock-on-suspend are not, and lid-close is the easy one to hit by accident.
+#      The INSTALLED system is untouched and keeps lock-enabled=true, where a real
+#      account with a real password makes locking both meaningful and escapable.
+#
+# Never fail the boot: every step is best-effort, and the script always exits 0.
+LIVE_USER="${LIVE_USERNAME:-sysible}"
+
+# 1) passwordless sudo for the live user
+if [ -d /etc/sudoers.d ]; then
+    printf '%s ALL=(ALL) NOPASSWD: ALL\n' "$LIVE_USER" \
+        > /etc/sudoers.d/010-sysible-live 2>/dev/null || true
+    chmod 0440 /etc/sudoers.d/010-sysible-live 2>/dev/null || true
+fi
+
+# 2) no lock screen in the live session
+if [ -d /etc/dconf/db/local.d ]; then
+    cat > /etc/dconf/db/local.d/99-sysible-live-nolock <<'CONF' 2>/dev/null || true
+# Live session only — see /lib/live/config/2999-sysible-live-session.
+# The live account is locked and carries no password, so a lock screen it can
+# never satisfy would strand the session (lid-close -> suspend -> locked).
+[org/gnome/desktop/screensaver]
+lock-enabled=false
+ubuntu-lock-on-suspend=false
+
+[org/gnome/desktop/lockdown]
+disable-lock-screen=true
+CONF
+    dconf update >/dev/null 2>&1 || true
+fi
+
+exit 0
