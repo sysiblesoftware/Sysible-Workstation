@@ -145,6 +145,18 @@ _LC=/lib/live/config/2999-sysible-live-session
 [ -x "$_LC" ] || fail "$_LC is not executable, so live-config will not run it"
 grep -q 'NOPASSWD' "$_LC" || fail "$_LC no longer grants the live user passwordless sudo"
 grep -q 'lock-enabled=false' "$_LC" || fail "$_LC no longer disables the live lock screen"
+# pkexec authenticates through polkit, which does NOT read sudoers — without this
+# rule the installer raises a password dialog the locked live account can never
+# answer, and the system cannot be installed at all.
+grep -q 'polkit.addRule' "$_LC" || fail "$_LC no longer grants the live user the installer's polkit action — 'Install Sysible Workstation' would ask for a password that does not exist"
+grep -q 'calamares' "$_LC" || fail "$_LC's polkit rule no longer mentions calamares"
+grep -q 'subject.active' "$_LC" || fail "$_LC's polkit rule no longer requires a local ACTIVE session — it must not grant a remote or background caller"
+# The launchers this rule exists for. If they stop using pkexec the rule is dead
+# weight and the real path is unverified, so keep them in step.
+for _d in /usr/share/applications/install-sysible-workstation.desktop /usr/local/bin/sysible-live-installer; do
+    [ -f "$_d" ] || fail "$_d is missing — the installer has no launcher"
+    grep -q 'pkexec' "$_d" || fail "$_d no longer uses pkexec, so the live polkit rule no longer covers how the installer is actually started"
+done
 if command -v visudo >/dev/null 2>&1; then
     _t=$(mktemp)
     printf '%s ALL=(ALL) NOPASSWD: ALL\n' "$_LU" > "$_t"

@@ -14,7 +14,14 @@
 #      change to live-config's component list can never leave the session with a
 #      locked account AND no way to become root.
 #
-#   2. The screen must not lock. A lock screen asks for a password the account
+#   2. The INSTALLER must not ask for a password. Both launchers run
+#      `pkexec calamares`, and pkexec authenticates through polkit — a separate
+#      mechanism that does NOT read sudoers. polkit asks a member of the 'sudo'
+#      group for their own password, which a locked account can never supply, so
+#      "Install Sysible Workstation" opened an auth dialog nothing could satisfy
+#      and the system could not be installed at all.
+#
+#   3. The screen must not lock. A lock screen asks for a password the account
 #      cannot satisfy, so locking is unrecoverable: on a laptop, closing the lid
 #      suspends, GNOME locks on resume, and the only way out is a reboot that
 #      loses the session. Idle activation is already off
@@ -33,7 +40,35 @@ if [ -d /etc/sudoers.d ]; then
     chmod 0440 /etc/sudoers.d/010-sysible-live 2>/dev/null || true
 fi
 
-# 2) no lock screen in the live session
+# 2) let the live user run the installer without a polkit password prompt
+if [ -d /etc/polkit-1/rules.d ]; then
+    cat > /etc/polkit-1/rules.d/49-sysible-live-installer.rules <<'RULES' 2>/dev/null || true
+// Live session only — see /lib/live/config/2999-sysible-live-session.
+// The live account ships locked and has no password, so the polkit dialog that
+// pkexec raises for the installer is unanswerable. Allow the local, active live
+// user to launch it directly. Deliberately narrow: only Calamares, only a local
+// active session, only a member of 'sudo' — everything else still authenticates.
+// Two clauses because the action can arrive either under Calamares' own action id
+// or as the generic pkexec action naming the calamares program, and which one
+// depends on the packaged .policy file rather than on anything we control.
+polkit.addRule(function (action, subject) {
+    if (!subject.local || !subject.active || !subject.isInGroup("sudo")) {
+        return polkit.Result.NOT_HANDLED;
+    }
+    if (action.id.indexOf("calamares") !== -1) {
+        return polkit.Result.YES;
+    }
+    if (action.id == "org.freedesktop.policykit.exec" &&
+        (action.lookup("program") || "").indexOf("calamares") !== -1) {
+        return polkit.Result.YES;
+    }
+    return polkit.Result.NOT_HANDLED;
+});
+RULES
+    chmod 0644 /etc/polkit-1/rules.d/49-sysible-live-installer.rules 2>/dev/null || true
+fi
+
+# 3) no lock screen in the live session
 if [ -d /etc/dconf/db/local.d ]; then
     cat > /etc/dconf/db/local.d/99-sysible-live-nolock <<'CONF' 2>/dev/null || true
 # Live session only — see /lib/live/config/2999-sysible-live-session.
