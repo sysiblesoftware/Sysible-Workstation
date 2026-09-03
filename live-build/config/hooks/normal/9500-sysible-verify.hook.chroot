@@ -184,6 +184,14 @@ fi
 grep -rqs 'profile.d/sysible-ai.sh' /etc/bash.bashrc \
     && fail "/etc/bash.bashrc still sources the removed AI shell helper"
 id ollama >/dev/null 2>&1 && fail "the 'ollama' service account is still in the image"
+# The SysTerm companion pane is part of the same feature and is built from its
+# own repo during this build, so check the INSTALLED package too — a stale .deb or
+# a build that picked up an older branch would put the AI pane straight back.
+if [ -d /usr/lib/python3 ]; then
+    find /usr/lib/python3 -path '*systerm/atlas.py' 2>/dev/null | grep -q . \
+        && fail "the SysTerm Atlas companion module is still installed"
+fi
+[ -e /etc/profile.d/systerm-atlas.sh ] && fail "SysTerm's Atlas shell hook is still installed"
 echo "sysible-verify: OK — no AI model feature in the image (no sysible ai, no sai, no ollama)."
 
 echo "sysible-verify: OK — SysTerm $V, Run Command menu, and new icon all present."
