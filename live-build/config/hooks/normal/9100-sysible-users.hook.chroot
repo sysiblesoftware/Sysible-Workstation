@@ -16,14 +16,33 @@ for g in sudo kvm libvirt docker wireshark plugdev netdev video audio; do
 done
 # SECURITY: never bake a documented static password into the shipped image.
 #  - root is LOCKED here; Calamares' setRootPassword owns root on install.
-#  - 'sysible' ships WITHOUT a password (matching live-config's passwordless
-#    autologin model) and is force-expired, so it carries no shippable default
-#    credential and — if the account ever survives onto an installed disk (see
-#    9200-sysible-calamares-removeuser) — first interactive login demands a
-#    real password before the account can be used.
+#  - 'sysible' ships with NO password hash and LOCKED, so there is no shippable
+#    credential: `passwd -d` leaves the field empty (which Debian's
+#    `pam_unix ... nullok` would otherwise accept as a valid empty password!) and
+#    `passwd -l` then writes '!', which no password can ever match.
+#
+# DO NOT force-expire this account. `chage -d 0` was here, and it is what stopped
+# the live session reaching a desktop at all:
+#
+#   chage -d 0 sets shadow's lstchg to 0, i.e. "must change password at next
+#   login (root enforced)". GDM's autologin PAM stack (/etc/pam.d/gdm-autologin)
+#   satisfies the AUTH phase with pam_permit and only consults pam_unix in the
+#   ACCOUNT phase — which is precisely where that flag is enforced. So every boot
+#   logged:
+#       pam_unix(gdm-autologin:account): expired password for user sysible (root enforced)
+#       pam_pwquality(gdm-autologin:chauthtok): conversation failed
+#       pam_pwquality(gdm-autologin:chauthtok): user aborted password change
+#   Autologin cannot run a password-change conversation, so the requirement was
+#   unsatisfiable: GDM started, graphical.target was reached, and the session
+#   never appeared. Locking the password gives the same "unusable credential"
+#   property without making login impossible.
+#
+# The real protection for an INSTALLED disk is that the account is removed
+# outright — see 9200-sysible-calamares-removeuser. This is defence in depth
+# behind it, not the primary control.
 passwd -l root
 passwd -d "$DEFUSER"
-chage -d 0 "$DEFUSER"
+passwd -l "$DEFUSER"
 
 # Brand the hostname. This seeds the chroot; at LIVE boot live-config re-applies
 # the hostname from the `hostname=` kernel arg in auto/config's --bootappend-live

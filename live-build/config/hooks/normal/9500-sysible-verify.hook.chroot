@@ -100,4 +100,34 @@ for _u in /usr/lib/systemd/system/sysible-avatar.service \
 done
 echo "sysible-verify: OK — no Sysible unit gates the display manager."
 
+# 8) The live user must be LOGINABLE-BY-AUTOLOGIN and carry NO usable credential.
+# Second root cause of "GDM starts, graphical.target is reached, no session ever
+# appears": 9100-sysible-users ran `chage -d 0 sysible`, which sets shadow's
+# lstchg to 0 — "must change password at next login (root enforced)". GDM's
+# autologin stack satisfies AUTH with pam_permit and consults pam_unix only in the
+# ACCOUNT phase, which is exactly where that flag is enforced, so every boot
+# logged "expired password for user sysible (root enforced)" followed by
+# "conversation failed / user aborted password change". Autologin cannot run a
+# password-change conversation, so the requirement was UNSATISFIABLE and the
+# desktop never drew. Assert both halves so neither can regress:
+#   * lstchg must NOT be 0 (not force-expired), or autologin is impossible;
+#   * the password field MUST be locked ('!'/'*') and never a real hash or empty
+#     — empty would be accepted by Debian's `pam_unix ... nullok`.
+_LU=sysible
+_shadow=$(getent shadow "$_LU" 2>/dev/null || true)
+if [ -n "$_shadow" ]; then
+    _pw=$(printf '%s' "$_shadow" | cut -d: -f2)
+    _lstchg=$(printf '%s' "$_shadow" | cut -d: -f3)
+    [ "$_lstchg" != "0" ] \
+        || fail "live user '$_LU' is force-expired (lstchg=0) — GDM autologin cannot satisfy a password change, so the desktop will never appear. Do not use 'chage -d 0' here."
+    case "$_pw" in
+        "") fail "live user '$_LU' has an EMPTY password — Debian's pam_unix nullok would accept it. Lock it with 'passwd -l'." ;;
+        '!'*|'*'*) : ;;   # locked: no password can ever match
+        *) fail "live user '$_LU' ships a real password hash — never bake a credential into the image." ;;
+    esac
+    echo "sysible-verify: OK — live user '$_LU' is locked (no usable credential) and not force-expired."
+else
+    fail "live user '$_LU' is missing from the image"
+fi
+
 echo "sysible-verify: OK — SysTerm $V, Run Command menu, and new icon all present."
