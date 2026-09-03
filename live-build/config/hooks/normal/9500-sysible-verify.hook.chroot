@@ -167,4 +167,23 @@ else
     echo "sysible-verify: OK — live-config session script present (visudo unavailable to parse-check)."
 fi
 
+# 10) The AI model feature must stay GONE.
+# `sysible ai` / `sai`, the /etc/profile.d helper and the bundled Ollama runtime
+# were removed on request. This asserts the IMAGE is actually free of them, not
+# just the recipe: a hook that silently stopped applying, a stale file surviving
+# in includes.chroot, or a package pulling ollama back in would otherwise ship a
+# feature that was deliberately taken out — and a model server enabled at boot.
+for _gone in /etc/profile.d/sysible-ai.sh /usr/local/bin/ollama \
+             /etc/systemd/system/ollama.service; do
+    [ -e "$_gone" ] && fail "$_gone is present, but the AI model feature was removed"
+done
+if command -v sysible >/dev/null 2>&1; then
+    sysible --help 2>&1 | grep -qiw 'ai' \
+        && fail "the 'sysible' CLI still offers an 'ai' subcommand"
+fi
+grep -rqs 'profile.d/sysible-ai.sh' /etc/bash.bashrc \
+    && fail "/etc/bash.bashrc still sources the removed AI shell helper"
+id ollama >/dev/null 2>&1 && fail "the 'ollama' service account is still in the image"
+echo "sysible-verify: OK — no AI model feature in the image (no sysible ai, no sai, no ollama)."
+
 echo "sysible-verify: OK — SysTerm $V, Run Command menu, and new icon all present."
