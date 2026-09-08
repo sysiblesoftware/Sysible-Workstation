@@ -203,4 +203,29 @@ fi
 [ -e /etc/profile.d/systerm-atlas.sh ] && fail "SysTerm's Atlas shell hook is still installed"
 echo "sysible-verify: OK — no AI model feature in the image (no sysible ai, no sai, no ollama)."
 
+# 11) live-config must not be able to hang the boot forever.
+# live-config.service is Type=oneshot before basic.target, and systemd gives a
+# oneshot TimeoutStartSec=infinity by default — so a component that blocks leaves
+# the machine on "A start job is running for live-config.service (… / no limit)"
+# with no console and no way to read the log. The drop-in makes that failure
+# survivable; assert it actually shipped, and that it sets a FINITE timeout
+# (a drop-in that says "infinity" would be worse than none, because it looks
+# like the guard is there).
+LCD=/etc/systemd/system/live-config.service.d/10-sysible-no-endless-hang.conf
+[ -f "$LCD" ] || fail "the live-config start-timeout drop-in is missing ($LCD)"
+grep -Eq '^[[:space:]]*TimeoutStartSec=[0-9]' "$LCD" \
+    || fail "$LCD does not set a finite TimeoutStartSec"
+echo "sysible-verify: OK — live-config has a finite start timeout ($(grep -E '^[[:space:]]*TimeoutStartSec=' "$LCD" | tr -d ' '))."
+
+# 12) The live-session component must live where live-config will find it, and be
+# executable. live-config EXECUTES /lib/live/config/* (it does not source them),
+# so a non-executable file is silently skipped and the live session quietly loses
+# passwordless sudo, the installer's polkit rule and the no-lock-screen setting.
+# /lib is a symlink to /usr/lib on merged-usr Debian, so check the real path.
+LCC=/usr/lib/live/config/2999-sysible-live-session
+[ -f "$LCC" ] || fail "the live-session live-config component is missing ($LCC)"
+[ -x "$LCC" ] || fail "$LCC is not executable — live-config would skip it silently"
+sh -n "$LCC" || fail "$LCC is not valid shell"
+echo "sysible-verify: OK — live-session component present, executable and parses."
+
 echo "sysible-verify: OK — SysTerm $V, Run Command menu, and new icon all present."
