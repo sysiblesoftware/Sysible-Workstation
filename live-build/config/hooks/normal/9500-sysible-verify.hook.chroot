@@ -228,4 +228,27 @@ LCC=/usr/lib/live/config/2999-sysible-live-session
 sh -n "$LCC" || fail "$LCC is not valid shell"
 echo "sysible-verify: OK — live-session component present, executable and parses."
 
+# 13) live-config must not generate SSH host keys during the boot.
+# This image ships with NO host keys on purpose (9600 strips them), and
+# live-config's 1160-openssh-server regenerates every missing one INSIDE
+# live-config.service — which runs Before=basic.target with the oneshot default
+# TimeoutStartSec=infinity. ssh-keygen blocks in getrandom() until the CRNG is
+# up, and live-config is not ordered after systemd-random-seed, so on a host
+# slow to gather entropy the whole boot stops there forever. The marker below
+# makes that component skip itself; sysible-regenerate-ssh-host-keys.service
+# does the job later, after basic.target. Assert the three facts that keep that
+# true together — the marker, the absent keys, and the unit that replaces it —
+# because any one of them alone is not enough.
+[ -f /var/lib/live/config/openssh-server ] \
+    || fail "the live-config openssh-server skip marker is missing — live-config would generate host keys before basic.target"
+ls /etc/ssh/ssh_host_*key >/dev/null 2>&1 \
+    && fail "SSH host keys are baked into the image (every install would share one identity)"
+systemctl is-enabled sysible-regenerate-ssh-host-keys.service >/dev/null 2>&1 \
+    || fail "sysible-regenerate-ssh-host-keys.service is not enabled, so nothing would create host keys at all"
+# ...and the component's parting shot must not have landed either: it rewrites
+# PasswordAuthentication to no, which is the opposite of what 9000 sets.
+grep -Eq '^[[:space:]]*PasswordAuthentication[[:space:]]+yes' /etc/ssh/sshd_config \
+    || fail "sshd_config does not enable PasswordAuthentication"
+echo "sysible-verify: OK — no host keys baked, live-config will not generate them at boot, first-boot regen enabled."
+
 echo "sysible-verify: OK — SysTerm $V, Run Command menu, and new icon all present."

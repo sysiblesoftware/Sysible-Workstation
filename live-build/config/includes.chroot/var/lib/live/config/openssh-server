@@ -1,0 +1,24 @@
+# live-config "already configured" marker for its openssh-server component.
+#
+# live-config's 1160-openssh-server regenerates every missing SSH host key —
+# and this image ships with NO host keys on purpose (9600-sysible-firstboot
+# strips them so the public ISO can't be used to impersonate a Sysible box).
+# So on every live boot that component ran `ssh-keygen` three times INSIDE
+# live-config.service, which is Type=oneshot, DefaultDependencies=no and
+# Before=basic.target: the entire boot waits on it, with the oneshot default
+# TimeoutStartSec=infinity. ssh-keygen draws from getrandom(), which BLOCKS
+# until the kernel CRNG is initialised, and live-config is not ordered after
+# systemd-random-seed.service — nothing says the seed is credited first. On a
+# machine that is slow to gather early entropy that is an unbounded wait, seen
+# as "A start job is running for live-config.service (… / no limit)".
+#
+# The presence of this file makes live-config's component_was_executed() true,
+# so 1160-openssh-server exits in Init and never runs. Key generation belongs to
+# sysible-regenerate-ssh-host-keys.service instead: same `ssh-keygen -A`, but
+# WantedBy=multi-user.target and Before=ssh.service — i.e. after basic.target
+# and after the random seed, where blocking on entropy costs a moment rather
+# than the boot, and where nothing else is waiting on it.
+#
+# Skipping it also stops that component undoing a deliberate choice: its last
+# act is `sed -i 's|#\(PasswordAuthentication\) yes|\1 no|'`, which turns off
+# the password authentication 9000-sysible-system explicitly turns ON.
