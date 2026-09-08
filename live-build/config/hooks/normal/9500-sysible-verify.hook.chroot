@@ -239,16 +239,16 @@ echo "sysible-verify: OK — live-session component present, executable and pars
 # does the job later, after basic.target. Assert the three facts that keep that
 # true together — the marker, the absent keys, and the unit that replaces it —
 # because any one of them alone is not enough.
+# The two facts that depend on 9600-sysible-firstboot — no baked host keys, and
+# the regen unit enabled — are asserted THERE, not here. Hooks run in lexical
+# order, so this hook runs BEFORE 9600: checking them here made the keys check
+# pass vacuously and the unit check fail outright (ISO run #33 died on it).
 [ -f /var/lib/live/config/openssh-server ] \
     || fail "the live-config openssh-server skip marker is missing — live-config would generate host keys before basic.target"
-ls /etc/ssh/ssh_host_*key >/dev/null 2>&1 \
-    && fail "SSH host keys are baked into the image (every install would share one identity)"
-systemctl is-enabled sysible-regenerate-ssh-host-keys.service >/dev/null 2>&1 \
-    || fail "sysible-regenerate-ssh-host-keys.service is not enabled, so nothing would create host keys at all"
 # ...and the component's parting shot must not have landed either: it rewrites
 # PasswordAuthentication to no, which is the opposite of what 9000 sets.
 grep -Eq '^[[:space:]]*PasswordAuthentication[[:space:]]+yes' /etc/ssh/sshd_config \
     || fail "sshd_config does not enable PasswordAuthentication"
-echo "sysible-verify: OK — no host keys baked, live-config will not generate them at boot, first-boot regen enabled."
+echo "sysible-verify: OK — live-config will not generate host keys at boot; sshd password auth enabled."
 
 echo "sysible-verify: OK — SysTerm $V, Run Command menu, and new icon all present."

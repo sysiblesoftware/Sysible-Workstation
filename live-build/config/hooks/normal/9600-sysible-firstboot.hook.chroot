@@ -10,6 +10,29 @@ set -e
 # keys on first boot (before sshd starts). Applies to both the live session and
 # every Calamares-installed system (which inherits this stripped rootfs).
 chmod 0755 /usr/lib/sysible/regenerate-ssh-host-keys 2>/dev/null || true
-systemctl enable sysible-regenerate-ssh-host-keys.service 2>/dev/null || true
+# `systemctl enable` is filesystem-only in a build chroot, but its failure was
+# swallowed by `|| true` — and a silent failure here means NO host keys are ever
+# created, on the live session or on any installed disk. Fall back to writing the
+# wants symlink by hand, then verify the effect below rather than the exit status.
+systemctl enable sysible-regenerate-ssh-host-keys.service 2>/dev/null || {
+    mkdir -p /etc/systemd/system/multi-user.target.wants
+    ln -sf /usr/lib/systemd/system/sysible-regenerate-ssh-host-keys.service \
+        /etc/systemd/system/multi-user.target.wants/sysible-regenerate-ssh-host-keys.service
+}
 rm -f /etc/ssh/ssh_host_*key /etc/ssh/ssh_host_*key.pub 2>/dev/null || true
-echo "sysible-firstboot: stripped baked SSH host keys; first-boot regen enabled"
+
+# Verify what THIS hook is responsible for. It lives here, not in
+# 9500-sysible-verify, because hooks run in lexical order and 9500 runs first:
+# asserting these there made the "no baked keys" check pass vacuously (the keys
+# had not been removed yet) and the "unit enabled" check fail outright, which is
+# what killed ISO run #33. These two facts only mean anything together — keys
+# stripped AND something that regenerates them — so both are checked, plus the
+# script they depend on.
+_fbfail() { echo "SYSIBLE-FIRSTBOOT FATAL: $1" >&2; exit 1; }
+ls /etc/ssh/ssh_host_*key >/dev/null 2>&1 \
+    && _fbfail "SSH host keys are still in the image — every install would share one identity"
+[ -L /etc/systemd/system/multi-user.target.wants/sysible-regenerate-ssh-host-keys.service ] \
+    || _fbfail "the first-boot host-key regen unit is not enabled — nothing would create host keys at all"
+[ -x /usr/lib/sysible/regenerate-ssh-host-keys ] \
+    || _fbfail "/usr/lib/sysible/regenerate-ssh-host-keys is missing or not executable"
+echo "sysible-firstboot: stripped baked SSH host keys; first-boot regen enabled and verified"
