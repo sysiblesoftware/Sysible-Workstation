@@ -96,6 +96,33 @@ jobs:
         run: |
           find root/etc/systemd/system -maxdepth 2 -type l -printf '%p -> %l\n' 2>/dev/null | sed 's#^root##' | sort
 
+      - name: "FACT 0 — live-config: which components will run, and what can block"
+        run: |
+          mkdir -p root0
+          unsquashfs -q -d root0 fs.squashfs \
+            lib/live/config usr/lib/live/config \
+            var/lib/live/config \
+            etc/systemd/system/live-config.service.d \
+            etc/ssh etc/ssl/certs etc/ssl/private etc/sshd_config \
+            var/lib/dpkg/status 2>&1 | tail -2 || true
+          echo "----- components live-config will execute (lexical order) -----"
+          ls -la root0/usr/lib/live/config/ 2>/dev/null || ls -la root0/lib/live/config/ 2>/dev/null || echo "(none found)"
+          echo
+          echo "----- 'already configured' markers (a component with one is SKIPPED) -----"
+          ls -la root0/var/lib/live/config/ 2>&1 || echo "(dir missing — nothing is skipped)"
+          echo
+          echo "----- our start-timeout drop-in (is the hang bounded?) -----"
+          cat root0/etc/systemd/system/live-config.service.d/*.conf 2>&1 | grep -v '^#' | grep . || echo "MISSING — live-config would hang with no limit"
+          echo
+          echo "----- entropy consumers: do the keys these components generate ALREADY exist? -----"
+          echo "ssh host keys:"; ls -la root0/etc/ssh/ssh_host_*key 2>&1 || echo "  none (1160-openssh-server would generate 3)"
+          echo "snakeoil cert:"; ls -la root0/etc/ssl/certs/ssl-cert-snakeoil.pem root0/etc/ssl/private/ssl-cert-snakeoil.key 2>&1 || echo "  none (1090-ssl-cert would generate an RSA key)"
+          echo
+          echo "----- are those packages installed at all? (component exits early if not) -----"
+          for p in ssl-cert openssh-server locales keyboard-configuration sudo; do
+            awk -v P="$p" '$0=="Package: "P{f=1} f&&/^Status:/{s=$0} f&&/^$/{if(s!="")print P": "s; f=0;s=""}' root0/var/lib/dpkg/status
+          done
+
       - name: "FACT 5 — could GDM be failing INSTANTLY at start? (greeter stack, wrapper, generate-config)"
         run: |
           mkdir -p root2
