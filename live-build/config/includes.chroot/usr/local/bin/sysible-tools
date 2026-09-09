@@ -175,9 +175,12 @@ install_one() {  # install_one <id>
   pkg="$(field "$row" 3)"
   case "$id" in
     aws-cli)  install_aws_cli ;;
-    # Obsidian is proprietary with no apt repo, so it has its own vendor-release
-    # installer (amd64-only; it self-skips on other arches).
-    obsidian) sysible-install-obsidian ;;
+    # Obsidian is proprietary with no apt repo. It used to have a standalone
+    # /usr/local/bin/sysible-install-obsidian; that script was REMOVED when the
+    # work moved into the sysible-obsidian-installer package (whose postinst does
+    # the vendor download), but this case still called the deleted script — so
+    # picking Obsidian here died on "command not found". The catalog's package
+    # field already names the package, so let it take the normal apt path below.
     *)  # apt path (HashiCorp)
         case "$HASHICORP_IDS" in *" $id "*) ensure_hashicorp_repo ;; esac
         install_apt "$pkg" ;;

@@ -251,4 +251,46 @@ grep -Eq '^[[:space:]]*PasswordAuthentication[[:space:]]+yes' /etc/ssh/sshd_conf
     || fail "sshd_config does not enable PasswordAuthentication"
 echo "sysible-verify: OK — live-config will not generate host keys at boot; sshd password auth enabled."
 
+# 14) Every app-grid launcher must actually launch something, and every launcher
+# script must define the helpers it calls.
+#
+# Both halves shipped broken. "Install Sysible SLOP" pointed at a script whose
+# failure path called _warn, which nothing defined — under `set -eu` that is
+# "command not found", exit 127, and the run died reporting nothing. A .desktop
+# whose Exec has been renamed away is the same class of fault: the icon is there,
+# the click does nothing, and the image builds green.
+for _d in /usr/share/applications/*.desktop; do
+    [ -f "$_d" ] || continue
+    case "$(basename "$_d")" in sysible*|install-sysible*) ;; *) continue ;; esac
+    _exec=$(sed -n 's/^Exec=//p' "$_d" | head -1 | awk '{print $1}')
+    [ -n "$_exec" ] || fail "$_d has no Exec="
+    command -v "$_exec" >/dev/null 2>&1 \
+        || fail "$(basename "$_d") launches '$_exec', which is not on PATH in the image"
+done
+echo "sysible-verify: OK — every Sysible launcher's Exec resolves."
+
+for _s in /usr/local/bin/install-sysible /usr/local/bin/install-sysible-controller \
+          /usr/local/bin/sysible-install /usr/local/bin/sysible-tools \
+          /usr/local/bin/sysible-os-installer /usr/local/bin/sysible-live-installer; do
+    [ -f "$_s" ] || continue
+    # Check with the interpreter the script actually declares — sysible-tools is
+    # bash and uses arrays, so `sh -n` reports a bogus syntax error on it and
+    # would fail this build for no reason.
+    case "$(head -1 "$_s")" in
+        *bash) bash -n "$_s" || fail "$_s is not valid bash" ;;
+        *)     sh   -n "$_s" || fail "$_s is not valid shell" ;;
+    esac
+    # Helpers called but never defined. Only leading-underscore names, which is
+    # this codebase's convention for a script-local helper — an external command
+    # never looks like that, so a hit is always a real missing definition.
+    _defs=$(grep -oE '^[A-Za-z_][A-Za-z0-9_]*\(\)' "$_s" | tr -d '()' | sort -u)
+    _calls=$(grep -oE '(^|[;&|] *|then |else |do )_[a-z_]+ ' "$_s" \
+             | grep -oE '_[a-z_]+' | sort -u)
+    for _c in $_calls; do
+        printf '%s\n' "$_defs" | grep -qx "$_c" \
+            || fail "$_s calls $_c but never defines it (set -eu makes that exit 127 mid-run)"
+    done
+done
+echo "sysible-verify: OK — launcher scripts parse and define every helper they call."
+
 echo "sysible-verify: OK — SysTerm $V, Run Command menu, and new icon all present."

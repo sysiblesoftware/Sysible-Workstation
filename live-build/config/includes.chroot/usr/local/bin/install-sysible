@@ -36,6 +36,12 @@ label=green,black
 '
 
 say()  { printf '%s\n' "$*"; }
+# Every failure path here called _warn, and nothing defined it. Under `set -eu`
+# that is not a missing message — it is "command not found", exit 127, and the
+# script dies mid-run reporting nothing about what actually failed. So the one
+# case this script is built for (one product failing, keep going, summarise at
+# the end) aborted instead, and hid its own cause.
+_warn() { printf 'WARNING: %s\n' "$*" >&2; }
 die()  { printf 'ERROR: %s\n' "$*" >&2; exit 1; }
 
 [ "$(id -u)" -eq 0 ] || exec sudo -- "$0" "$@"
