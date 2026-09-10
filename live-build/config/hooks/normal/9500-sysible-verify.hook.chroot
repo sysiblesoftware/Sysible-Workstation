@@ -269,7 +269,8 @@ for _d in /usr/share/applications/*.desktop; do
 done
 echo "sysible-verify: OK — every Sysible launcher's Exec resolves."
 
-for _s in /usr/local/bin/install-sysible /usr/local/bin/install-sysible-controller \
+for _s in /usr/local/bin/install-sysible \
+          /usr/local/bin/install-sysible-controller \
           /usr/local/bin/sysible-install /usr/local/bin/sysible-tools \
           /usr/local/bin/sysible-os-installer /usr/local/bin/sysible-live-installer; do
     [ -f "$_s" ] || continue
@@ -292,5 +293,37 @@ for _s in /usr/local/bin/install-sysible /usr/local/bin/install-sysible-controll
     done
 done
 echo "sysible-verify: OK — launcher scripts parse and define every helper they call."
+
+# 15) ONE installer, and it must offer every product.
+#
+# There used to be three launchers — Controller, SLEP, SLOP — and the Controller
+# one pointed at `install-sysible-controller`, a script that does not exist in the
+# image. Check 14 catches that now, but the deeper problem was three entries for
+# one script, each able to drift on its own. There is one launcher; assert it is
+# the only one, that it starts the menu with no product baked into its Exec, and
+# that the menu can actually install each product on its own.
+_inst=$(ls /usr/share/applications/*install*.desktop 2>/dev/null \
+        | grep -v install-sysible-workstation.desktop || true)
+[ "$(printf '%s\n' "$_inst" | grep -c .)" -eq 1 ] \
+    || fail "expected exactly ONE Sysible software installer launcher, found: $(printf '%s ' $_inst)"
+[ -f /usr/share/applications/sysible-install.desktop ] \
+    || fail "the consolidated installer launcher (sysible-install.desktop) is missing"
+_e=$(sed -n 's/^Exec=//p' /usr/share/applications/sysible-install.desktop | head -1)
+[ "$_e" = "install-sysible" ] \
+    || fail "sysible-install.desktop should start the menu (Exec=install-sysible), not '$_e'"
+for _p in controller slep connect slop; do
+    grep -q "^      $_p)" /usr/local/bin/install-sysible \
+        || grep -qE "(^|[^a-z])$_p\\b" /usr/local/bin/install-sysible \
+        || fail "install-sysible does not offer '$_p' — the one installer must cover every product"
+done
+# The two older names must be aliases, not a second installer that can drift.
+# install-sysible-controller in particular used to describe a pre-container
+# layout that the Controller has not shipped for a long time.
+for _a in /usr/local/bin/sysible-install /usr/local/bin/install-sysible-controller; do
+    [ -f "$_a" ] || continue
+    grep -q '^exec install-sysible\b' "$_a" \
+        || fail "$_a must be a thin alias that execs install-sysible, not an installer of its own"
+done
+echo "sysible-verify: OK — one installer launcher, offering controller/slep/connect/slop."
 
 echo "sysible-verify: OK — SysTerm $V, Run Command menu, and new icon all present."

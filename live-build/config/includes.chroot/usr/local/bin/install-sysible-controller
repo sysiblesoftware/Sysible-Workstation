@@ -1,38 +1,12 @@
 #!/bin/sh
-# Download and install Sysible Controller CE on demand. Shipped on the ISO as a
-# desktop launcher — nothing about the Controller is baked into the image except
-# this small helper, so a fresh workstation runs no Controller services and opens
-# no ports until the user chooses to install it.
-set -e
-
-REPO="https://github.com/sysiblesoftware/sysible-controller"
-echo "============================================================"
-echo " Install Sysible Controller CE"
-echo " Source: $REPO"
-echo "============================================================"
-echo
-echo "This downloads the Controller and runs its installer (needs sudo)."
-echo "It installs to /opt/sysible and enables the backend + web console."
-echo
-printf "Continue? [y/N] "
-read ans
-case "$ans" in
-    y|Y|yes|YES) ;;
-    *) echo "Cancelled."; exit 0 ;;
-esac
-
-command -v git >/dev/null 2>&1 || { echo "git is required."; exit 1; }
-
-TMP=$(mktemp -d)
-trap 'rm -rf "$TMP"' EXIT
-echo "== cloning =="
-git clone --depth 1 "$REPO" "$TMP/src"
-
-echo "== running installer (sudo) =="
-cd "$TMP/src"
-sudo ./install_sysible.sh "$@"
-
-echo
-echo "Done. Open the console at http://localhost:8800"
-printf "Press Enter to close..."
-read _
+# install-sysible-controller — compatibility alias for `install-sysible controller`.
+#
+# This used to be its own installer, and a stale one: it described a pre-container
+# layout (/opt/sysible, a systemd backend + web console) that the Controller has
+# not shipped for some time, so anyone who ran it got a different — and wrong —
+# install from the one the desktop launcher performs.
+#
+# The suite now has exactly ONE installer, `install-sysible`, which installs any
+# subset (controller, slep, connect) or all of them behind the SLOP front door.
+# The old name survives only so it still does the right thing.
+exec install-sysible controller "$@"

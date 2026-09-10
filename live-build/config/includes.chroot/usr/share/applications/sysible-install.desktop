@@ -1,0 +1,12 @@
+[Desktop Entry]
+Type=Application
+Version=1.0
+Name=Install Sysible Software
+GenericName=Sysible Software Installer
+Comment=Install the Sysible suite — pick any of Controller, Engineering Platform (SLEP) and Connect individually, or SLOP to put all three behind one sign-in
+Exec=install-sysible
+Icon=sysible-logo
+Terminal=true
+Categories=System;Settings;
+Keywords=sysible;install;controller;slep;lep;connect;slop;gateway;suite;fleet;automation;terminal;terraform;ansible;
+StartupNotify=true

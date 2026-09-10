@@ -28,7 +28,7 @@ from PIL import Image, ImageDraw, ImageFont, ImageFilter
 ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 FONT = os.path.join(ROOT, "branding/fonts/Sora.ttf")
 OUT_DIR = os.path.join(ROOT, "packages/sysible-artwork/backgrounds")
-PREVIEW_DIR = "/tmp/claude-0/-home-user-Sysible-Controller/c65daca9-69d4-5d3e-9d67-370754a4a228/scratchpad/wp_preview"
+PREVIEW_DIR = os.getenv("SYSIBLE_WP_PREVIEW_DIR", "/tmp/sysible-wp-preview")
 
 FULL_W, FULL_H = 7680, 4320
 QUALITY = 92
@@ -202,54 +202,170 @@ def draw_banner(img_rgba, pal):
 # ============================================================================
 # STYLE RENDERERS  (each returns a final RGB PIL image, banner NOT yet applied)
 # ============================================================================
-def _topo_overlay(W, H, pal, rings, freq, jitter, seed, deform=0.11):
-    """Concentric deformed contour rings, green->blue by ring, sin fade for depth."""
-    overlay = Image.new("RGBA", (W, H), (0, 0, 0, 0))
-    d = ImageDraw.Draw(overlay, "RGBA")
-    r = rng(seed)
-    cx, cy = W * 0.52, H * 0.5
-    base = min(W, H) * (0.9 / rings)
-    lw = max(2, int(W / 2400))
-    ga = pal["art_green"]
-    ba = pal["art_blue"]
-    a_lo, a_hi = (0.10, 0.34) if pal["light"] else (0.09, 0.30)
-    phase = r.random() * math.tau
-    for k in range(rings):
-        rr = base * (k + 1)
-        pts = []
-        a = 0.0
-        while a <= math.pi * 2 + 0.02:
-            pp = (rr
-                  + math.sin(a * 3 + k * 0.7 + phase) * rr * deform
-                  + math.cos(a * freq - k * 0.5) * rr * deform * 0.45
-                  + math.sin(a * (freq * 2 + 1) + k) * rr * jitter)
-            pts.append((cx + pp * math.cos(a), cy + pp * 0.62 * math.sin(a)))
-            a += 0.012
-        fade = math.sin(math.pi * (k + 1) / (rings + 1))
-        col = mix(ga, ba, k / max(1, rings - 1))
-        al = int((a_lo + (a_hi - a_lo) * fade) * 255)
-        d.line(pts, fill=col + (al,), width=lw, joint="curve")
-    return overlay
+# ---- website contour field --------------------------------------------------
+# The site's hero (index.html, drawTopo) draws REAL topographic contours: a
+# deterministic height field sampled by marching squares, most lines faint blue,
+# every fifth one an "index contour" drawn stronger, and two levels picked out in
+# green. That selective emphasis is what gives it the look — the earlier
+# concentric-ring overlay tinted every ring the same way, so nothing stood out.
+#
+# The field is reproduced EXACTLY (same LCG seed, same 14 gaussian bumps, same
+# regional slope), so the wallpaper and the website are the same terrain. It is
+# analytic, so it can be sampled on a far finer grid here than the browser uses —
+# the site's 132-wide grid would show visible faceting at 8K.
+_WEB_SEED = 7
+_WEB_BUMPS = 14
+_WEB_LEVELS = 24
+
+
+def _web_bumps():
+    """The site's bumps, from its own linear congruential generator."""
+    rs = _WEB_SEED
+    def rnd():
+        nonlocal rs
+        rs = (1103515245 * rs + 12345) & 0x7FFFFFFF
+        return rs / 0x7FFFFFFF
+    return [(rnd() * 1.1 - 0.05, rnd() * 1.1 - 0.05, rnd() * 2 - 1, 0.08 + rnd() * 0.22)
+            for _ in range(_WEB_BUMPS)]
+
+
+def _web_field(gw, gh):
+    """The height field on a (gh, gw) grid: a gentle regional slope plus the bumps."""
+    gx = np.linspace(0.0, 1.0, gw, dtype=np.float32)[None, :]
+    gy = np.linspace(0.0, 1.0, gh, dtype=np.float32)[:, None]
+    f = gx * 0.6 + gy * 0.3
+    for bx, by, amp, sig in _web_bumps():
+        d2 = ((gx - bx) ** 2 + (gy - by) ** 2) / (2.0 * sig * sig)
+        f = f + amp * np.exp(-d2)
+    return f.astype(np.float32)
+
+
+def _iso_segments(F, lvl, sx, sy):
+    """Marching-squares segments for one contour level, vectorized.
+
+    Returns an (N, 4) array of x0,y0,x1,y1. Same edge order as the site (top,
+    right, bottom, left) so the same cells connect the same way; a cell with four
+    crossings emits two segments, exactly as the canvas version does."""
+    tl, tr = F[:-1, :-1], F[:-1, 1:]
+    bl, br = F[1:, :-1], F[1:, 1:]
+    gt, gr = tl > lvl, tr > lvl
+    gb, gl = br > lvl, bl > lvl
+    m = np.stack([gt != gr, gr != gb, gb != gl, gl != gt], axis=-1)   # (h,w,4)
+    n = m.sum(axis=-1)
+    if not n.any():
+        return np.empty((0, 4), dtype=np.float32)
+
+    j, i = np.meshgrid(np.arange(F.shape[0] - 1, dtype=np.float32),
+                       np.arange(F.shape[1] - 1, dtype=np.float32), indexing="ij")
+    with np.errstate(divide="ignore", invalid="ignore"):
+        px = np.stack([
+            (i + (lvl - tl) / (tr - tl)) * sx,          # top
+            (i + 1) * sx,                                # right
+            (i + 1 - (lvl - br) / (bl - br)) * sx,       # bottom
+            i * sx,                                      # left
+        ], axis=-1)
+        py = np.stack([
+            j * sy,
+            (j + (lvl - tr) / (br - tr)) * sy,
+            (j + 1) * sy,
+            (j + 1 - (lvl - bl) / (tl - bl)) * sy,
+        ], axis=-1)
+    px = np.nan_to_num(px, nan=0.0, posinf=0.0, neginf=0.0)
+    py = np.nan_to_num(py, nan=0.0, posinf=0.0, neginf=0.0)
+
+    # Stable argsort on ~mask puts the crossing edges first, IN EDGE ORDER, which
+    # is what makes this equivalent to the canvas version's push-in-order loop.
+    order = np.argsort(~m, axis=-1, kind="stable")
+    def pick(k):
+        idx = order[..., k]
+        return (np.take_along_axis(px, idx[..., None], axis=-1)[..., 0],
+                np.take_along_axis(py, idx[..., None], axis=-1)[..., 0])
+    x0, y0 = pick(0)
+    x1, y1 = pick(1)
+    x2, y2 = pick(2)
+    x3, y3 = pick(3)
+
+    two = n >= 2
+    segs = [np.stack([x0[two], y0[two], x1[two], y1[two]], axis=-1)]
+    four = n == 4
+    if four.any():
+        segs.append(np.stack([x2[four], y2[four], x3[four], y3[four]], axis=-1))
+    return np.concatenate(segs, axis=0).astype(np.float32)
+
+
+def _draw_iso(d, F, lvl, sx, sy, color, alpha, width):
+    segs = _iso_segments(F, lvl, sx, sy)
+    if not len(segs):
+        return
+    col = color + (int(max(0.0, min(1.0, alpha)) * 255),)
+    for x0, y0, x1, y1 in segs:
+        d.line((float(x0), float(y0), float(x1), float(y1)), fill=col, width=width)
+
+
+def _web_contour_overlay(W, H, pal, levels=_WEB_LEVELS, accents=(8, 15)):
+    """The site's hero contours at wallpaper scale."""
+    # Grid fine enough that marching-squares faceting is invisible at output size,
+    # but still the same terrain: the field is analytic, so resolution is free to
+    # choose. ~8px per cell matches what the browser shows at hero width.
+    gw = max(132, int(W / 8))
+    gh = max(46, int(round(gw * H / max(W, 1))))
+    F = _web_field(gw, gh)
+    lo, hi = float(F.min()), float(F.max())
+    step = (hi - lo) / levels
+    sx, sy = W / (gw - 1.0), H / (gh - 1.0)
+
+    # SUPERSAMPLE. PIL's line rasterizer has no antialiasing, so a 1px contour
+    # comes out visibly stair-stepped. At 8K the lines are ~5px and it doesn't
+    # show, but at ordinary sizes it does — so draw at 2x and average down, which
+    # is the same trick glow_layer already uses. Skipped above 4K, where it would
+    # cost half a gigabyte of RGBA to fix something already invisible.
+    ss = 2 if W <= 4096 else 1
+    ow, oh = W * ss, H * ss
+    ov = Image.new("RGBA", (ow, oh), (0, 0, 0, 0))
+    d = ImageDraw.Draw(ov, "RGBA")
+    sx, sy = sx * ss, sy * ss
+    base = max(1, int(round(ow / 1600)))         # the site's 0.9px at hero width
+    idx_w = max(1, int(round(ow / 1030)))        # ...and its 1.4px index contour
+    acc_w = max(1, int(round(ow / 900)))         # ...and its 1.6px accent
+    blue, green = pal["art_blue"], pal["art_green"]
+    a_base, a_idx = (0.24, 0.52) if pal["light"] else (0.22, 0.50)
+
+    k = 0
+    lvl = lo + step * 0.5
+    while lvl < hi:
+        index_contour = (k % 5 == 0)
+        _draw_iso(d, F, lvl, sx, sy, blue,
+                  a_idx if index_contour else a_base,
+                  idx_w if index_contour else base)
+        lvl += step
+        k += 1
+
+    # The two picked-out green contours. Without these the field reads as a flat
+    # blue texture; they are what makes it look like the site.
+    for a in accents:
+        _draw_iso(d, F, lo + step * a, sx, sy, green, 0.60 if pal["light"] else 0.55, acc_w)
+    if ss != 1:
+        ov = ov.resize((W, H), Image.LANCZOS)
+    return ov
 
 
 def render_topographic(W, H, pal):
+    """The site's hero terrain: faint blue contours, every fifth stronger, two in green."""
     arr = base_gradient(W, H, pal)
     arr = apply_vignette(arr, pal)
     img = to_rgba(arr)
-    ov = _topo_overlay(W, H, pal, rings=26, freq=5, jitter=0.0, seed=101, deform=0.11)
-    img = Image.alpha_composite(img, ov)
+    img = Image.alpha_composite(img, _web_contour_overlay(W, H, pal))
     return img.convert("RGB")
 
 
 def render_topographic_ridge(W, H, pal):
+    """The same terrain read finer — twice the contour interval, so the slopes
+    crowd into ridges. More texture for anyone who wants a busier desktop."""
     arr = base_gradient(W, H, pal)
     arr = apply_vignette(arr, pal)
     img = to_rgba(arr)
-    # denser + ridged: two interleaved contour families with higher frequency
-    ov = _topo_overlay(W, H, pal, rings=54, freq=9, jitter=0.05, seed=202, deform=0.14)
-    img = Image.alpha_composite(img, ov)
-    ov2 = _topo_overlay(W, H, pal, rings=54, freq=13, jitter=0.06, seed=707, deform=0.09)
-    img = Image.alpha_composite(img, ov2)
+    img = Image.alpha_composite(
+        img, _web_contour_overlay(W, H, pal, levels=52, accents=(17, 32)))
     return img.convert("RGB")
 
 
