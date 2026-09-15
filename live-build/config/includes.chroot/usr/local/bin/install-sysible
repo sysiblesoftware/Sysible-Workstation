@@ -45,8 +45,81 @@ _warn() { printf 'WARNING: %s\n' "$*" >&2; }
 die()  { printf 'ERROR: %s\n' "$*" >&2; exit 1; }
 
 [ "$(id -u)" -eq 0 ] || exec sudo -- "$0" "$@"
-command -v git >/dev/null 2>&1 || die "git is required (it ships on the workstation — check your PATH)."
-command -v docker >/dev/null 2>&1 || die "docker is required. Install Docker Engine + the compose plugin, then re-run."
+
+# ---- keep the window open, on EVERY exit ---------------------------------
+# Launched from the app grid this runs under a Terminal=true .desktop, so the
+# terminal emulator closes the instant the script exits — taking the error with it.
+# The pause used to be the LAST line, which only ran on the paths that reached it:
+# every die() closed the window on its own message. That is why a failed run looked
+# like "the menu appeared, I pressed Enter, and nothing happened" — something DID
+# happen, it just could not be read. A trap covers the failing paths too, which are
+# the ones with something to say.
+_PAUSED=0
+_pause_on_exit() {
+  _rc=$?
+  [ "$_PAUSED" = 1 ] && return 0
+  _PAUSED=1
+  if [ -t 0 ] && [ -t 1 ]; then
+    printf '\n'
+    [ "$_rc" -eq 0 ] || printf 'The installer stopped — the reason is above.\n'
+    printf 'Press Enter to close…'
+    read _ || true
+  fi
+  return 0
+}
+trap _pause_on_exit EXIT
+
+# ---- prerequisites, BEFORE the menu --------------------------------------
+# Everything below is fetched from the internet (GitHub for the source, Docker Hub
+# for the base images) and built into containers. Both used to be discovered only
+# once the run was underway — so the operator picked what to install, watched the
+# clone fail, and lost the message with the window. Check first, and say so in the
+# same UI the menu uses.
+_interactive() { command -v whiptail >/dev/null 2>&1 && [ -t 0 ] && [ -t 1 ]; }
+
+# Tell the operator, in whichever UI they are actually in.
+_tell() {  # _tell <title> <message>
+  if _interactive; then
+    whiptail --backtitle "Sysible Workstation" --title " $1 " --msgbox "\n$2\n" 15 74
+  fi
+  # %b, not %s: the message carries \n escapes for whiptail's msgbox, and %s
+  # would print them literally — one unreadable line in the terminal fallback.
+  printf '\n%b\n%b\n' "$1" "$2" >&2
+}
+
+_online() {
+  # Reach the host we actually clone from. Not ping (blocked on plenty of
+  # networks) and not DNS alone (a captive portal resolves everything happily).
+  if command -v curl >/dev/null 2>&1; then
+    curl -fsS --max-time 10 -o /dev/null "https://github.com" 2>/dev/null
+  else
+    git ls-remote --exit-code "$CTL_REPO" HEAD >/dev/null 2>&1
+  fi
+}
+
+command -v git >/dev/null 2>&1 || {
+  _tell "Cannot install" "git is required and is missing from PATH.\n\nIt ships on Sysible Workstation, so this usually means PATH is broken.\nNothing has been installed."
+  exit 1; }
+command -v docker >/dev/null 2>&1 || {
+  _tell "Cannot install" "Docker is required and is not installed.\n\nEvery Sysible app runs as a container. Install Docker Engine and the\ncompose plugin, then run this again.\n\nNothing has been installed."
+  exit 1; }
+
+# The Docker daemon must be UP — on a fresh install it is enabled but may not have
+# started yet.
+if ! docker info >/dev/null 2>&1; then
+  say "== starting the Docker daemon =="
+  systemctl start docker 2>/dev/null || service docker start 2>/dev/null || true
+  _i=0; while [ "$_i" -lt 10 ] && ! docker info >/dev/null 2>&1; do sleep 2; _i=$((_i+1)); done
+fi
+docker info >/dev/null 2>&1 || {
+  _tell "Cannot install" "The Docker daemon is not running and could not be started.\n\nTry:  sudo systemctl start docker\n\nNothing can run in containers until it is up, so nothing has been\ninstalled."
+  exit 1; }
+
+say "== checking the internet connection =="
+_online || {
+  _tell "No internet connection" "This installer downloads the Sysible source from GitHub and the\ncontainer base images from Docker Hub, so it needs to be online.\n\ngithub.com could not be reached.\n\nConnect to a network (Wi-Fi or Ethernet), then run this again — or\nfrom a terminal:  sudo install-sysible\n\nNothing has been installed."
+  exit 1; }
+say "  online."
 
 # ---- choose which builds to install --------------------------------------
 # WANT = the apps to bring up; SLOP=1 also brings up the gateway that fronts them.
@@ -63,7 +136,7 @@ if [ "$#" -gt 0 ]; then
       *) die "unknown build '$a' (choose: controller slep connect all slop)" ;;
     esac
   done
-elif command -v whiptail >/dev/null 2>&1 && [ -t 0 ] && [ -t 1 ]; then
+elif _interactive; then
   CHOICE="$(whiptail --backtitle "Sysible Workstation" --title " Install Sysible CE " \
     --checklist "\nPick what to install. Each app runs as a container; manage them\nlater with 'sysible_ctl'. Tick SLOP to also put the single front door\n(https://slop.lan/) in front of all three.\n\n  [SPACE] toggle   [TAB] to buttons   [ENTER] confirm\n" \
     18 76 4 \
@@ -115,16 +188,6 @@ else
   die "the Controller checkout has no deploy/sysible_ctl (older main?) — update the repo and retry."
 fi
 
-# Everything below runs in containers, so the Docker daemon MUST be up. On a fresh
-# install it's enabled but may not have started yet — start it and wait briefly,
-# with a clear error (not a silent abort) if it never comes up.
-if ! docker info >/dev/null 2>&1; then
-  say "== starting the Docker daemon =="
-  systemctl start docker 2>/dev/null || service docker start 2>/dev/null || true
-  _i=0; while [ "$_i" -lt 10 ] && ! docker info >/dev/null 2>&1; do sleep 2; _i=$((_i+1)); done
-fi
-docker info >/dev/null 2>&1 || die "the Docker daemon is not running and could not be started (try: sudo systemctl start docker). Nothing can run in containers until it is up."
-
 # ---- bring up each selected build ----------------------------------------
 # Best-effort: one app failing to clone or build NEVER stops the others; failures
 # are collected and reported at the end instead of aborting (and closing) the run.
@@ -172,17 +235,24 @@ if [ "$SLOP" -eq 1 ]; then
   say "============================================================"
   say " Installing all optional software (HashiCorp tools, AWS CLI, Obsidian)"
   say "============================================================"
+  # Obsidian is in the catalog like everything else. It used to be a separate call
+  # to /usr/local/bin/sysible-install-obsidian — a script that was REMOVED when the
+  # work moved into the sysible-obsidian-installer package. The call was guarded by
+  # `command -v`, so on every workstation that did not already have that package the
+  # test failed, the branch was skipped, and Obsidian was never installed and never
+  # mentioned. Going through the catalog installs the package, whose first-boot
+  # service does the vendor download (it cannot be done from a postinst — that is a
+  # nested dpkg run) and retries on the next boot if the network is down.
   if command -v sysible-tools >/dev/null 2>&1; then
     SYSIBLE_TOOLS_ASSUME_YES=1 sysible-tools install \
-        terraform vault consul nomad packer boundary aws-cli \
-      || say "WARNING: one or more optional tools failed to install (see above)."
+        terraform vault consul nomad packer boundary aws-cli obsidian \
+      || { FAILED="$FAILED optional-software"
+           _warn "  one or more optional tools failed to install (see above)."; }
   else
-    say "WARNING: sysible-tools not found — skipping the licensed-tools catalog."
-  fi
-  # Obsidian ships no apt repo and is amd64-only; the helper self-skips elsewhere.
-  if command -v sysible-install-obsidian >/dev/null 2>&1; then
-    sysible-install-obsidian </dev/null \
-      || say "WARNING: Obsidian was not installed (amd64-only, or download failed)."
+    FAILED="$FAILED optional-software"
+    _warn "  sysible-tools is not installed, so the optional software (HashiCorp"
+    _warn "  tools, AWS CLI, Obsidian) was SKIPPED. Install them later with:"
+    _warn "    sudo sysible-tools install terraform vault consul nomad packer boundary aws-cli obsidian"
   fi
 fi
 
@@ -199,7 +269,3 @@ if [ "$SLOP" -eq 1 ] && [ -z "$FAILED" ]; then
   say "controller./slep./connect. subdomains at this host — DNS or /etc/hosts)."
 fi
 say "Manage everything with:  sysible_ctl status   |   sysible_ctl update all"
-
-# Keep the window open when launched from the app-grid icon (a Terminal=true
-# .desktop closes the terminal the instant the script exits, hiding the result).
-if [ -t 0 ] && [ -t 1 ]; then printf '\nPress Enter to close…'; read _ || true; fi
