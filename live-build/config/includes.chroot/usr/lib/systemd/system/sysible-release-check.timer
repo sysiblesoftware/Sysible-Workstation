@@ -1,0 +1,15 @@
+[Unit]
+Description=Daily check for Sysible product updates
+
+[Timer]
+# Once a day, with a wide random spread: every Sysible machine in a fleet asking
+# the same git remotes at the same minute is a self-inflicted thundering herd.
+OnCalendar=daily
+RandomizedDelaySec=4h
+# …and shortly after boot, so a machine that was off all week says something
+# useful at the first login rather than at the next midnight.
+OnBootSec=3min
+Persistent=true
+
+[Install]
+WantedBy=timers.target

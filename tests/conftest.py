@@ -21,7 +21,9 @@ from pathlib import Path
 import pytest
 
 REPO = Path(__file__).resolve().parents[1]
-BIN = REPO / "live-build" / "config" / "includes.chroot" / "usr" / "local" / "bin"
+CHROOT = REPO / "live-build" / "config" / "includes.chroot"
+BIN = CHROOT / "usr" / "local" / "bin"
+UNITS = CHROOT / "usr" / "lib" / "systemd" / "system"
 
 # Fakes stand in for the whole outside world. Each logs its argv, and reads an
 # env var for the condition under test — so a test says "no network" by setting
@@ -63,8 +65,24 @@ exit 0
 printf 'sysible_ctl %s\n' "$*" >> "$FAKE_LOG"
 exit "${FAKE_CTL_RC:-0}"
 """,
+    # `list` answers in the real catalog's shape: a header row, one row per tool,
+    # a blank line, then a sentence. FAKE_TOOLS_CATALOG says which tools THIS
+    # edition offers (Server carries no Obsidian).
     "sysible-tools": r"""#!/bin/sh
-printf 'sysible-tools %s\n' "$*" >> "$FAKE_LOG"
+printf 'sysible-tools %s
+' "$*" >> "$FAKE_LOG"
+if [ "$1" = list ]; then
+  printf '%-10s %-10s %-12s %s
+' TOOL STATE LICENSE DESCRIPTION
+  for t in ${FAKE_TOOLS_CATALOG:-terraform vault consul nomad packer boundary aws-cli obsidian}; do
+    printf '%-10s %-10s %-12s %s
+' "$t" available Various "a tool"
+  done
+  printf '
+'
+  echo "Already in the image: OpenTofu (tofu), gcloud, Docker, kubectl."
+  exit 0
+fi
 exit "${FAKE_TOOLS_RC:-0}"
 """,
     "systemctl": r"""#!/bin/sh
@@ -90,7 +108,7 @@ class Sandbox:
         # real binary in /usr/bin and the test proved nothing. So the ordinary
         # tools the script needs are linked in explicitly, and only those.
         for name in ("basename", "dirname", "tr", "sleep", "mkdir", "ln", "id",
-                     "cat", "sed", "rm", "env", "uname", "chmod", "printf"):
+                     "cat", "sed", "rm", "env", "uname", "chmod", "printf", "awk"):
             real = shutil.which(name)
             if real and not (self.bin / name).exists():
                 (self.bin / name).symlink_to(real)

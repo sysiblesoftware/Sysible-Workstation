@@ -59,25 +59,78 @@ class TestPrerequisitesAreCheckedBeforeAnythingIsAsked:
 
 
 class TestTheWindowStaysOpenLongEnoughToRead:
-    """The .desktop is Terminal=true, so the emulator closes the instant this
-    exits. Whether an error can be read is the whole difference between "it does
-    nothing" and "it told me I was offline"."""
+    """The app-grid .desktop is Terminal=true, so the emulator closes the instant
+    this exits. Whether an error can be read is the whole difference between "it
+    does nothing" and "it told me I was offline". The launcher asks for the pause
+    with SYSIBLE_INSTALLER_PAUSE=1; a shell run (the only kind on Server) must not
+    stop to ask for a keypress, because the shell is still there afterwards."""
 
     def test_a_failed_run_waits_before_closing(self, installer):
-        out, _status, asked = installer.run_on_a_terminal("all", FAKE_ONLINE=0)
+        out, _status, asked = installer.run_on_a_terminal(
+            "all", FAKE_ONLINE=0, SYSIBLE_INSTALLER_PAUSE=1)
         assert asked, "the window closed on the error message"
         assert "No internet connection" in out
         assert "The installer stopped" in out
 
     def test_a_successful_run_waits_too(self, installer):
-        out, _status, asked = installer.run_on_a_terminal("all")
+        out, _status, asked = installer.run_on_a_terminal(
+            "all", SYSIBLE_INSTALLER_PAUSE=1)
         assert asked
+        assert "All done" in out
+
+    def test_a_shell_run_on_a_terminal_does_not_stop_to_ask(self, installer):
+        out, _status, asked = installer.run_on_a_terminal("all")
+        assert not asked, "a command run from a shell should just finish"
         assert "All done" in out
 
     def test_it_does_not_wait_when_nobody_is_watching(self, installer):
         """Piped or scripted, it must not block forever on a read."""
-        p = installer.run("all")
+        p = installer.run("all", SYSIBLE_INSTALLER_PAUSE=1)
         assert "Press Enter" not in p.stdout
+
+
+class TestOneScriptForEveryEdition:
+    """install-sysible ships byte-identical on Workstation and Server. They used to
+    be two copies and they drifted: the Server's predated the SLOP option, still
+    aborted the whole run on the first app that failed, and never offered the
+    optional software — so "install the Sysible software" meant something different
+    depending on which ISO you booted."""
+
+    def test_the_edition_name_is_read_at_runtime(self, installer, tmp_path):
+        """Not written into the file, or the two copies differ by construction."""
+        from conftest import BIN
+        src = (BIN / "install-sysible").read_text()
+        body = "\n".join(l for l in src.splitlines() if not l.strip().startswith("#"))
+        assert "Sysible Workstation" not in body, \
+            "the edition is named in the script, so the Server's copy cannot be identical"
+        assert "os-release" in src
+
+    def test_the_title_follows_os_release(self, installer):
+        """Workstation's PRETTY_NAME carries a tagline; the name is what we want."""
+        for pretty, want in (
+                ("Sysible Workstation — Engineering Automation Cloud", "Sysible Workstation"),
+                ("Sysible Server", "Sysible Server")):
+            osr = installer.tmp / "os-release"
+            osr.write_text(f'PRETTY_NAME="{pretty}"\n')
+            src = installer.script.read_text().replace("/etc/os-release", str(osr))
+            installer.script.write_text(src)
+            p = installer.run("all")
+            assert p.returncode == 0, p.stderr
+            got = installer.tmp / "edition"
+            # The name only shows in the whiptail title, so read it back directly.
+            import subprocess
+            r = subprocess.run(["/bin/sh", "-c",
+                                f'. {osr}; printf "%s" "${{PRETTY_NAME}}" | sed "s/ [—-].*//"'],
+                               capture_output=True, text=True)
+            assert r.stdout == want, r.stdout
+
+    def test_the_sync_stamp_matches_the_file(self):
+        """Editing one copy without restamping fails here, in this repo alone —
+        no need for the other repo to be checked out."""
+        import sys
+        sys.path.insert(0, str(__import__("pathlib").Path(__file__).parent))
+        import stamp_sync
+        assert stamp_sync.main(["--check"]) == 0
 
 
 class TestWhatItActuallyInstalls:
@@ -116,9 +169,33 @@ class TestOptionalSoftware:
 
     def test_obsidian_is_installed_with_the_rest(self, installer):
         installer.run("slop")
-        tools = [l for l in installer.calls().splitlines() if l.startswith("sysible-tools")]
-        assert tools, "the optional-software catalog was never called"
-        assert "obsidian" in tools[0], tools
+        installs = [l for l in installer.calls().splitlines()
+                    if l.startswith("sysible-tools install")]
+        assert installs, "the optional-software catalog was never installed from"
+        assert "obsidian" in installs[0], installs
+
+    def test_it_installs_what_THIS_edition_offers(self, installer):
+        """Server deliberately carries no Obsidian — a note-taking GUI on a headless
+        box. A hard-coded list would make a correct Server install report a failure
+        for something it was right not to have."""
+        installer.run("slop", FAKE_TOOLS_CATALOG="terraform vault aws-cli")
+        installs = [l for l in installer.calls().splitlines()
+                    if l.startswith("sysible-tools install")][0]
+        assert "obsidian" not in installs, installs
+        for t in ("terraform", "vault", "aws-cli"):
+            assert t in installs, installs
+
+    def test_a_tool_added_to_the_catalog_needs_no_change_here(self, installer):
+        installer.run("slop", FAKE_TOOLS_CATALOG="terraform something-new")
+        installs = [l for l in installer.calls().splitlines()
+                    if l.startswith("sysible-tools install")][0]
+        assert "something-new" in installs, installs
+
+    def test_an_unreadable_catalog_is_reported(self, installer):
+        p = installer.run("slop", FAKE_TOOLS_CATALOG=" ")
+        both = p.stdout + p.stderr
+        assert "could not read the optional-software catalog" in both
+        assert "WITH PROBLEMS" in both
 
     def test_it_no_longer_calls_the_deleted_helper(self):
         from conftest import BIN
@@ -129,7 +206,8 @@ class TestOptionalSoftware:
 
     def test_the_licensed_tools_are_all_requested(self, installer):
         installer.run("slop")
-        tools = [l for l in installer.calls().splitlines() if l.startswith("sysible-tools")][0]
+        tools = [l for l in installer.calls().splitlines()
+                 if l.startswith("sysible-tools install")][0]
         for t in ("terraform", "vault", "consul", "nomad", "packer", "boundary", "aws-cli"):
             assert t in tools, tools
 
@@ -138,7 +216,7 @@ class TestOptionalSoftware:
         p = installer.run("slop")
         both = p.stdout + p.stderr
         assert "SKIPPED" in both
-        assert "sysible-tools install" in both, "tell them how to get it later"
+        assert "sudo sysible-tools" in both, "tell them how to get it later"
         assert "WITH PROBLEMS" in both, "a silent skip reads as a successful install"
 
     def test_optional_software_is_not_touched_for_a_plain_app_install(self, installer):

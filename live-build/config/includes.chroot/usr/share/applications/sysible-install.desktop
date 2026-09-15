@@ -4,7 +4,11 @@ Version=1.0
 Name=Install Sysible Software
 GenericName=Sysible Software Installer
 Comment=Install the Sysible suite — pick any of Controller, Engineering Platform (SLEP) and Connect individually, or SLOP to put all three behind one sign-in
-Exec=install-sysible
+# Terminal=true means the emulator closes the moment the script exits, taking
+# any error with it. The flag tells install-sysible to hold the window open
+# until it is read; a shell run (the only kind on Sysible Server) does not
+# set it and just finishes.
+Exec=env SYSIBLE_INSTALLER_PAUSE=1 install-sysible
 Icon=sysible-logo
 Terminal=true
 Categories=System;Settings;

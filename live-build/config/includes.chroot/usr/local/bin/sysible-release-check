@@ -1,0 +1,50 @@
+#!/bin/sh
+# sync-sha256: af7fd479a130677271f471770b5b1669f02ba531b76521b40bd55ab3b7fef984
+# sysible-release-check — is any installed Sysible product behind its release?
+#
+# Runs from a timer, never from a login: asking git remotes how they are doing is a
+# network round-trip per product, and doing that while someone waits for a shell
+# prompt is exactly how a login hangs on a bad network. This writes the answer to a
+# state file; sysible-hint reads that file and never touches the network.
+#
+# Shipped byte-identical on Sysible Workstation and Sysible Server. Regenerate the
+# stamp above with: python tests/stamp_sync.py
+set -eu
+
+SRC_DIR="${SYSIBLE_SRC_DIR:-/opt/sysible-src}"
+STATE_DIR="${SYSIBLE_STATE_DIR:-/var/lib/sysible}"
+STATE="$STATE_DIR/update-state"
+
+mkdir -p "$STATE_DIR"
+
+behind=""
+checked=0
+for d in "$SRC_DIR"/*/; do
+  [ -d "$d/.git" ] || continue
+  name="$(basename "$d")"
+  # A checkout with no upstream (a local experiment, a detached HEAD) has nothing
+  # to be behind — skip it rather than reporting it as unknown for ever.
+  up="$(git -C "$d" -c "safe.directory=$d" rev-parse --abbrev-ref --symbolic-full-name '@{u}' 2>/dev/null || true)"
+  case "$up" in */*) ;; *) continue ;; esac
+  remote="${up%%/*}"; branch="${up#*/}"
+  cur="$(git -C "$d" -c "safe.directory=$d" rev-parse HEAD 2>/dev/null || true)"
+  [ -n "$cur" ] || continue
+  # ls-remote, not fetch: fetch writes into the live deployment repo and, killed
+  # part way, strands .lock files that break every later ref update. A read-only
+  # query cannot do either, so a timer may run it as often as it likes.
+  tip="$(git -C "$d" -c "safe.directory=$d" ls-remote "$remote" "$branch" 2>/dev/null | awk '{print $1; exit}' || true)"
+  [ -n "$tip" ] || continue          # offline, or the remote refused — say nothing
+  checked=$((checked+1))
+  [ "$tip" = "$cur" ] || behind="$behind $name"
+done
+
+# Written atomically: sysible-hint reads this on every login, and a half-written
+# file would be read as "nothing to report" exactly when there is something.
+tmp="$STATE.$$"
+{
+  printf 'checked_at=%s\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+  printf 'checked=%s\n' "$checked"
+  printf 'behind=%s\n' "$(printf '%s' "$behind" | sed 's/^ //')"
+} > "$tmp"
+mv -f "$tmp" "$STATE"
+chmod 0644 "$STATE"

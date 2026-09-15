@@ -1,0 +1,64 @@
+#!/bin/sh
+# sync-sha256: 9279c3d30cb51ea7fbff527e77a2d95f977edce63067a4f0a3b02e99668d2ba2
+# sysible-hint — one line, at login, about the Sysible software on this machine.
+#
+# Two things an operator otherwise has to already know:
+#   * nothing is installed yet, and `install-sysible` is how to change that. On
+#     Workstation that is an app-grid icon; on Server there is no app grid, so
+#     without this the installer simply is not discoverable.
+#   * an installed product is behind its release. Updates are not automatic —
+#     `sysible_ctl update all` rebuilds from source and recreates containers, which
+#     is not something to do behind someone's back — so the machine has to SAY so.
+#
+# NEVER touches the network: it reads the state file sysible-release-check leaves
+# behind on a timer. A login must not wait on a git remote.
+#
+# Silent when there is nothing to say, and switched off for good with
+#   touch ~/.sysible-no-hints       (just me)
+#   sudo touch /etc/sysible/no-hints  (this machine)
+#
+# Shipped byte-identical on Sysible Workstation and Sysible Server. Regenerate the
+# stamp above with: python tests/stamp_sync.py
+set -eu
+
+SRC_DIR="${SYSIBLE_SRC_DIR:-/opt/sysible-src}"
+STATE="${SYSIBLE_STATE_DIR:-/var/lib/sysible}/update-state"
+ETC="${SYSIBLE_ETC_DIR:-/etc/sysible}"
+
+[ -f "$ETC/no-hints" ] && exit 0
+[ -n "${HOME:-}" ] && [ -f "$HOME/.sysible-no-hints" ] && exit 0
+
+# Colour only on a terminal that wants it.
+if [ -t 1 ] && [ "${TERM:-dumb}" != dumb ] && [ -z "${NO_COLOR:-}" ]; then
+  G='[32m'; B='[1m'; R='[0m'
+else
+  G=''; B=''; R=''
+fi
+
+_installed() {
+  for d in "$SRC_DIR"/*/; do
+    [ -d "$d/.git" ] && return 0
+  done
+  return 1
+}
+
+if ! _installed; then
+  printf '\n%s%sNo Sysible software is installed on this machine yet.%s\n' "$B" "$G" "$R"
+  printf '  Install it with:  %ssudo install-sysible%s\n' "$B" "$R"
+  printf '  (Controller, Engineering Platform and Connect, individually or all\n'
+  printf '   behind one sign-in. Nothing runs and no ports open until you do.)\n\n'
+  exit 0
+fi
+
+[ -f "$STATE" ] || exit 0
+behind="$(sed -n 's/^behind=//p' "$STATE" | tail -n1)"
+[ -n "${behind:-}" ] || exit 0
+
+n=0
+for _ in $behind; do n=$((n+1)); done
+[ "$n" -gt 0 ] || exit 0
+s=''; [ "$n" -eq 1 ] || s='s'
+printf '\n%s%s%d Sysible product%s ha%s an update available%s: %s\n' \
+  "$B" "$G" "$n" "$s" "$([ "$n" -eq 1 ] && echo s || echo ve)" "$R" "$behind"
+printf '  Apply it with:  %ssudo sysible_ctl update all%s   (or one at a time:\n' "$B" "$R"
+printf '  sudo sysible_ctl update <product>). Data volumes are never touched.\n\n'

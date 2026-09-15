@@ -1,0 +1,15 @@
+[Unit]
+Description=Check whether any installed Sysible product is behind its release
+Documentation=man:sysible_ctl(1)
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+Type=oneshot
+# Best-effort by design: a no-network boot, a remote that is down, or a checkout
+# with no upstream must not leave a failed unit or mark the system degraded. The
+# state file simply keeps whatever it last said, and sysible-hint stays quiet
+# rather than claiming an update that was never confirmed.
+ExecStart=/bin/sh -c '/usr/local/bin/sysible-release-check || true'
+Nice=10
+IOSchedulingClass=idle

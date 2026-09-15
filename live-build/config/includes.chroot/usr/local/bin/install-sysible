@@ -1,8 +1,18 @@
 #!/bin/sh
-# install-sysible — install the Sysible CE stack on a Sysible Workstation, on
-# demand. Nothing about the platform is baked into the ISO except this helper, so
-# a fresh workstation runs no Sysible services and opens no ports until you choose
-# to install them.
+# sync-sha256: 4b4a31b391e959fc757454d2752835d9aa64df27582c359585e46ff5578ebb1d
+# install-sysible — install the Sysible CE stack on this machine, on demand.
+# Nothing about the platform is baked into the ISO except this helper, so a fresh
+# install runs no Sysible services and opens no ports until you choose to install
+# them.
+#
+# ONE script, shipped byte-identical on Sysible Workstation and Sysible Server.
+# They used to be separate copies and they drifted: the Server's predated the SLOP
+# option entirely, still aborted the whole run on the first app that failed to come
+# up, and never offered the optional software — so "install the Sysible software"
+# meant something different on each edition. The edition's name is read from
+# os-release at runtime instead of being written into the file, and the sync-sha256
+# line above is checked by both repos' tests, so the two cannot drift again in
+# silence. Regenerate it with: python tests/stamp_sync.py
 #
 # Each product is cloned to /opt/sysible-src/<repo> and brought up as a container
 # via the suite's unified `sysible_ctl` CLI, which is also installed so you can
@@ -35,6 +45,11 @@ compactbutton=green,black
 label=green,black
 '
 
+# Which edition this is, for the window titles. PRETTY_NAME carries a tagline on
+# Workstation ("Sysible Workstation — Engineering Automation Cloud"); keep the name.
+_EDITION="$( ( . /etc/os-release 2>/dev/null; printf '%s' "${PRETTY_NAME:-Sysible Linux}" ) | sed 's/ [—-].*//' )"
+[ -n "$_EDITION" ] || _EDITION="Sysible Linux"
+
 say()  { printf '%s\n' "$*"; }
 # Every failure path here called _warn, and nothing defined it. Under `set -eu`
 # that is not a missing message — it is "command not found", exit 127, and the
@@ -44,7 +59,10 @@ say()  { printf '%s\n' "$*"; }
 _warn() { printf 'WARNING: %s\n' "$*" >&2; }
 die()  { printf 'ERROR: %s\n' "$*" >&2; exit 1; }
 
-[ "$(id -u)" -eq 0 ] || exec sudo -- "$0" "$@"
+# Re-exec under sudo, carrying the launcher flag: sudo resets the environment, and
+# without it a desktop-launched run loses the very setting that keeps its window
+# open long enough to read.
+[ "$(id -u)" -eq 0 ] || exec sudo "SYSIBLE_INSTALLER_PAUSE=${SYSIBLE_INSTALLER_PAUSE:-0}" -- "$0" "$@"
 
 # ---- keep the window open, on EVERY exit ---------------------------------
 # Launched from the app grid this runs under a Terminal=true .desktop, so the
@@ -54,12 +72,16 @@ die()  { printf 'ERROR: %s\n' "$*" >&2; exit 1; }
 # like "the menu appeared, I pressed Enter, and nothing happened" — something DID
 # happen, it just could not be read. A trap covers the failing paths too, which are
 # the ones with something to say.
+#
+# Only for that launcher (it sets SYSIBLE_INSTALLER_PAUSE=1). Run from a shell —
+# which is the only way it runs on Server — the shell is still there afterwards, so
+# stopping to ask for a keypress would just be in the way.
 _PAUSED=0
 _pause_on_exit() {
   _rc=$?
   [ "$_PAUSED" = 1 ] && return 0
   _PAUSED=1
-  if [ -t 0 ] && [ -t 1 ]; then
+  if [ "${SYSIBLE_INSTALLER_PAUSE:-0}" = 1 ] && [ -t 0 ] && [ -t 1 ]; then
     printf '\n'
     [ "$_rc" -eq 0 ] || printf 'The installer stopped — the reason is above.\n'
     printf 'Press Enter to close…'
@@ -80,7 +102,7 @@ _interactive() { command -v whiptail >/dev/null 2>&1 && [ -t 0 ] && [ -t 1 ]; }
 # Tell the operator, in whichever UI they are actually in.
 _tell() {  # _tell <title> <message>
   if _interactive; then
-    whiptail --backtitle "Sysible Workstation" --title " $1 " --msgbox "\n$2\n" 15 74
+    whiptail --backtitle "$_EDITION" --title " $1 " --msgbox "\n$2\n" 15 74
   fi
   # %b, not %s: the message carries \n escapes for whiptail's msgbox, and %s
   # would print them literally — one unreadable line in the terminal fallback.
@@ -98,7 +120,7 @@ _online() {
 }
 
 command -v git >/dev/null 2>&1 || {
-  _tell "Cannot install" "git is required and is missing from PATH.\n\nIt ships on Sysible Workstation, so this usually means PATH is broken.\nNothing has been installed."
+  _tell "Cannot install" "git is required and is missing from PATH.\n\nIt ships on every Sysible edition, so this usually means PATH is\nbroken.\nNothing has been installed."
   exit 1; }
 command -v docker >/dev/null 2>&1 || {
   _tell "Cannot install" "Docker is required and is not installed.\n\nEvery Sysible app runs as a container. Install Docker Engine and the\ncompose plugin, then run this again.\n\nNothing has been installed."
@@ -137,7 +159,7 @@ if [ "$#" -gt 0 ]; then
     esac
   done
 elif _interactive; then
-  CHOICE="$(whiptail --backtitle "Sysible Workstation" --title " Install Sysible CE " \
+  CHOICE="$(whiptail --backtitle "$_EDITION" --title " Install Sysible CE " \
     --checklist "\nPick what to install. Each app runs as a container; manage them\nlater with 'sysible_ctl'. Tick SLOP to also put the single front door\n(https://slop.lan/) in front of all three.\n\n  [SPACE] toggle   [TAB] to buttons   [ENTER] confirm\n" \
     18 76 4 \
     controller "Sysible Controller — fleet management console" on \
@@ -233,7 +255,7 @@ if [ "$SLOP" -eq 1 ]; then
   # Each is best-effort: a vendor download failing never aborts the whole run.
   say
   say "============================================================"
-  say " Installing all optional software (HashiCorp tools, AWS CLI, Obsidian)"
+  say " Installing all the optional software this edition offers"
   say "============================================================"
   # Obsidian is in the catalog like everything else. It used to be a separate call
   # to /usr/local/bin/sysible-install-obsidian — a script that was REMOVED when the
@@ -244,15 +266,33 @@ if [ "$SLOP" -eq 1 ]; then
   # service does the vendor download (it cannot be done from a postinst — that is a
   # nested dpkg run) and retries on the next boot if the network is down.
   if command -v sysible-tools >/dev/null 2>&1; then
-    SYSIBLE_TOOLS_ASSUME_YES=1 sysible-tools install \
-        terraform vault consul nomad packer boundary aws-cli obsidian \
-      || { FAILED="$FAILED optional-software"
-           _warn "  one or more optional tools failed to install (see above)."; }
+    # ASK the catalog what this edition offers instead of naming the tools here.
+    # Server deliberately carries no Obsidian — a note-taking GUI on a headless box
+    # — so a hard-coded list would make a correct Server install report a failure
+    # for something it was right not to have. It also means a tool added to the
+    # catalog is installed here without touching this script.
+    # `|| true`: this runs LAST, after everything is installed. Under `set -e` the
+    # assignment inherits the pipeline's status, so a catalog that errors (or an
+    # awk that is somehow missing) would abort the whole run at the finish line
+    # instead of reporting one skipped step.
+    _tools="$(sysible-tools list 2>/dev/null \
+              | awk 'NR > 1 && NF && $1 != "Already" { printf "%s ", $1 }' || true)"
+    if [ -n "$_tools" ]; then
+      say "  offered here: $_tools"
+      # shellcheck disable=SC2086  # a deliberate word split: one arg per tool
+      SYSIBLE_TOOLS_ASSUME_YES=1 sysible-tools install $_tools \
+        || { FAILED="$FAILED optional-software"
+             _warn "  one or more optional tools failed to install (see above)."; }
+    else
+      FAILED="$FAILED optional-software"
+      _warn "  could not read the optional-software catalog — nothing extra installed."
+      _warn "  Try it directly:  sudo sysible-tools"
+    fi
   else
     FAILED="$FAILED optional-software"
     _warn "  sysible-tools is not installed, so the optional software (HashiCorp"
-    _warn "  tools, AWS CLI, Obsidian) was SKIPPED. Install them later with:"
-    _warn "    sudo sysible-tools install terraform vault consul nomad packer boundary aws-cli obsidian"
+    _warn "  tools, AWS CLI, and Obsidian where the edition offers it) was SKIPPED."
+    _warn "  Install it later with:  sudo sysible-tools"
   fi
 fi
 
