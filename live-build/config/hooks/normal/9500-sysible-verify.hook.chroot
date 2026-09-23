@@ -309,8 +309,35 @@ _inst=$(ls /usr/share/applications/*install*.desktop 2>/dev/null \
 [ -f /usr/share/applications/sysible-install.desktop ] \
     || fail "the consolidated installer launcher (sysible-install.desktop) is missing"
 _e=$(sed -n 's/^Exec=//p' /usr/share/applications/sysible-install.desktop | head -1)
-[ "$_e" = "install-sysible" ] \
-    || fail "sysible-install.desktop should start the menu (Exec=install-sysible), not '$_e'"
+# The Exec may set environment for the run before naming the command — the
+# launcher asks the installer to hold the terminal open (SYSIBLE_INSTALLER_PAUSE=1)
+# so a Terminal=true window does not close on its own error message. Strip a
+# leading `env` and any VAR=VALUE assignments; what is left must be the bare menu.
+_cmd=$_e
+case "$_cmd" in "env "*) _cmd=${_cmd#env } ;; esac
+while :; do
+    _w=${_cmd%% *}
+    case "$_w" in *=*) ;; *) break ;; esac
+    [ "$_cmd" != "$_w" ] || break     # one word left and it is an assignment: no command
+    _cmd=${_cmd#* }
+done
+[ "$_cmd" = "install-sysible" ] \
+    || fail "sysible-install.desktop should start the menu (Exec=[env VAR=VALUE ...] install-sysible), not '$_e'"
+# ...and nothing in it may pick a product. The whole point of the one launcher is
+# that the operator chooses from the menu; a product named anywhere in the Exec —
+# command, argument or environment — is the three-launcher drift coming back.
+case "$_e" in
+    *controller*|*slep*|*connect*|*slop*)
+        fail "sysible-install.desktop bakes a product into its Exec ('$_e') — the one launcher must open the menu and let the operator pick" ;;
+esac
+# If the launcher asks for the pause, the installer must still honour it. This is
+# the guard f9b3b0c earned: without it every die() closes the terminal window on
+# the explanation, and the operator sees a click that did nothing at all.
+case "$_e" in
+    *SYSIBLE_INSTALLER_PAUSE=1*)
+        grep -q 'SYSIBLE_INSTALLER_PAUSE' /usr/local/bin/install-sysible \
+            || fail "the launcher sets SYSIBLE_INSTALLER_PAUSE=1 but install-sysible no longer reads it — a Terminal=true run would close on its own error message" ;;
+esac
 for _p in controller slep connect slop; do
     grep -q "^      $_p)" /usr/local/bin/install-sysible \
         || grep -qE "(^|[^a-z])$_p\\b" /usr/local/bin/install-sysible \
