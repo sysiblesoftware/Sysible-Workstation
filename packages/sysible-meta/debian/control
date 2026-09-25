@@ -35,6 +35,13 @@ Depends: ${misc:Depends},
  python3, python3-pip, python3-venv, pipx, build-essential,
 # --- automation & IaC (from Debian where present; the rest via sysible-release) ---
  ansible, ansible-lint,
+# sshpass is what lets Ansible use a PASSWORD over SSH at all. Without it
+# `--ask-pass` / ansible_password does not degrade — it refuses outright with
+# "to use the 'ssh' connection type with passwords, you must install the sshpass
+# program", which is exactly the first run against a fresh host that has no key
+# on it yet. A hard dep: the bootstrap run is the one that cannot go and fetch a
+# missing package first.
+ sshpass,
 # --- containers ---
  podman, buildah, skopeo,
 Recommends:

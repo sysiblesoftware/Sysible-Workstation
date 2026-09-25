@@ -353,4 +353,16 @@ for _a in /usr/local/bin/sysible-install /usr/local/bin/install-sysible-controll
 done
 echo "sysible-verify: OK — one installer launcher, offering controller/slep/connect/slop."
 
+# 16) Password-based SSH automation works out of the box.
+# sshpass is in the metapackage's Depends, but nothing has ever asserted that
+# anything in that list actually LANDED — the toolkit list is generated from it at
+# build time and apt's output scrolls past. This one is worth pinning because its
+# absence is invisible until the worst moment: Ansible does not degrade without
+# it, it refuses ("you must install the sshpass program") on the first run against
+# a host that has no key on it yet, which is the run that cannot go and fetch a
+# missing package first.
+command -v sshpass >/dev/null 2>&1 \
+    || fail "sshpass is not in the image — Ansible cannot use a password over SSH, so bootstrapping a host that has no key yet fails at the first play"
+echo "sysible-verify: OK — sshpass present (Ansible can bootstrap over a password)."
+
 echo "sysible-verify: OK — SysTerm $V, Run Command menu, and new icon all present."
