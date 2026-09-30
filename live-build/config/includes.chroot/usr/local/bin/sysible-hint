@@ -1,5 +1,5 @@
 #!/bin/sh
-# sync-sha256: 9279c3d30cb51ea7fbff527e77a2d95f977edce63067a4f0a3b02e99668d2ba2
+# sync-sha256: d95fb181b70daa2239c81cd31c30bc7151b057b2f7f925eb7f774893b4eaa271
 # sysible-hint — one line, at login, about the Sysible software on this machine.
 #
 # Two things an operator otherwise has to already know:
@@ -7,7 +7,7 @@
 #     Workstation that is an app-grid icon; on Server there is no app grid, so
 #     without this the installer simply is not discoverable.
 #   * an installed product is behind its release. Updates are not automatic —
-#     `sysible_ctl update all` rebuilds from source and recreates containers, which
+#     `sysiblectl update all` rebuilds from source and recreates containers, which
 #     is not something to do behind someone's back — so the machine has to SAY so.
 #
 # NEVER touches the network: it reads the state file sysible-release-check leaves
@@ -60,5 +60,5 @@ for _ in $behind; do n=$((n+1)); done
 s=''; [ "$n" -eq 1 ] || s='s'
 printf '\n%s%s%d Sysible product%s ha%s an update available%s: %s\n' \
   "$B" "$G" "$n" "$s" "$([ "$n" -eq 1 ] && echo s || echo ve)" "$R" "$behind"
-printf '  Apply it with:  %ssudo sysible_ctl update all%s   (or one at a time:\n' "$B" "$R"
-printf '  sudo sysible_ctl update <product>). Data volumes are never touched.\n\n'
+printf '  Apply it with:  %ssudo sysiblectl update all%s   (or one at a time:\n' "$B" "$R"
+printf '  sudo sysiblectl update <product>). Data volumes are never touched.\n\n'

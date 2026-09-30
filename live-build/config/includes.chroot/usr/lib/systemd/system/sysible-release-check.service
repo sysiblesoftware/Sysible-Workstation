@@ -1,6 +1,6 @@
 [Unit]
 Description=Check whether any installed Sysible product is behind its release
-Documentation=man:sysible_ctl(1)
+Documentation=man:sysiblectl(1)
 Wants=network-online.target
 After=network-online.target
 

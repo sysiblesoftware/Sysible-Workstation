@@ -1,5 +1,5 @@
 #!/bin/sh
-# sync-sha256: 4b4a31b391e959fc757454d2752835d9aa64df27582c359585e46ff5578ebb1d
+# sync-sha256: 5f8bfa21878fb62ae6da5adf3a1affd4851e98d480053bc7f621bbd9a41957a4
 # install-sysible — install the Sysible CE stack on this machine, on demand.
 # Nothing about the platform is baked into the ISO except this helper, so a fresh
 # install runs no Sysible services and opens no ports until you choose to install
@@ -15,8 +15,8 @@
 # silence. Regenerate it with: python tests/stamp_sync.py
 #
 # Each product is cloned to /opt/sysible-src/<repo> and brought up as a container
-# via the suite's unified `sysible_ctl` CLI, which is also installed so you can
-# manage everything afterward (sysible_ctl update all, status, logs, …).
+# via the suite's unified `sysiblectl` CLI, which is also installed so you can
+# manage everything afterward (sysiblectl update all, status, logs, …).
 #
 #   sudo install-sysible                 # pick from a menu (default: all apps)
 #   sudo install-sysible controller slep # install specific builds
@@ -160,7 +160,7 @@ if [ "$#" -gt 0 ]; then
   done
 elif _interactive; then
   CHOICE="$(whiptail --backtitle "$_EDITION" --title " Install Sysible CE " \
-    --checklist "\nPick what to install. Each app runs as a container; manage them\nlater with 'sysible_ctl'. Tick SLOP to also put the single front door\n(https://slop.lan/) in front of all three.\n\n  [SPACE] toggle   [TAB] to buttons   [ENTER] confirm\n" \
+    --checklist "\nPick what to install. Each app runs as a container; manage them\nlater with 'sysiblectl'. Tick SLOP to also put the single front door\n(https://slop.lan/) in front of all three.\n\n  [SPACE] toggle   [TAB] to buttons   [ENTER] confirm\n" \
     18 76 4 \
     controller "Sysible Controller — fleet management console" on \
     slep       "Sysible LEP — infra automation (Terraform/Ansible/Salt)" on \
@@ -199,15 +199,23 @@ clone_one() {
   fi
 }
 
-# The Controller checkout ships the unified sysible_ctl. Ensure it's present (clone
+# The Controller checkout ships the unified sysiblectl. Ensure it's present (clone
 # the Controller even if not selected — it's the source of the CLI) and installed.
 CTL_DIR="$SRC_DIR/$(dirname_for controller)"
 clone_one controller || die "could not clone the Controller repo (check network/DNS) — nothing was installed."
-if [ -x "$CTL_DIR/deploy/sysible_ctl" ]; then
-  ln -sf "$CTL_DIR/deploy/sysible_ctl" /usr/local/bin/sysible_ctl
-  say "Installed sysible_ctl -> /usr/local/bin/sysible_ctl"
+# `sysiblectl` is the name; `sysible_ctl` is linked beside it because it is in
+# every runbook and every shell history. A Controller checkout from before the
+# rename ships only the underscore name, so take whichever is there.
+_ctl_src=""
+for _c in "$CTL_DIR/deploy/sysiblectl" "$CTL_DIR/deploy/sysible_ctl"; do
+  [ -x "$_c" ] && { _ctl_src="$_c"; break; }
+done
+if [ -n "$_ctl_src" ]; then
+  ln -sf "$_ctl_src" /usr/local/bin/sysiblectl
+  ln -sf "$_ctl_src" /usr/local/bin/sysible_ctl
+  say "Installed sysiblectl -> /usr/local/bin/sysiblectl (and sysible_ctl, the old name)"
 else
-  die "the Controller checkout has no deploy/sysible_ctl (older main?) — update the repo and retry."
+  die "the Controller checkout has no deploy/sysiblectl or deploy/sysible_ctl (older main?) — update the repo and retry."
 fi
 
 # ---- bring up each selected build ----------------------------------------
@@ -224,8 +232,8 @@ for p in $WANT; do
   fi
   _dir="$SRC_DIR/$(dirname_for "$p")"
   _var="$(envvar_for "$p")"
-  # SYSIBLE_<P>_DIR lets sysible_ctl find the checkout before any container exists.
-  if env "$_var=$_dir" sysible_ctl "$p" up; then
+  # SYSIBLE_<P>_DIR lets sysiblectl find the checkout before any container exists.
+  if env "$_var=$_dir" sysiblectl "$p" rebuild; then
     say "  $p is up."
   else
     FAILED="$FAILED $p"; _warn "  $p did not come up — continuing with the rest (scroll up for the error)."
@@ -234,7 +242,7 @@ done
 
 # ---- bring up the SLOP gateway (optional) --------------------------------
 # The gateway fronts the three apps behind one domain/TLS/portal. It's a separate
-# container stack (just Caddy + the portal) managed by the same sysible_ctl, and
+# container stack (just Caddy + the portal) managed by the same sysiblectl, and
 # it proxies to the apps on the host ports they already publish — so it comes up
 # AFTER the apps.
 if [ "$SLOP" -eq 1 ]; then
@@ -242,7 +250,7 @@ if [ "$SLOP" -eq 1 ]; then
   say "============================================================"
   say " SLOP gateway — the single front door in front of the apps"
   say "============================================================"
-  if clone_one slop && env SYSIBLE_SLOP_DIR="$SRC_DIR/$(dirname_for slop)" sysible_ctl slop up; then
+  if clone_one slop && env SYSIBLE_SLOP_DIR="$SRC_DIR/$(dirname_for slop)" sysiblectl slop rebuild; then
     say "  SLOP gateway is up."
   else
     FAILED="$FAILED slop-gateway"; _warn "  the SLOP gateway did not come up (scroll up for the error)."
@@ -299,7 +307,7 @@ fi
 say
 if [ -n "$FAILED" ]; then
   _warn "Finished WITH PROBLEMS — these did not come up:$FAILED"
-  _warn "Inspect with 'sysible_ctl status', retry one with e.g. 'sysible-install <name>',"
+  _warn "Inspect with 'sysiblectl status', retry one with e.g. 'sysible-install <name>',"
   _warn "and check the errors scrolled above (usually network, DNS, or a Docker build)."
 else
   say "All done — the code is cloned under $SRC_DIR and everything is running in containers."
@@ -308,4 +316,4 @@ if [ "$SLOP" -eq 1 ] && [ -z "$FAILED" ]; then
   say "One front door is up: https://slop.lan/  (point slop.lan + the"
   say "controller./slep./connect. subdomains at this host — DNS or /etc/hosts)."
 fi
-say "Manage everything with:  sysible_ctl status   |   sysible_ctl update all"
+say "Manage everything with:  sysiblectl status   |   sysiblectl update all"

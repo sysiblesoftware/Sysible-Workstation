@@ -61,8 +61,8 @@ printf 'curl %s\n' "$*" >> "$FAKE_LOG"
 [ "${FAKE_ONLINE:-1}" = 1 ] || exit 7
 exit 0
 """,
-    "sysible_ctl": r"""#!/bin/sh
-printf 'sysible_ctl %s\n' "$*" >> "$FAKE_LOG"
+    "sysiblectl": r"""#!/bin/sh
+printf 'sysiblectl %s\n' "$*" >> "$FAKE_LOG"
 exit "${FAKE_CTL_RC:-0}"
 """,
     # `list` answers in the real catalog's shape: a header row, one row per tool,

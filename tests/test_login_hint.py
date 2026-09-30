@@ -81,7 +81,7 @@ class TestWhenSomethingIsInstalled:
         out = machine.hint().stdout
         assert "2 Sysible products have an update" in out, out
         assert "sysible-controller" in out and "sysible-connect" in out
-        assert "sudo sysible_ctl update all" in out
+        assert "sudo sysiblectl update all" in out
 
     def test_one_product_reads_as_one(self, machine):
         machine.installed("sysible-controller")

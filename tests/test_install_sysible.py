@@ -138,21 +138,21 @@ class TestWhatItActuallyInstalls:
         installer.run("all")
         calls = installer.calls()
         for app in ("controller", "slep", "connect"):
-            assert re.search(rf"sysible_ctl {app} up\b", calls), calls
-        assert "sysible_ctl slop up" not in calls
+            assert re.search(rf"sysiblectl {app} rebuild\b", calls), calls
+        assert "sysiblectl slop rebuild" not in calls
 
     def test_slop_brings_up_the_gateway_and_all_three(self, installer):
         installer.run("slop")
         calls = installer.calls()
         for app in ("controller", "slep", "connect", "slop"):
-            assert re.search(rf"sysible_ctl {app} up\b", calls), calls
+            assert re.search(rf"sysiblectl {app} rebuild\b", calls), calls
 
     def test_one_app_failing_never_stops_the_others(self, installer):
         """The run is best-effort by design; it used to abort on an undefined
         _warn, which killed the very case it was built for."""
         p = installer.run("all", FAKE_CTL_RC=1)
         calls = installer.calls()
-        assert calls.count(" up") >= 3, calls
+        assert calls.count(" rebuild") >= 3, calls
         assert "WITH PROBLEMS" in (p.stdout + p.stderr)
 
     def test_an_unknown_build_is_refused(self, installer):
