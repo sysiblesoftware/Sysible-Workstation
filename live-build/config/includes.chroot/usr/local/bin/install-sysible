@@ -1,5 +1,5 @@
 #!/bin/sh
-# sync-sha256: 5f8bfa21878fb62ae6da5adf3a1affd4851e98d480053bc7f621bbd9a41957a4
+# sync-sha256: d10a8e040988db2fc4f74f395c27377235a1404dd182a3503e4d2f16fa8a0d98
 # install-sysible — install the Sysible CE stack on this machine, on demand.
 # Nothing about the platform is baked into the ISO except this helper, so a fresh
 # install runs no Sysible services and opens no ports until you choose to install
@@ -214,6 +214,15 @@ if [ -n "$_ctl_src" ]; then
   ln -sf "$_ctl_src" /usr/local/bin/sysiblectl
   ln -sf "$_ctl_src" /usr/local/bin/sysible_ctl
   say "Installed sysiblectl -> /usr/local/bin/sysiblectl (and sysible_ctl, the old name)"
+  # WHICH BUILD VERB THIS CLI SPEAKS. `rebuild` replaced `up`, but this ISO and
+  # the Controller checkout it clones reach a host at different times — hard-coding
+  # either one leaves a window where every product fails with "'rebuild' is not a
+  # command". Ask the CLI's own parser, with a product name that cannot exist:
+  # both answers are refusals raised while parsing, before anything touches Docker.
+  CTL_BUILD_VERB=up
+  if sysiblectl rebuild __probe__ 2>&1 | grep -q "is not a product"; then
+    CTL_BUILD_VERB=rebuild
+  fi
 else
   die "the Controller checkout has no deploy/sysiblectl or deploy/sysible_ctl (older main?) — update the repo and retry."
 fi
@@ -233,7 +242,7 @@ for p in $WANT; do
   _dir="$SRC_DIR/$(dirname_for "$p")"
   _var="$(envvar_for "$p")"
   # SYSIBLE_<P>_DIR lets sysiblectl find the checkout before any container exists.
-  if env "$_var=$_dir" sysiblectl "$p" rebuild; then
+  if env "$_var=$_dir" sysiblectl "$p" "$CTL_BUILD_VERB"; then
     say "  $p is up."
   else
     FAILED="$FAILED $p"; _warn "  $p did not come up — continuing with the rest (scroll up for the error)."
@@ -250,7 +259,7 @@ if [ "$SLOP" -eq 1 ]; then
   say "============================================================"
   say " SLOP gateway — the single front door in front of the apps"
   say "============================================================"
-  if clone_one slop && env SYSIBLE_SLOP_DIR="$SRC_DIR/$(dirname_for slop)" sysiblectl slop rebuild; then
+  if clone_one slop && env SYSIBLE_SLOP_DIR="$SRC_DIR/$(dirname_for slop)" sysiblectl slop "$CTL_BUILD_VERB"; then
     say "  SLOP gateway is up."
   else
     FAILED="$FAILED slop-gateway"; _warn "  the SLOP gateway did not come up (scroll up for the error)."

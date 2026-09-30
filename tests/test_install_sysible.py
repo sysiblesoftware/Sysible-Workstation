@@ -222,3 +222,36 @@ class TestOptionalSoftware:
     def test_optional_software_is_not_touched_for_a_plain_app_install(self, installer):
         installer.run("all")
         assert "sysible-tools" not in installer.calls()
+
+
+class TestItAsksTheCliWhichVerbItSpeaks:
+    """A real install failed on exactly this: the platform installer had been
+    updated to say `rebuild` while the Controller checkout it clones still had a
+    CLI that only knew `up`, so EVERY product failed at its first command with
+    "'rebuild' is not a command" and the run finished WITH PROBLEMS.
+
+    The two are separate repositories that reach a host at different times, so
+    neither verb can be hard-coded. The script asks the CLI, using the CLI's own
+    parser and a product name that cannot exist — both answers are refusals
+    raised while parsing, so nothing is built either way."""
+
+    def test_a_current_cli_gets_rebuild(self, installer):
+        installer.run("all")
+        calls = installer.calls()
+        for app in ("controller", "slep", "connect"):
+            assert re.search(rf"sysiblectl {app} rebuild\b", calls), calls
+
+    def test_a_cli_from_before_the_rename_gets_up(self, installer):
+        """The reported failure, from the other side: an ISO built after the
+        rename, pointed at a Controller checkout from before it."""
+        installer.run("all", FAKE_CTL_OLD=1)
+        calls = installer.calls()
+        for app in ("controller", "slep", "connect"):
+            assert re.search(rf"sysiblectl {app} up\b", calls), calls
+            assert f"sysiblectl {app} rebuild" not in calls
+
+    def test_the_probe_itself_never_counts_as_a_bring_up(self, installer):
+        """It must not look like work was done. The real CLI refuses it during
+        argument parsing and touches nothing."""
+        installer.run("all")
+        assert "__probe__" not in installer.calls()

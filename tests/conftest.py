@@ -61,7 +61,20 @@ printf 'curl %s\n' "$*" >> "$FAKE_LOG"
 [ "${FAKE_ONLINE:-1}" = 1 ] || exit 7
 exit 0
 """,
+    # The real CLI refuses `rebuild __probe__` while PARSING, before it touches
+    # anything — that refusal is how install-sysible works out which build verb
+    # this CLI speaks. So the fake answers it the same way, and does NOT log it:
+    # a probe is not a call, and counting it as one would hide a missing bring-up.
+    # FAKE_CTL_OLD=1 makes it answer as a CLI from before `rebuild` existed.
     "sysiblectl": r"""#!/bin/sh
+if [ "$1" = rebuild ] && [ "$2" = __probe__ ]; then
+  if [ "${FAKE_CTL_OLD:-0}" = 1 ]; then
+    echo "ERROR: unknown or ambiguous: 'rebuild __probe__'" >&2
+  else
+    echo "ERROR: '__probe__' is not a product. Name the one you mean:" >&2
+  fi
+  exit 1
+fi
 printf 'sysiblectl %s\n' "$*" >> "$FAKE_LOG"
 exit "${FAKE_CTL_RC:-0}"
 """,
@@ -108,7 +121,12 @@ class Sandbox:
         # real binary in /usr/bin and the test proved nothing. So the ordinary
         # tools the script needs are linked in explicitly, and only those.
         for name in ("basename", "dirname", "tr", "sleep", "mkdir", "ln", "id",
-                     "cat", "sed", "rm", "env", "uname", "chmod", "printf", "awk"):
+                     "cat", "sed", "rm", "env", "uname", "chmod", "printf", "awk",
+                     # grep: the script reads the CLI's own refusal to work out
+                     # which build verb it speaks. Without it here the probe
+                     # silently answered "the old one" and the bring-up assertions
+                     # failed for a reason that had nothing to do with the script.
+                     "grep"):
             real = shutil.which(name)
             if real and not (self.bin / name).exists():
                 (self.bin / name).symlink_to(real)
@@ -118,7 +136,10 @@ class Sandbox:
         self.src_dir = tmp_path / "src"
         assert "SRC_DIR=/opt/sysible-src" in src, "the script no longer sets SRC_DIR"
         src = src.replace("SRC_DIR=/opt/sysible-src", f"SRC_DIR={self.src_dir}")
-        # /usr/local/bin is not writable in a test; the symlink lands here instead.
+        # /usr/local/bin is not writable in a test; the symlinks land here instead.
+        # BOTH names, or the test would write a real link into /usr/local/bin on
+        # whatever machine it runs on.
+        src = src.replace("/usr/local/bin/sysiblectl", str(tmp_path / "sysiblectl"))
         src = src.replace("/usr/local/bin/sysible_ctl", str(tmp_path / "sysible_ctl"))
         self.script = tmp_path / script
         self.script.write_text(src)
