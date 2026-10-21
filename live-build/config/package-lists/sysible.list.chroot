@@ -47,10 +47,23 @@ live-config
 live-config-systemd
 calamares
 calamares-settings-debian
-# Guest integration for VMware/VirtualBox/KVM (clipboard, auto-resize, folder
-# sharing) — Sysible Workstation commonly runs in a VM, incl. Fusion on Apple Silicon.
+# Guest integration — Sysible Workstation commonly runs in a VM, incl. Fusion on
+# Apple Silicon. This needs BOTH families: open-vm-tools is VMware's and does
+# nothing on a KVM host, which is what this comment used to claim it covered.
+#
+# On KVM/QEMU with SPICE, the missing half is spice-vdagent, and its absence is
+# not cosmetic. Without it the guest pointer is RELATIVE, so the cursor the guest
+# draws drifts away from the host's: you click where you see the arrow and the
+# press lands somewhere else. That reads as "my clicks don't work" rather than as
+# a pointer problem, which is how it can sit unexplained. It also carries
+# clipboard and auto-resize, the things the comment promised.
 open-vm-tools
 open-vm-tools-desktop
+spice-vdagent
+# The KVM counterpart to open-vm-tools' host-side half: lets virsh shut the guest
+# down cleanly, report its addresses (virsh domifaddr), and freeze filesystems
+# for a snapshot.
+qemu-guest-agent
 # Right-click "Open in SysTerm": Nautilus python extension. The GNOME desktop-
 # icons (DING) and dash-to-dock extensions are installed best-effort by the
 # system hook (their Debian package names vary), so a missing one never aborts
