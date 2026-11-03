@@ -365,4 +365,20 @@ command -v sshpass >/dev/null 2>&1 \
     || fail "sshpass is not in the image — Ansible cannot use a password over SSH, so bootstrapping a host that has no key yet fails at the first play"
 echo "sysible-verify: OK — sshpass present (Ansible can bootstrap over a password)."
 
+# 17) No Raspberry Pi bootloader firmware. raspi-firmware is NOT in any package
+# list — it rides in as a Recommends of firmware-brcm80211, which ships the Pi's
+# Wi-Fi blobs next to the laptop Broadcom ones we want. Its initramfs hook copies
+# the kernel into /boot/firmware, which does not exist on this image, so it exits
+# 1 and takes update-initramfs down with it. The first apt upgrade that brings a
+# new kernel then leaves that kernel UNCONFIGURED, and every later apt run fails
+# on the same package until someone fixes it by hand. 8200 purges it; this is the
+# guarantee the purge actually ran, because the symptom only appears weeks later
+# on somebody else's machine.
+if dpkg-query -W -f='${Status}' raspi-firmware 2>/dev/null | grep -q 'install ok'; then
+    fail "raspi-firmware is installed — its initramfs hook needs /boot/firmware and will leave the next kernel upgrade half-configured (hook 8200 should have purged it)"
+fi
+[ ! -e /etc/initramfs/post-update.d/z50-raspi-firmware ] \
+    || fail "the raspi-firmware initramfs hook is still on disk — update-initramfs will fail on the next kernel"
+echo "sysible-verify: OK — no Pi bootloader firmware (kernel upgrades will configure)."
+
 echo "sysible-verify: OK — SysTerm $V, Run Command menu, and new icon all present."

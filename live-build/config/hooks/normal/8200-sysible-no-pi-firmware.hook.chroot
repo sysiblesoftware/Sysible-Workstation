@@ -1,0 +1,41 @@
+#!/bin/sh
+set -e
+
+# Remove the Raspberry Pi bootloader firmware from a workstation image.
+#
+# Nothing in config/package-lists asks for `raspi-firmware`. It arrives as a
+# RECOMMENDS of firmware-brcm80211, which ships the Pi's BCM43430/43455 Wi-Fi
+# blobs alongside the laptop Broadcom ones we actually want — and live-build
+# installs the package lists WITH recommends (the hooks all pass
+# --no-install-recommends; `lb config` does not, and turning recommends off
+# globally would gut GNOME).
+#
+# On a Pi that package is correct. On this image it is a time bomb. It installs
+# /etc/initramfs/post-update.d/z50-raspi-firmware, which copies the kernel and
+# initrd into /boot/firmware — the Pi's FAT boot partition, which does not exist
+# here. The hook exits 1, run-parts fails, update-initramfs fails, and
+# /etc/kernel/postinst.d/initramfs-tools fails. dpkg then leaves the kernel
+# package UNCONFIGURED:
+#
+#   raspi-firmware: missing /boot/firmware, did you forget to mount it?
+#   dpkg: error processing package linux-image-6.1.0-NN-amd64 (--configure)
+#
+# which is not cosmetic: the first `apt upgrade` that brings in a new kernel
+# leaves that kernel without a generated initramfs, and every later apt run
+# fails on the same half-configured package until someone intervenes by hand.
+#
+# Purged rather than held back, because the Wi-Fi firmware that pulls it in is
+# genuinely wanted and we only object to its Pi half. Sysible Workstation boots
+# through GRUB/UEFI on both amd64 and arm64 (see the bootloader split in
+# build.sh), never through the Pi's firmware chain, so there is no arch on which
+# this package does anything but break kernel upgrades.
+if dpkg-query -W -f='${Status}' raspi-firmware 2>/dev/null | grep -q 'install ok'; then
+    echo "Sysible: purging raspi-firmware (pulled in by firmware-brcm80211;"
+    echo "         its initramfs hook needs /boot/firmware and breaks kernel upgrades)"
+    DEBIAN_FRONTEND=noninteractive apt-get purge -y raspi-firmware
+    # The hook is what actually fails. If the package's own purge ever leaves it
+    # behind, so does the problem.
+    rm -f /etc/initramfs/post-update.d/z50-raspi-firmware
+else
+    echo "Sysible: raspi-firmware not present — nothing to purge"
+fi
