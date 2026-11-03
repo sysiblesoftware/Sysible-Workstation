@@ -381,4 +381,51 @@ fi
     || fail "the raspi-firmware initramfs hook is still on disk — update-initramfs will fail on the next kernel"
 echo "sysible-verify: OK — no Pi bootloader firmware (kernel upgrades will configure)."
 
+# 18) NOTHING ELSE may slip code into the kernel-upgrade path either.
+#
+# raspi-firmware was not the bug. The bug was that a package nobody named could
+# add a script that runs on every kernel upgrade on every installed machine, and
+# no part of this build would notice. It stayed green here because at ISO build
+# time the kernel is configured BEFORE the offending package unpacks its hook;
+# the explosion waits for the first upgrade that ships a new kernel, weeks later
+# and on someone else's workstation. The next Recommends to do this must not get
+# the same free pass, so the kernel-upgrade path is pinned.
+
+# flash-kernel first, because it is the arm64 twin of raspi-firmware and it
+# deserves its own sentence rather than the generic one below. It writes the
+# kernel to a board-specific boot partition or U-Boot location; Sysible
+# Workstation boots GRUB/UEFI on arm64 (see the bootloader split in build.sh),
+# so it can only break upgrades here.
+if dpkg-query -W -f='${Status}' flash-kernel 2>/dev/null | grep -q 'install ok'; then
+    fail "flash-kernel is installed. Like raspi-firmware it writes the kernel to a
+    board-specific boot location and will leave kernel upgrades half-configured on
+    this GRUB/UEFI image. Purge it in a chroot hook next to 8200, or — if arm64
+    genuinely needs it — say so here and explain why."
+fi
+
+# /etc/initramfs/post-update.d/ is EMPTY on a stock GRUB/UEFI Debian. It exists
+# for images that chain-load through firmware or a U-Boot blob — raspi-firmware,
+# flash-kernel, u-boot-tools — none of which describes this image on either arch.
+_pu=$(ls -A /etc/initramfs/post-update.d 2>/dev/null || true)
+[ -z "$_pu" ] || fail "unexpected initramfs post-update hook(s): $_pu — these run on
+    every kernel upgrade of every installed machine, and on a GRUB/UEFI image they
+    copy the kernel to a boot partition that does not exist, leaving the new kernel
+    unconfigured and apt broken until someone fixes it by hand. Purge the package
+    in a chroot hook (see 8200-sysible-no-pi-firmware), or if it is genuinely
+    wanted, say so here."
+
+# /etc/kernel/postinst.d/ legitimately has a few. Pin the known-good set so a new
+# arrival is a decision somebody made, not one a Recommends made for them.
+for _h in /etc/kernel/postinst.d/*; do
+    [ -e "$_h" ] || continue
+    case "${_h##*/}" in
+        apt-auto-removal|dkms|initramfs-tools|zz-update-grub) ;;
+        *) fail "unexpected kernel postinst hook: ${_h##*/} — it will run on every
+    kernel upgrade of every installed machine. If it belongs here, add it to the
+    allowlist in this check and say why; otherwise purge the package that shipped
+    it." ;;
+    esac
+done
+echo "sysible-verify: OK — nothing unexpected runs on a kernel upgrade."
+
 echo "sysible-verify: OK — SysTerm $V, Run Command menu, and new icon all present."
