@@ -192,18 +192,38 @@ jobs:
           generate_release_notes: false
           append_body: false
           body: |
-            **Sysible Workstation 1.0.2 “Ignition”** — Engineering Automation Cloud.
+            **Sysible Workstation 1.0.3 “Ignition”** — Engineering Automation Cloud.
 
             A live Debian-stable image with the whole toolchain baked in: containers,
             Kubernetes, infrastructure-as-code, cloud CLIs, VSCodium and the SysTerm
             terminal — plus the Sysible Controller CE installer.
 
-            **New in 1.0.2:** the installer now has an **Optional apps** page. The ISO
-            ships only redistributable software (VSCodium, OpenTofu, CherryTree), but if
-            you want the proprietary/BUSL originals — VS Code, Terraform, Packer — you
-            can tick them during setup and they're installed straight from the official
-            vendor apt repositories. Obsidian (no apt repo, amd64-only) has a one-command
-            helper, `sysible-install-obsidian`. See `THIRD-PARTY-LICENSES.md`.
+            **Fixed in 1.0.3 — kernel upgrades.** An installed workstation could be
+            left unable to finish `apt upgrade`. `raspi-firmware` arrived uninvited as a
+            recommendation of the Broadcom Wi-Fi firmware, and its installer hook copies
+            the kernel into `/boot/firmware` — a Raspberry Pi boot partition that does
+            not exist here. The hook failed, `update-initramfs` failed with it, and dpkg
+            left the new kernel **unconfigured**, so every later apt run failed on the
+            same package until someone intervened by hand. The image no longer ships it,
+            and the build now fails outright if anything else slips a script into the
+            kernel-upgrade path.
+
+            If you are on 1.0.2 you do not need to reinstall — on an affected machine:
+            `sudo apt-get purge raspi-firmware && sudo dpkg --configure -a && sudo update-initramfs -u -k all`
+
+            **Fixed in 1.0.3 — clicks landing in the wrong place on KVM.** The package
+            list promised guest integration for VMware, VirtualBox *and* KVM, and shipped
+            only VMware's half. Without `spice-vdagent` a SPICE guest pointer is relative,
+            so the cursor you see drifts from the one the host presses — which reads as
+            "my clicks don't work". `spice-vdagent` and `qemu-guest-agent` now ship, which
+            also brings the clipboard and auto-resize the comment already claimed.
+
+            **From 1.0.2:** the installer's **Optional apps** page. The ISO ships only
+            redistributable software (VSCodium, OpenTofu, CherryTree), but if you want the
+            proprietary/BUSL originals — VS Code, Terraform, Packer — you can tick them
+            during setup and they're installed straight from the official vendor apt
+            repositories. Obsidian (no apt repo, amd64-only) has a one-command helper,
+            `sysible-install-obsidian`. See `THIRD-PARTY-LICENSES.md`.
 
             ### Downloads (amd64 & arm64)
             The ISO is ~3.4 GB, over GitHub's 2 GB per-file limit, so each build ships
