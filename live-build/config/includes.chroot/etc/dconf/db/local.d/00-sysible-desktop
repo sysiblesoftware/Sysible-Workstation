@@ -39,5 +39,27 @@ picture-uri='file:///usr/share/backgrounds/sysible/sysible-topographic-light.jpg
 picture-uri-dark='file:///usr/share/backgrounds/sysible/sysible-topographic.jpg'
 picture-options='zoom'
 
-[org/gnome/desktop/screensaver]
-picture-options='zoom'
+# THE LOCK SCREEN IS THE DESKTOP WALLPAPER. There is nothing to set here.
+#
+# This block used to carry picture-options='zoom' and it did nothing at all.
+# GNOME Shell 43 builds the unlock dialog's background with a BackgroundManager
+# that is given no settingsSchema, so it falls back to the module default —
+# org.gnome.desktop.background — and reads picture-uri-dark from there because
+# color-scheme is prefer-dark above (gnome-shell 43, js/ui/unlockDialog.js and
+# js/ui/background.js). org.gnome.desktop.screensaver still HAS a picture-uri
+# key, which is exactly the trap: setting it looks like configuring the lock
+# screen and changes nothing.
+#
+# What the lock screen does to that wallpaper is a BlurEffect at sigma 60
+# (times the UI scale factor) and brightness 0.55. A 60-pixel blur erases fine
+# linework, which is what these styles are made of — measured on the shipped
+# set, topographic/neural/roads came out at a mean luminance of 8-10 out of
+# 255, i.e. a black screen with a clock on it. The wallpapers now carry wide,
+# low-amplitude brand blooms under the art for exactly this reason; see
+# add_lock_blooms() in branding/wallpapers/render_wallpapers.py. The fix lives
+# in the artwork because the artwork is the only thing the lock screen reads.
+#
+# The keys the lock screen DOES read from this schema are lock-enabled,
+# lock-delay and user-switch-enabled. The installed system keeps GNOME's
+# defaults for them; the live session disables locking (see the live-config
+# dconf, which 9500-sysible-verify asserts).

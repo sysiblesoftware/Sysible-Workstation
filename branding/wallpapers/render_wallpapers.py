@@ -116,6 +116,57 @@ def add_radial_bloom(arr, cx, cy, radius, color, strength, mode="add"):
     return arr
 
 
+def add_lock_blooms(arr, pal):
+    """Large, soft brand-coloured glows that survive GNOME's lock-screen blur.
+
+    THE LOCK SCREEN IS THIS WALLPAPER, blurred and dimmed. GNOME Shell 43 does
+    not read org.gnome.desktop.screensaver for its image at all — the unlock
+    dialog builds a BackgroundManager with no settingsSchema, which defaults to
+    org.gnome.desktop.background — and then puts a BlurEffect of sigma 60 over
+    it at brightness 0.55 (gnome-shell 43, js/ui/unlockDialog.js).
+
+    A 60-pixel blur erases line art. Measured on the shipped set: topographic,
+    neural and roads all fell to a mean luminance of 9-11 out of 255 — a black
+    screen with a clock on it, on a machine whose desktop is anything but.
+    Cosmos survived alone, because its composition is large soft forms rather
+    than fine strokes.
+
+    So every style now carries the thing that survives: a few wide, low-
+    amplitude blooms under the art. At full resolution they read as depth
+    behind the linework. At sigma 60 they ARE the composition.
+
+    Placed to leave the upper-centre dark, because that is where GNOME puts the
+    clock and the date in white — brightening behind them would cost legibility
+    to buy prettiness.
+    """
+    if pal["light"]:
+        # On light art the same trick runs the other way: the blur has plenty
+        # of luminance to keep, and adding more would wash the clock out.
+        return arr
+    g = np.array(pal["art_green"], dtype=np.float32)
+    b = np.array(pal["art_blue"], dtype=np.float32)
+    # (cx, cy, radius, colour, strength) — radius is in half-height units, so
+    # these are all far wider than the blur kernel and survive it intact.
+    # strength is a 0..1 fraction OF THE COLOUR, the same units cosmos uses —
+    # not a 0..255 level. Scaling by 255 here blew the first render to white.
+    #
+    # WIDE AND WEAK, not tight and strong. A blur keeps a bloom's mean
+    # luminance whatever its radius, so spreading the same energy over a much
+    # larger area buys the lock screen the same lift while the desktop reads it
+    # as atmosphere rather than as a coloured blob. The first attempt used
+    # r~0.6 at 0.20 and put a green haze over the linework.
+    #
+    # Weighted to blue: at equal luminance green is the more conspicuous of the
+    # two brand colours, so blue carries the field and green is an accent.
+    for cx, cy, r, c, st in (
+        (0.20, 0.72, 0.95, b, 0.105),   # lower left, blue field
+        (0.80, 0.42, 0.85, b, 0.095),   # right, blue field
+        (0.30, 0.80, 0.55, g, 0.070),   # bottom left, green accent
+    ):
+        arr = add_radial_bloom(arr, cx, cy, r, c, st)
+    return arr
+
+
 def to_rgba(arr):
     return Image.fromarray(np.clip(arr, 0, 255).astype(np.uint8), "RGB").convert("RGBA")
 
@@ -352,6 +403,7 @@ def _web_contour_overlay(W, H, pal, levels=_WEB_LEVELS, accents=(8, 15)):
 def render_topographic(W, H, pal):
     """The site's hero terrain: faint blue contours, every fifth stronger, two in green."""
     arr = base_gradient(W, H, pal)
+    arr = add_lock_blooms(arr, pal)
     arr = apply_vignette(arr, pal)
     img = to_rgba(arr)
     img = Image.alpha_composite(img, _web_contour_overlay(W, H, pal))
@@ -362,6 +414,7 @@ def render_topographic_ridge(W, H, pal):
     """The same terrain read finer — twice the contour interval, so the slopes
     crowd into ridges. More texture for anyone who wants a busier desktop."""
     arr = base_gradient(W, H, pal)
+    arr = add_lock_blooms(arr, pal)
     arr = apply_vignette(arr, pal)
     img = to_rgba(arr)
     img = Image.alpha_composite(
@@ -373,6 +426,7 @@ def render_neural(W, H, pal):
     arr = base_gradient(W, H, pal)
     # faint central bloom for depth
     add_radial_bloom(arr, 0.5, 0.45, 0.6, pal["art_blue"], 0.05 if pal["light"] else 0.10)
+    arr = add_lock_blooms(arr, pal)
     arr = apply_vignette(arr, pal)
     img = to_rgba(arr)
 
@@ -471,6 +525,7 @@ def render_cosmos(W, H, pal):
 # A soft county-boundary polygon frames the extent instead of a tight 5mi circle.
 def render_roads(W, H, pal):
     arr = base_gradient(W, H, pal)
+    arr = add_lock_blooms(arr, pal)
     img = to_rgba(arr)
 
     layer = Image.new("RGBA", (W, H), (0, 0, 0, 0))
