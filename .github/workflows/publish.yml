@@ -11,6 +11,22 @@ on:
         type: choice
         options: [dev, stable]
         default: stable
+  # Called by iso.yml at the end of a release build. THE TAG TRIGGER ABOVE
+  # CANNOT FIRE ON ITS OWN: the release is cut by softprops/action-gh-release
+  # using GITHUB_TOKEN, and GitHub deliberately does not start workflow runs
+  # from refs pushed with that token. So `tags: ['v*']` has never once run —
+  # sysible-stable sat on its 28 August contents while v1.0.2 and v1.0.3 both
+  # came and went, and every installed machine on the stable channel was
+  # quietly frozen with it.
+  #
+  # A reusable workflow is not an event, so nothing suppresses it: iso.yml
+  # calls this in the SAME run that published the release.
+  workflow_call:
+    inputs:
+      suite:
+        description: 'Which suite to publish'
+        type: string
+        default: stable
 
 # Least privilege: this job only reads the repo and pushes to R2 (not to GitHub),
 # so the GITHUB_TOKEN needs no write scope.
@@ -133,7 +149,10 @@ jobs:
       - name: Select suite
         id: suite
         env:
-          DISPATCH_SUITE: ${{ github.event.inputs.suite }}
+          # `inputs` resolves for BOTH workflow_dispatch and workflow_call;
+          # github.event.inputs is null for a call and the suite silently fell
+          # through to dev.
+          DISPATCH_SUITE: ${{ inputs.suite }}
         run: |
           # A manual re-publish (workflow_dispatch) picks its suite explicitly;
           # otherwise a tag -> stable, a branch push -> dev.

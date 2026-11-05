@@ -1,3 +1,15 @@
+sysible-artwork (0.1.5) sysible; urgency=medium
+
+  * wallpapers: carry wide, low-amplitude brand blooms under the line art so
+    the LOCK SCREEN is not a black rectangle. GNOME shows the desktop
+    wallpaper blurred at sigma 60 and dimmed to 0.55 brightness; that erases
+    fine strokes, and topographic/neural/roads were coming out at a mean
+    luminance of 8-10 out of 255. They now land at 13-17, with the area
+    behind the clock left dark so white text keeps its contrast. Cosmos is
+    unchanged: its nebula forms already survived. Light variants unchanged.
+
+ -- Sysible <maintainers@sysible.com>  Thu, 05 Nov 2026 19:44:09 +0000
+
 sysible-artwork (0.1.4) sysible; urgency=medium
 
   * move wallpaper banner to 11% left inset so GNOME zoom-crop no longer clips the wordmark on 16:10 displays

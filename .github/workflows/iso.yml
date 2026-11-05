@@ -264,3 +264,30 @@ jobs:
             -H "Accept: application/vnd.github+json" \
             https://api.github.com/repos/sysiblesoftware/sysible-website/dispatches \
             -d '{"event_type":"iso-released"}'
+
+  # Push the .deb packages to the apt repo whenever this run published a
+  # release, so an INSTALLED machine can pick the same changes up with
+  # `apt upgrade` instead of reinstalling from the new ISO.
+  #
+  # This exists because publish.yml's own `tags: ['v*']` trigger can never
+  # fire: the release above is cut by softprops/action-gh-release with
+  # GITHUB_TOKEN, and GitHub does not start workflow runs from refs pushed
+  # with that token. sysible-stable therefore sat untouched from 28 August
+  # through both v1.0.2 and v1.0.3 — the packaging worked perfectly and
+  # nothing ever reached a machine. Calling publish.yml as a REUSABLE
+  # WORKFLOW is not an event, so no token rule suppresses it.
+  #
+  # A separate job on purpose: if publishing fails, the ISO and the GitHub
+  # Release it already produced still stand.
+  publish-apt:
+    needs: iso
+    # Only for a release, and only ONCE — a dispatch runs this workflow per
+    # arch, and the packages are Architecture: all, so amd64 carries it. A tag
+    # push produces a single run, which has no inputs.arch at all.
+    if: >-
+      (startsWith(github.ref, 'refs/tags/') || inputs.release) &&
+      (github.ref_type == 'tag' || inputs.arch == 'amd64')
+    uses: ./.github/workflows/publish.yml
+    with:
+      suite: stable
+    secrets: inherit
