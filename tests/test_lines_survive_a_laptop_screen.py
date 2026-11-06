@@ -128,15 +128,19 @@ def _line_pixels(im):
     return float((np.abs(a - lo) > 3.0).mean() * 100)
 
 
-@pytest.mark.parametrize("name,floor", [
-    ("sysible-topographic", 12.0),        # measured 13.0 after, 10.8 before
-    ("sysible-topographic-ridge", 22.0),  # measured 25.2
-    ("sysible-roads", 18.0),              # measured 20.1
-])
-def test_the_shipped_art_still_reads_as_lines_on_a_laptop(name, floor):
-    """End to end, on the real files, at the resolution they were complained
-    about. A re-render that quietly thins the strokes fails here."""
-    got = _line_pixels(_at_laptop(name))
-    assert got >= floor, (
-        f"{name} resolves {got:.1f}% line pixels at 1440x900, below {floor}% — "
-        f"the strokes have gone sub-pixel again")
+# REMOVED (0.1.7): the end-to-end check that the SHIPPED wallpapers read as
+# lines at 1440x900.
+#
+# It measured the files in packages/sysible-artwork/backgrounds, and those are
+# no longer what this renderer produces. The user restored the 28 August
+# rendering — the stroke-width work below was part of an artwork change they did
+# not ask for, and the heavier contours it produced were the complaint that
+# ended it ("these lines are way too prominent").
+#
+# The shipped files are pinned by sha256 in
+# tests/test_the_wallpapers_are_the_ones_signed_off.py, which is a stronger
+# guarantee than a signal floor: it catches ANY change, not just a thinner one.
+#
+# Everything above still applies to the renderer itself, which was NOT reverted:
+# if someone regenerates the artwork one day, stroke() is still the right way to
+# ask for a width and these guards still hold them to it.

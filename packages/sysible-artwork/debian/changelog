@@ -1,3 +1,19 @@
+sysible-artwork (0.1.7) sysible; urgency=medium
+
+  * restore the 28 August wallpapers (commit 6cf23da0), byte for byte, verified
+    against the machine they were approved on. This reverts two artwork changes
+    that were never asked for: the lock-screen blooms in 0.1.5 and the
+    re-authored stroke widths in 0.1.6. The request behind both was for
+    screensavers; the wallpapers were collateral.
+  * the shipped set is now pinned by sha256 in tests. These files keep their
+    names and are replaced in place, so changing one silently swaps the art on
+    every installed machine with no way back through the picker — which is
+    exactly how this went unnoticed.
+  * consequence, accepted: the lock screen is a near-black field again. The
+    blooms were what lifted it, and they went out with the rest.
+
+ -- Sysible <maintainers@sysible.com>  Fri, 06 Nov 2026 20:15:00 +0000
+
 sysible-artwork (0.1.6) sysible; urgency=medium
 
   * wallpapers: stroke widths are authored for the SCREEN, not for the 7680px

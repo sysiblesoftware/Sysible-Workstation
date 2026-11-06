@@ -65,44 +65,40 @@ def _luma(im):
     return np.asarray(im.convert("L"), dtype=np.float32)
 
 
-@pytest.mark.parametrize("name", DARK)
-def test_it_is_not_a_black_rectangle(name):
-    """The floor. Below about 12 the screen reads as off, not as locked."""
-    mean = _luma(_lock(name)).mean()
-    assert mean >= 12.0, (
-        f"{name} renders at mean luminance {mean:.1f}/255 once the shell blurs "
-        f"and dims it — that is a black screen with a clock on it. Fine "
-        f"linework does not survive a 60px blur; the art needs wide, "
-        f"low-amplitude form under it (see add_lock_blooms)")
+# What each approved style actually measures under the shell's own treatment
+# (GaussianBlur sigma 60 x scale, brightness 0.55), on the 28 August artwork the
+# user restored in 0.1.7. These are a RECORD, not a target.
+#
+# The linework styles sit at 7-10, which is a near-black field with a clock on
+# it. 0.1.5 had lifted them past 12 with wide brand blooms; that was part of an
+# artwork change nobody asked for, and it went back out with the rest of it.
+# Cosmos has always cleared it alone, because it is built from large soft nebula
+# forms rather than strokes — a 60px blur has nothing fine to destroy.
+APPROVED_LOCK_LUMA = {
+    "sysible-topographic": 7.2,
+    "sysible-topographic-ridge": 8.8,
+    "sysible-neural": 9.5,
+    "sysible-cosmos": 14.8,
+    "sysible-roads": 8.2,
+}
 
 
-@pytest.mark.parametrize("name", DARK)
-def test_brand_colour_survives_the_blur(name):
-    """Grey is not the brand. Something green or blue has to come through, or
-    the lock screen is just a dark smudge that could belong to any distro."""
-    a = np.asarray(_lock(name), dtype=np.float32)
-    # Where the image is brightest, is it tinted?
-    luma = a @ np.array([0.299, 0.587, 0.114], dtype=np.float32)
-    hot = luma >= np.percentile(luma, 92)
-    r, g, b = (a[:, :, i][hot].mean() for i in range(3))
-    assert max(g, b) - r >= 2.0, (
-        f"{name}: the brightest part of the locked screen is neutral "
-        f"(r={r:.1f} g={g:.1f} b={b:.1f}) — no brand colour survived")
+@pytest.mark.parametrize("name", sorted(APPROVED_LOCK_LUMA))
+def test_the_lock_screen_brightness_has_not_drifted(name):
+    """The brightness floor this file once enforced is withdrawn — the user
+    chose the desktop art over lock-screen legibility, knowingly.
 
-
-@pytest.mark.parametrize("name", DARK)
-def test_white_text_still_reads_over_the_clock(name):
-    """GNOME puts the time and date in white in the upper centre. Buying a
-    prettier lock screen by brightening the one region the text sits in would
-    be a straight loss."""
-    a = _luma(_lock(name))
-    # the clock band, in the 1920x1080 frame
-    behind = a[110:350, 680:1240]
-    assert behind.mean() <= 60.0, (
-        f"{name}: mean luminance behind the clock is {behind.mean():.1f}/255 — "
-        f"too bright for white text to stay comfortable")
-    assert behind.max() <= 110.0, (
-        f"{name}: a hotspot of {behind.max():.0f}/255 sits behind the clock")
+    The measurement stays live so the number cannot move unnoticed. It moves
+    only if the shipped wallpapers change, and those are pinned in
+    test_the_wallpapers_are_the_ones_signed_off.py.
+    """
+    mean = float(_luma(_lock(name)).mean())
+    want = APPROVED_LOCK_LUMA[name]
+    assert abs(mean - want) <= 0.5, (
+        f"{name} locks at {mean:.1f}/255, approved is {want}. The wallpaper "
+        f"behind it is not the one that was signed off — check "
+        f"test_the_wallpapers_are_the_ones_signed_off.py and say who asked."
+    )
 
 
 def test_no_dead_screensaver_image_config():
