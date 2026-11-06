@@ -1,3 +1,17 @@
+sysible-artwork (0.1.6) sysible; urgency=medium
+
+  * wallpapers: stroke widths are authored for the SCREEN, not for the 7680px
+    master. A width set as a fraction of the master shrinks with the panel, so
+    the site's 0.9px hairline landed at 0.94px on a 1440x900 laptop and the
+    neural web at 0.38px -- under a pixel, which a display cannot draw as a
+    line. It renders as grey haze instead. Reported as "the lines are kind of
+    fuzzy". Contours, the neural web, roads and the town grids now measure
+    1.0-2.3px on the smallest panel Workstation ships against. The neural web's
+    opacity came down to match, because a wider stroke carries more ink and the
+    width fix alone turned a faint constellation into a dominant mesh.
+
+ -- Sysible <maintainers@sysible.com>  Fri, 06 Nov 2026 16:32:02 +0000
+
 sysible-artwork (0.1.5) sysible; urgency=medium
 
   * wallpapers: carry wide, low-amplitude brand blooms under the line art so

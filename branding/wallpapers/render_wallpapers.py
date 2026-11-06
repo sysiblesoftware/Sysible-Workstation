@@ -43,6 +43,34 @@ DARK_TXT = (20, 32, 58)   # #14203a wordmark on light
 LIGHT_MUTE = (74, 85, 112)  # #4a5570 tagline on light
 
 
+# ---- stroke widths are authored for the SCREEN, not for the master ----------
+#
+# These wallpapers are rendered at FULL_W and almost never displayed there:
+# GNOME scales the master down to whatever panel it is on. A width expressed as
+# a fraction of the MASTER therefore shrinks with the panel. The site's elegant
+# 0.9px hairline, rendered 5px wide at 8K, lands at 0.94px on a 1440x900 laptop
+# — and a display cannot draw a line narrower than a pixel. It gets averaged
+# into its neighbours and comes out as a faint grey haze instead of a line.
+#
+# Reported from a MacBook Air as "the lines are kind of fuzzy", which was
+# exactly right. It is not compression and it is not the downscale: both were
+# measured and neither loses anything. It is sub-pixel geometry.
+#
+# So widths are declared in SCREEN pixels at a reference panel and converted to
+# canvas pixels for whichever master is being rendered. The conversion folds in
+# the supersample factor, because `ow` is already the supersampled width.
+REFERENCE_SCREEN_W = 1440      # the smallest panel Workstation ships against
+
+
+def stroke(ow, px_on_screen):
+    """Canvas stroke width that measures `px_on_screen` on a 1440-wide display.
+
+    `ow` is the width of the canvas being drawn on (master width x supersample).
+    Never returns less than 1: a zero-width line draws nothing at all.
+    """
+    return max(1, int(round(px_on_screen * ow / REFERENCE_SCREEN_W)))
+
+
 def _sora(px):
     f = ImageFont.truetype(FONT, int(px))
     for nm in ("SemiBold", "Bold", "Regular"):
@@ -375,9 +403,12 @@ def _web_contour_overlay(W, H, pal, levels=_WEB_LEVELS, accents=(8, 15)):
     ov = Image.new("RGBA", (ow, oh), (0, 0, 0, 0))
     d = ImageDraw.Draw(ov, "RGBA")
     sx, sy = sx * ss, sy * ss
-    base = max(1, int(round(ow / 1600)))         # the site's 0.9px at hero width
-    idx_w = max(1, int(round(ow / 1030)))        # ...and its 1.4px index contour
-    acc_w = max(1, int(round(ow / 900)))         # ...and its 1.6px accent
+    # On a 1440-wide panel these now measure what they say. They used to be
+    # 0.94 / 1.31 / 1.69px there, and the base contour — the one there are most
+    # of — was the sub-pixel one doing the haze.
+    base = stroke(ow, 1.25)          # ordinary contour
+    idx_w = stroke(ow, 1.75)         # every fifth, the index contour
+    acc_w = stroke(ow, 2.10)         # the two picked-out green ones
     blue, green = pal["art_blue"], pal["art_green"]
     a_base, a_idx = (0.24, 0.52) if pal["light"] else (0.22, 0.50)
 
@@ -440,8 +471,13 @@ def render_neural(W, H, pal):
     ov = Image.new("RGBA", (W, H), (0, 0, 0, 0))
     ed = ImageDraw.Draw(ov, "RGBA")
     TH = W * 0.075
-    lw = max(1, int(W / 3600))
-    edge_base = 0.20 if pal["light"] else 0.15
+    lw = stroke(W, 1.00)             # was W/3600 — 0.38px on a laptop, a rumour
+    # A WIDER STROKE CARRIES MORE INK, so the opacity comes down to match. The
+    # width fix alone took this web from a faint constellation to a dominant
+    # mesh and changed what the style is: the nodes are meant to lead and the
+    # links to be barely there. At 0.38px the links were unresolvable haze; at
+    # 1px and roughly the original ink they are thin, faint and actually lines.
+    edge_base = 0.095 if pal["light"] else 0.072
     dx = xs[:, None] - xs[None, :]
     dy = ys[:, None] - ys[None, :]
     dist = np.sqrt(dx * dx + dy * dy)
@@ -599,7 +635,7 @@ def render_roads(W, H, pal):
     NH = 8
     for i in range(NH):
         ang = i / NH * math.tau + (r.random() - 0.5) * 0.28
-        road(cx, cy, ang, RC * 1.15, max(3, int(W / 620)), 0, curve=0.20)
+        road(cx, cy, ang, RC * 1.15, stroke(W, 2.30), 0, curve=0.20)
 
     def grid_cluster(gx0, gy0, cells, cell, rot, marker=False):
         """A small downtown-style street grid centred at (gx0,gy0)."""
@@ -609,7 +645,7 @@ def render_roads(W, H, pal):
             return (gx0 + X * math.cos(rot) - Y * math.sin(rot),
                     gy0 + X * math.sin(rot) + Y * math.cos(rot))
         half = cells
-        lw = max(1, int(W / 1100)) if marker else max(1, int(W / 1500))
+        lw = stroke(W, 1.30) if marker else stroke(W, 1.05)
         aa = 155 if marker else 120
         for gx in range(-half, half + 1):
             ld.line([tp(gx, -half), tp(gx, half)], fill=col(gx0, aa), width=lw)
@@ -617,7 +653,7 @@ def render_roads(W, H, pal):
         if marker:
             sq = cell * 0.9
             ld.rectangle([gx0 - sq, gy0 - sq, gx0 + sq, gy0 + sq],
-                         outline=GREEN + (230,), width=max(2, int(W / 900)))
+                         outline=GREEN + (230,), width=stroke(W, 1.60))
 
     # Dahlonega downtown grid + green square marker
     grid_cluster(cx, cy, 3, min(W, H) * 0.055, 0.3, marker=True)
@@ -635,7 +671,7 @@ def render_roads(W, H, pal):
         if not in_county(sx, sy):
             continue
         road(sx, sy, r.random() * math.tau, RC * (0.28 + 0.30 * r.random()),
-             max(1, int(W / 1400)), 1, curve=0.45)
+             stroke(W, 1.05), 1, curve=0.45)
 
     # intersection nodes
     for (nx, ny, dep) in nodes:
@@ -646,7 +682,7 @@ def render_roads(W, H, pal):
     # subtle county-boundary outline (thin, low alpha)
     b_col = (74, 85, 112) if pal["light"] else (150, 165, 190)
     ld.line(bpts + [bpts[0]], fill=b_col + (85 if pal["light"] else 70,),
-            width=max(1, int(W / 2600)), joint="curve")
+            width=stroke(W, 1.10), joint="curve")
 
     img = Image.alpha_composite(img, layer).convert("RGB")
 
