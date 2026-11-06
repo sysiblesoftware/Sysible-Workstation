@@ -1,3 +1,14 @@
+sysible-meta (0.1.6) sysible; urgency=medium
+
+  * guest integration: add spice-vdagent and qemu-guest-agent to Recommends. The
+    1.0.3 fix for "clicks land in the wrong place on KVM" only ever went into the
+    ISO's live-build package list, so an installed machine could run apt upgrade
+    forever and never receive it — the metapackage is the single thing the apt
+    path delivers. A SPICE guest with no vdagent has a RELATIVE pointer: the
+    cursor it draws drifts from the host's and presses land away from the arrow.
+
+ -- Sysible <maintainers@sysible.com>  Fri, 06 Nov 2026 18:05:00 +0000
+
 sysible-meta (0.1.5) sysible; urgency=medium
 
   * licensing: drop Terraform and Packer (both BUSL 1.1, source-available but not

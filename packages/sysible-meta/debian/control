@@ -54,9 +54,27 @@ Recommends:
 # office suite — core apps + GNOME integration (the full `libreoffice` metapackage
 # is much larger). Obsidian isn't in Debian; the vendor hook installs it.
  libreoffice-writer, libreoffice-calc, libreoffice-impress, libreoffice-gnome,
-# VM guest integration (clipboard, display auto-resize, folder sharing) — Sysible
-# Linux commonly runs in a VM, incl. VMware Fusion on Apple Silicon.
+# VM guest integration (clipboard, display auto-resize, pointer alignment) —
+# Sysible Linux commonly runs in a VM, incl. on Apple Silicon. This needs BOTH
+# families and the reason is not cosmetic.
+#
+# open-vm-tools is VMware's and does nothing on a KVM/QEMU host. On KVM with
+# SPICE the guest pointer is RELATIVE without spice-vdagent, so the cursor the
+# guest draws drifts away from the host's: you click where you see the arrow and
+# the press lands somewhere else. That reads as "my clicks don't work".
+#
+# These were added to the ISO's package list in 1.0.3 and NOT here, so every
+# machine installed from an earlier image kept the broken pointer no matter how
+# many times it ran apt upgrade — the metapackage is the only thing that reaches
+# an installed system. tests/test_guest_tools_cover_the_hypervisors_claimed.py
+# now asserts this file and the ISO list together so that cannot recur.
  open-vm-tools, open-vm-tools-desktop,
+ spice-vdagent,
+# The KVM counterpart to open-vm-tools' host-side half: lets virsh shut the guest
+# down cleanly, report its addresses (virsh domifaddr), and freeze filesystems for
+# a snapshot. Inert on bare metal — the service finds no virtio channel and stays
+# stopped — which is why it sits in Recommends alongside VMware's.
+ qemu-guest-agent,
 # languages (bigger toolchains)
  golang, rustc, cargo, nodejs, npm, default-jdk, maven, gradle,
 # databases
