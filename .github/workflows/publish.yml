@@ -141,10 +141,33 @@ jobs:
         # fix for the "File has unexpected size" apt failure: a same-version
         # rebuild can no longer collide with an immutably-cached .deb at the edge,
         # and it self-heals a stale repo on the next publish without a CDN purge.
-        # github.run_number is monotonic, so the version always sorts as an upgrade.
-        env:
-          SYSIBLE_VERSION_SUFFIX: "+ci${{ github.run_number }}"
-        run: ./scripts/build-all.sh
+        #
+        # This used to be the run number alone, and that is NOT unique, which
+        # produced the exact failure the scheme exists to prevent. run_number is
+        # scoped to ONE workflow, and two of them reach this job:
+        #
+        #   publish.yml  on push / dispatch        -> its own counter (78 and up)
+        #   publish.yml  called by iso.yml         -> the CALLER's counter (49, 50)
+        #
+        # So iso.yml run 49 stamped +ci49 onto the v1.0.5 stable publish, months
+        # after publish.yml run 49 had stamped +ci49 onto a different source tree
+        # for dev. Same pool paths, different bytes, and pool/ is uploaded with
+        # `immutable, max-age=1y` — the edge had been told those URLs can never
+        # change, so it kept serving the older build against the newer index and
+        # every apt upgrade died on "File has unexpected size".
+        #
+        # The suffix is now wall-clock UTC plus the commit it was built from:
+        # monotonic because time is, unique because no two runs share a second,
+        # and traceable because `apt policy` then names the commit. It sorts
+        # above every +ci<run_number> already in the wild (dpkg compares the
+        # digit runs numerically, and 20261106... > any run number).
+        run: |
+          set -euo pipefail
+          SYSIBLE_VERSION_SUFFIX="+ci$(date -u +%Y%m%d%H%M%S).g$(git rev-parse --short=7 HEAD)"
+          export SYSIBLE_VERSION_SUFFIX
+          echo "SYSIBLE_VERSION_SUFFIX=$SYSIBLE_VERSION_SUFFIX" >> "$GITHUB_ENV"
+          echo "Stamping packages with $SYSIBLE_VERSION_SUFFIX"
+          ./scripts/build-all.sh
 
       - name: Select suite
         id: suite
@@ -185,6 +208,30 @@ jobs:
           #     It must never be cached: send no-cache and re-upload every run
           #     so the edge always revalidates against the origin.
           #
+          # IMMUTABILITY GUARD. pool/ is uploaded `immutable, max-age=1y`, which
+          # is a promise that a given URL's bytes never change. Breaking that
+          # promise does not fail loudly — it poisons the edge for a YEAR while
+          # the index describes bytes nobody can fetch, which is exactly how the
+          # +ci<run_number> collision went unnoticed until an operator's apt
+          # upgrade died on it. So enforce the promise here: every path this run
+          # publishes must be new. If one already exists in the bucket, the
+          # version stamp is not unique and publishing would corrupt the repo.
+          dupes=0
+          while IFS= read -r deb; do
+            key="apt/pool/${deb#"$HOME"/aptly-public/pool/}"
+            if aws s3api head-object --bucket sysible-apt --key "$key" \
+                 --endpoint-url "$R2_ENDPOINT" >/dev/null 2>&1; then
+              echo "::error::$key already exists in the bucket. This build would"
+              echo "::error::overwrite an immutably-cached pool path with different"
+              echo "::error::bytes, so apt would fail with 'File has unexpected size'."
+              dupes=$((dupes + 1))
+            fi
+          done < <(find "$HOME/aptly-public/pool" -type f -name "*${SYSIBLE_VERSION_SUFFIX}_*.deb")
+          if [ "$dupes" -ne 0 ]; then
+            echo "::error::$dupes pool path(s) collided — the version suffix is not unique."
+            exit 1
+          fi
+
           # Pass 1: pool/ (the .deb payloads) — long-lived, immutable.
           if [ -d "$HOME/aptly-public/pool" ]; then
             aws s3 sync "$HOME/aptly-public/pool/" "s3://sysible-apt/apt/pool/" \
@@ -211,12 +258,29 @@ jobs:
         # variable REPO_HOST (default repo.sysible.com) scopes the purge to just
         # the apt host. No-op (with a warning) until the zone id is set, so this
         # never blocks a publish.
-        if: ${{ vars.CLOUDFLARE_ZONE_ID != '' }}
+        #
+        # This step used to carry `if: vars.CLOUDFLARE_ZONE_ID != ''`, which meant
+        # the "no-op WITH A WARNING" above was a fiction: the whole step was
+        # skipped, so the warning inside it never ran and an unconfigured purge
+        # appeared as a silent grey tick on every green publish. It read as
+        # benign for months. It is not benign — it is the documented safety net
+        # for a poisoned immutable pool path, and nobody could see it was absent.
+        # The gate is gone; the step now runs and says so.
         env:
           CF_ZONE: ${{ vars.CLOUDFLARE_ZONE_ID }}
           CF_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CF_HOST: ${{ vars.REPO_HOST }}
         run: |
+          if [ -z "$CF_ZONE" ]; then
+            echo "::warning::No CLOUDFLARE_ZONE_ID repo variable — the CDN cache was NOT purged."
+            echo "::warning::pool/ is served immutable for a year, so if a pool path is ever"
+            echo "::warning::rebuilt with different bytes the edge keeps the stale copy and apt"
+            echo "::warning::fails with 'File has unexpected size'. The unique version stamp"
+            echo "::warning::makes that unlikely and the immutability guard above makes it loud,"
+            echo "::warning::but this purge is the repair path. Set CLOUDFLARE_ZONE_ID and the"
+            echo "::warning::CLOUDFLARE_API_TOKEN secret (Zone.Cache Purge) to enable it."
+            exit 0
+          fi
           if [ -z "$CF_TOKEN" ]; then
             echo "::warning::CLOUDFLARE_ZONE_ID is set but the CLOUDFLARE_API_TOKEN secret is missing — skipping CDN purge. A same-version rebuild can then serve a stale .deb until the cache is purged by hand."
             exit 0
