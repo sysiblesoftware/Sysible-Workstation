@@ -198,7 +198,17 @@ jobs:
             Kubernetes, infrastructure-as-code, cloud CLIs, VSCodium and the SysTerm
             terminal — plus the Sysible Controller CE installer.
 
-            **New in 1.0.4 — the lock screen.** An idle Workstation shows its
+            **Fixed in 1.0.5 — wallpapers that stay sharp on a laptop.** The
+            artwork is drawn at 7680x4320, but almost nobody looks at it there:
+            the desktop scales it to the panel. Stroke widths were set as a
+            fraction of that master, so they shrank with the screen — the
+            contour hairlines landed at 0.94 pixels on a 1440x900 laptop and the
+            neural web at 0.38. A display cannot draw a line thinner than a
+            pixel; it blends it into its neighbours, and a field of them turns
+            to haze. Widths are now specified in screen pixels, so every line is
+            a line on the smallest panel Workstation ships against.
+
+            **From 1.0.4 — the lock screen.** An idle Workstation shows its
             wallpaper, blurred and dimmed by GNOME. That blur erases fine line
             art, so the shipped styles were coming out as a near-black
             rectangle with a clock on it. Every linework wallpaper now carries
@@ -207,7 +217,7 @@ jobs:
             (There is no screensaver and cannot be one: GNOME on Wayland has no
             screensaver framework.)
 
-            **Fixed in 1.0.4 — updates actually reach installed machines.**
+            **From 1.0.4 — updates reach installed machines.**
             The apt repository publishes `sysible-stable` from release tags,
             and that trigger had never once fired: releases are cut with
             `GITHUB_TOKEN`, and GitHub does not start workflow runs from refs
