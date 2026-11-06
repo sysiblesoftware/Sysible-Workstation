@@ -192,11 +192,33 @@ jobs:
           generate_release_notes: false
           append_body: false
           body: |
-            **Sysible Workstation 1.0.3 “Ignition”** — Engineering Automation Cloud.
+            **Sysible Workstation ${{ github.ref_type == 'tag' && github.ref_name || inputs.tag }} “Ignition”** — Engineering Automation Cloud.
 
             A live Debian-stable image with the whole toolchain baked in: containers,
             Kubernetes, infrastructure-as-code, cloud CLIs, VSCodium and the SysTerm
             terminal — plus the Sysible Controller CE installer.
+
+            **New in 1.0.4 — the lock screen.** An idle Workstation shows its
+            wallpaper, blurred and dimmed by GNOME. That blur erases fine line
+            art, so the shipped styles were coming out as a near-black
+            rectangle with a clock on it. Every linework wallpaper now carries
+            wide, low-amplitude brand glow beneath the art — depth on the
+            desktop, and a visible Sysible composition once the shell blurs it.
+            (There is no screensaver and cannot be one: GNOME on Wayland has no
+            screensaver framework.)
+
+            **Fixed in 1.0.4 — updates actually reach installed machines.**
+            The apt repository publishes `sysible-stable` from release tags,
+            and that trigger had never once fired: releases are cut with
+            `GITHUB_TOKEN`, and GitHub does not start workflow runs from refs
+            pushed with it. Every installed workstation on the default channel
+            had been frozen on the 28 August packages while development
+            published to `sysible-dev` on every commit. A release now publishes
+            its packages in the same run, so
+
+                sudo apt update && sudo apt upgrade
+
+            picks up the wallpapers and the rest without reinstalling.
 
             **Fixed in 1.0.3 — kernel upgrades.** An installed workstation could be
             left unable to finish `apt upgrade`. `raspi-firmware` arrived uninvited as a
