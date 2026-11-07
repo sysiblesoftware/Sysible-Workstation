@@ -1,3 +1,14 @@
+sysible-desktop-gnome (0.1.7) sysible; urgency=medium
+
+  * drop the dead [org.gnome.desktop.screensaver] block from the gschema
+    override. GNOME Shell 43 builds the unlock dialog's background with a
+    BackgroundManager given no settingsSchema, so it falls back to
+    org.gnome.desktop.background — the screensaver schema's picture-uri has
+    never been read. Setting it looked like configuring the lock screen and did
+    nothing, which is the trap; the reason is now written where the keys were.
+
+ -- Sysible <maintainers@sysible.com>  Sat, 07 Nov 2026 13:05:00 +0000
+
 sysible-desktop-gnome (0.1.6) sysible; urgency=medium
 
   * lock the fixed-workspace dconf keys (dynamic-workspaces, num-workspaces) so a per-session write can no longer shadow them back to GNOME dynamic 1-2 — four workspaces now stick on every login

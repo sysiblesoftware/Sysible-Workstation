@@ -4,14 +4,32 @@ __pycache__/
 *.egg-info/
 .pybuild/
 
-# Debian build artifacts
-debian/files
-debian/*.substvars
-debian/.debhelper/
-debian/tmp/
-../*.deb
-../*.buildinfo
-../*.changes
+# Debian build artifacts.
+#
+# These patterns contain a slash, so git anchors them to the directory holding
+# this .gitignore — the repo root. Every real package lives at
+# packages/<name>/debian/, so the old rooted forms matched NOTHING and a local
+# `scripts/build-all.sh` left the tree full of untracked build output. With
+# `git add -A` that is one keystroke from committing megabytes of .deb.
+# `**/` makes them match at any depth, which is what was meant.
+**/debian/files
+**/debian/*.substvars
+**/debian/.debhelper/
+**/debian/tmp/
+**/debian/debhelper-build-stamp
+**/debian/sysible-*/
+**/debian/systerm/
+
+# build-all.sh collects the built .debs here; build.sh copies them into the ISO.
+# Never committed — the ISO builds them from source on every run.
+dist/
+
+# dpkg-buildpackage writes these NEXT TO the package dir, i.e. packages/*.deb.
+# (The previous `../*.deb` could never match: a .gitignore cannot escape its own
+# tree.)
+packages/*.deb
+packages/*.buildinfo
+packages/*.changes
 
 # live-build outputs
 live-build/config/archives/

@@ -53,11 +53,22 @@ picture-options='zoom'
 # What the lock screen does to that wallpaper is a BlurEffect at sigma 60
 # (times the UI scale factor) and brightness 0.55. A 60-pixel blur erases fine
 # linework, which is what these styles are made of — measured on the shipped
-# set, topographic/neural/roads came out at a mean luminance of 8-10 out of
-# 255, i.e. a black screen with a clock on it. The wallpapers now carry wide,
-# low-amplitude brand blooms under the art for exactly this reason; see
-# add_lock_blooms() in branding/wallpapers/render_wallpapers.py. The fix lives
-# in the artwork because the artwork is the only thing the lock screen reads.
+# set, topographic/neural/roads come out at a mean luminance of 7-10 out of
+# 255, i.e. a near-black screen with a clock on it. Cosmos clears it alone,
+# because it is built from large soft nebula forms rather than strokes.
+#
+# sysible-artwork 0.1.5 lifted the linework styles past that by adding wide,
+# low-amplitude brand blooms under the art. 0.1.7 took them back out: the
+# blooms were part of an artwork change that was never asked for, and the
+# shipped set was restored to the rendering the user approved. The dark lock
+# screen is the accepted cost of that choice — see
+# tests/test_the_lock_screen_is_not_a_black_rectangle.py, which now RECORDS the
+# measured value per style instead of enforcing a floor.
+#
+# If this is ever revisited, the fix has to live in the artwork: the artwork is
+# the only thing the lock screen reads, and the wallpapers are pinned by hash
+# in tests/test_the_wallpapers_are_the_ones_signed_off.py, so changing them is
+# a product decision that needs sign-off.
 #
 # The keys the lock screen DOES read from this schema are lock-enabled,
 # lock-delay and user-switch-enabled. The installed system keeps GNOME's

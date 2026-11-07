@@ -7,10 +7,17 @@ picture-options='zoom'
 primary-color='#0b0d12'
 secondary-color='#0b0d12'
 
-[org.gnome.desktop.screensaver]
-picture-uri='file:///usr/share/backgrounds/sysible/sysible-topographic.jpg'
-picture-options='zoom'
-primary-color='#0b0d12'
+# NOTE: org.gnome.desktop.screensaver is NOT set here, deliberately.
+#
+# This block used to carry picture-uri / picture-options / primary-color and
+# none of them did anything. GNOME Shell 43 builds the unlock dialog's
+# background with a BackgroundManager given no settingsSchema, so it falls back
+# to org.gnome.desktop.background (js/ui/unlockDialog.js, js/ui/background.js).
+# The screensaver schema still HAS a picture-uri key, which is exactly the trap:
+# setting it looks like configuring the lock screen and changes nothing.
+#
+# The keys the lock screen does read from this schema are lock-enabled,
+# lock-delay and user-switch-enabled; we keep GNOME's defaults for all three.
 
 [org.gnome.desktop.interface]
 color-scheme='prefer-dark'
