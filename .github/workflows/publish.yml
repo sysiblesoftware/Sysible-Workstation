@@ -28,6 +28,17 @@ on:
         type: string
         default: stable
 
+# Only ONE publish at a time. Every run restores the same aptly database from
+# R2, adds to it, and syncs it back, so two concurrent publishes interleave on
+# shared state: the second to finish persists a database that never saw the
+# first's packages. A push to main (dev) and a workflow_dispatch (stable) of the
+# same commit overlap exactly this way — that is how run 83 and run 84 collided.
+# cancel-in-progress is false: a publish that is partway through uploading must
+# finish, not be killed with the bucket half-updated.
+concurrency:
+  group: publish-apt
+  cancel-in-progress: false
+
 # Least privilege: this job only reads the repo and pushes to R2 (not to GitHub),
 # so the GITHUB_TOKEN needs no write scope.
 permissions:
@@ -163,7 +174,13 @@ jobs:
         # digit runs numerically, and 20261106... > any run number).
         run: |
           set -euo pipefail
-          SYSIBLE_VERSION_SUFFIX="+ci$(date -u +%Y%m%d%H%M%S).g$(git rev-parse --short=7 HEAD)"
+          # run_id is what makes this UNIQUE; the timestamp is what makes it
+          # monotonic and readable, and the sha is what makes it traceable.
+          # The timestamp alone was not enough: a push and a workflow_dispatch of
+          # the SAME commit, triggered 4s apart, reached this step in the same
+          # second and produced the same suffix. The immutability guard caught it
+          # (run 84), which is what it is for, but the publish failed.
+          SYSIBLE_VERSION_SUFFIX="+ci$(date -u +%Y%m%d%H%M%S).r${GITHUB_RUN_ID}.g$(git rev-parse --short=7 HEAD)"
           export SYSIBLE_VERSION_SUFFIX
           echo "SYSIBLE_VERSION_SUFFIX=$SYSIBLE_VERSION_SUFFIX" >> "$GITHUB_ENV"
           echo "Stamping packages with $SYSIBLE_VERSION_SUFFIX"

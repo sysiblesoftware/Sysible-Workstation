@@ -64,12 +64,35 @@ def test_the_version_suffix_is_not_a_bare_run_number():
     )
 
 
-def test_the_version_suffix_carries_a_timestamp_and_a_commit():
-    """Monotonic because time is; unique because of the sha; traceable because
-    `apt policy` on a user's machine then names the commit it was built from."""
+def test_the_version_suffix_carries_a_timestamp_a_run_id_and_a_commit():
+    """Monotonic from the timestamp, UNIQUE from the run id, traceable from the
+    sha — `apt policy` on a user's machine then names the commit it came from.
+
+    The run id is the part that actually guarantees uniqueness. A first attempt
+    used timestamp + sha and argued that no two runs share a second. Two did:
+    a push to main and a workflow_dispatch of the SAME commit, triggered four
+    seconds apart, reached the build step in the same second and produced an
+    identical suffix. The immutability guard caught it and failed the publish.
+    """
     build = _step("Build all packages")
     assert "date -u +%Y%m%d%H%M%S" in build, "no UTC timestamp in the version suffix"
     assert "git rev-parse --short" in build, "no commit sha in the version suffix"
+    assert "GITHUB_RUN_ID" in build, (
+        "the suffix has no run id, so two runs of the same commit in the same "
+        "second produce the same version — which has already happened"
+    )
+
+
+def test_publishes_are_serialised():
+    """They share one aptly database and one bucket. Two at once interleave on
+    that state and the loser persists a database missing the winner's packages."""
+    wf = yaml.safe_load(TEXT)
+    c = wf.get("concurrency")
+    assert c, "publish.yml has no concurrency group — publishes can overlap"
+    assert c.get("cancel-in-progress") is False, (
+        "a publish partway through uploading must not be cancelled, or the "
+        "bucket is left half-updated"
+    )
 
 
 def test_the_sync_refuses_to_overwrite_an_existing_pool_path():
