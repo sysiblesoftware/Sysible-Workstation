@@ -14,8 +14,19 @@ prominent"), and because the files keep their names and are replaced in place,
 there was no way to go back — the picker offers one "Sysible Topographic" and
 its bytes had simply changed underneath.
 
-So the shipped set is now frozen at the 28 August 2026 rendering (commit
-6cf23da0), byte for byte, verified against the machine it was approved on.
+So the shipped set is frozen at the 28 August 2026 field art (commit 6cf23da0),
+verified byte for byte against the machine it was approved on.
+
+0.1.8 then adds CLOUD to the banner tagline, which was the one thing that WAS
+asked for. The field art is untouched and that is provable rather than
+asserted: the banner is drawn on top as a separate step, so the art underneath
+was reconstructed from the renderer at 6cf23da0 and re-encoded to a file
+byte-identical to the one that shipped. Only then was a new banner drawn on it.
+The pixels that differ sit in a band at x 10.8-35.0%, y 85.2-86.7% — the
+tagline row, nothing else. The wordmark and the green rule are identical.
+
+The result is byte-identical to commit a243a43b, the 31 August rendering, which
+was exactly this: the same art carrying the newer tagline.
 
 These hashes are the agreement. The wallpapers are NOT regenerated from
 branding/wallpapers/render_wallpapers.py as part of a build — that renderer has
@@ -35,16 +46,16 @@ BACKGROUNDS = Path(__file__).resolve().parents[1] / "packages/sysible-artwork/ba
 # commit 6cf23da0, so this is the rendering they have been looking at since
 # August — not merely "some older version".
 APPROVED = {
-    "sysible-cosmos.jpg":                   "f4c46ecf3a1baaff4675fdbbecf2e47d34a1d81b7d4a389cd7292d91cce3c6e4",
-    "sysible-cosmos-light.jpg":             "17c2fbb4b498b7083b41424a573cdd790e267e335d2e3e204e30ee50a255ea15",
-    "sysible-neural.jpg":                   "e778813c10a5abffaaf7d8e9e33a55883861ac8ad2e830b365f9a5df03b00ddf",
-    "sysible-neural-light.jpg":             "92fc820ba293bcb014a99169233fe3c9bd899347a59427be62e1e59e8cdce2d6",
-    "sysible-roads.jpg":                    "c2246ccc63ac3ae564372cb37eaf9d4d307b247b699907db99f2306d0d259a19",
-    "sysible-roads-light.jpg":              "899032b052e89dd7aeb18a25c11a9d49fc9b0f7842c8371a5563cd53d7945b3f",
-    "sysible-topographic.jpg":              "7fa6ddbdc1363a3526148e20c5e8837838dacc45126409a8944e6f326e93b935",
-    "sysible-topographic-light.jpg":        "5cfda5eeee44974036a1d93acd7590379c00a89538141217bf4b1a11bc03a508",
-    "sysible-topographic-ridge.jpg":        "95d703a0da90bfb286967ae92121dc4e096fc118778f4e781e60a18c02f92fd6",
-    "sysible-topographic-ridge-light.jpg":  "4fe778fcfa75516b3ea254432d4526e2bbc113950d656afa132824787d9e4858",
+    "sysible-cosmos-light.jpg":              "9caf2c9fc010c203bc07402bee7e948425381d47118fdfbad4af21cf4271f46d",
+    "sysible-cosmos.jpg":                    "7fa2db42e986f251e133d6f556d4fb6a67a325e84dc19ade8b075acc0a743ab2",
+    "sysible-neural-light.jpg":              "c1b1cfbe77ca0655e7b2a85204251726a2bf63bb1a17c2f0c09107b80fe8e78c",
+    "sysible-neural.jpg":                    "9a1f0b8f5710885289c4eab8f874505794bd40cf26c4f0a687cd95fb63952981",
+    "sysible-roads-light.jpg":               "1b7a8a70789a21f78b1c663984891ca15cbcaf7a6293808d30a13c570985e500",
+    "sysible-roads.jpg":                     "27fbb4b278e7f2b2db11410756636a459b0dd87cb8e00e9246875cd82bd6d3fe",
+    "sysible-topographic-light.jpg":         "f12401b47aff09930e92f6f4fc0c65fdd245dbea336ed33541a57c96e3ec6060",
+    "sysible-topographic-ridge-light.jpg":   "74d50d4e36d8bf73b86c1d1915a2beb240712b86d931c9b30b961b9a7bfa2029",
+    "sysible-topographic-ridge.jpg":         "bdd1e9e6d65499f5f0b08bb7f5e3bdc4da22ac66012b31a73bbcfb3403a29dd4",
+    "sysible-topographic.jpg":               "2b8d30c1e9b3e73daf3057815c1abd86b67baf0f1f3b88bd4b884b2b9f21eaca",
 }
 
 

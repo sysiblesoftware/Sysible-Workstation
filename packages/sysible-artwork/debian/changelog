@@ -1,3 +1,20 @@
+sysible-artwork (0.1.8) sysible; urgency=medium
+
+  * add CLOUD to the wallpaper banner tagline: ENGINEERING · AUTOMATION · CLOUD,
+    at the readable size the greeter and the website already use. This was the
+    one change that was actually asked for.
+  * the field art is untouched, and that is provable rather than claimed. The
+    banner is drawn on top as a separate step, so the art underneath was
+    reconstructed from the renderer at 6cf23da0 and re-encoded to a file
+    byte-identical to the one shipping. Only then was the new banner drawn. The
+    pixels that differ lie in a band at x 10.8-35.0%, y 85.2-86.7% — the tagline
+    row. The wordmark and the green rule are unchanged.
+  * the result is byte-identical to commit a243a43b, the 31 August rendering,
+    which was this same art carrying the newer tagline.
+  * hashes re-pinned in tests for all ten files.
+
+ -- Sysible <maintainers@sysible.com>  Sat, 07 Nov 2026 12:40:00 +0000
+
 sysible-artwork (0.1.7) sysible; urgency=medium
 
   * restore the 28 August wallpapers (commit 6cf23da0), byte for byte, verified
