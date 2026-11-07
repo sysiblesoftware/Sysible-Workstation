@@ -18,4 +18,37 @@
 # gresource.
 set -e
 command -v dconf >/dev/null 2>&1 && dconf update 2>/dev/null || true
+
+# LEGACY MACHINES: detect a gresource we patched before 547444b (1 Sep 2026).
+#
+# Until that commit this script rebuilt gnome-shell-theme.gresource with our
+# background compiled INTO it. It kept no backup — it overwrote a file owned by
+# gnome-shell-common — and it exited early when it found its own resource
+# already there, so it never refreshed what it had baked in.
+#
+# The consequence outlives the change. Any machine installed from an ISO built
+# before 1 Sep still has that patched resource, and GDM paints the greeter from
+# it. Replacing /usr/share/backgrounds/sysible/sysible-login.png does nothing on
+# those machines: the greeter never reads the file. Reported as the greeter
+# still showing "ENGINEERING · AUTOMATION" after an upgrade that had already put
+# "· CLOUD" on the desktop wallpaper — two images, one read from disk, one baked.
+#
+# We do NOT repair it from here. Restoring the stock resource means reinstalling
+# gnome-shell-common, and apt cannot run inside a dpkg transaction; rebuilding
+# the gresource again is the very thing 547444b removed, because a bad rebuild
+# wedges the greeter on some GPUs and that failure costs a desktop, not a logo.
+# So: say so, clearly, with the one command that fixes it.
+GRES=/usr/share/gnome-shell/gnome-shell-theme.gresource
+if command -v gresource >/dev/null 2>&1 && [ -f "$GRES" ] \
+   && gresource list "$GRES" 2>/dev/null | grep -q 'sysible-login.png'; then
+    msg="sysible: this machine has a legacy patched gnome-shell-theme.gresource.
+sysible: The GDM greeter is painted from inside it, so greeter branding is
+sysible: frozen at whatever was baked in at install time and package upgrades
+sysible: cannot change it. Repair with:
+sysible:     sudo apt install --reinstall gnome-shell-common && sudo reboot
+sysible: After that the greeter follows /usr/share/backgrounds/sysible/sysible-login.png."
+    echo "$msg" >&2
+    command -v logger >/dev/null 2>&1 && \
+        echo "$msg" | logger -t sysible-branding -p daemon.warning 2>/dev/null || true
+fi
 exit 0

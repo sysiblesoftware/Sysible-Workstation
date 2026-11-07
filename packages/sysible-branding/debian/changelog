@@ -1,3 +1,21 @@
+sysible-branding (0.1.2) sysible; urgency=medium
+
+  * detect the legacy patched gnome-shell-theme.gresource and say so. Until
+    547444b (1 Sep 2026) apply-login-background compiled the greeter background
+    INTO that resource, kept no backup, and skipped its own work when it found
+    the resource already present. Machines installed from an earlier ISO still
+    paint the greeter from it, so shipping a new sysible-login.png cannot reach
+    them — the greeter never reads the file. Reported as the greeter still
+    showing "ENGINEERING · AUTOMATION" after an upgrade that had already put
+    "· CLOUD" on the desktop wallpaper.
+  * the script does not repair it: restoring the stock resource needs apt, which
+    cannot run inside a dpkg transaction, and rebuilding the gresource is what
+    547444b removed because a bad rebuild wedges the greeter on some GPUs. It
+    prints the one command that fixes it, to stderr and to the journal:
+        sudo apt install --reinstall gnome-shell-common && sudo reboot
+
+ -- Sysible <maintainers@sysible.com>  Sat, 07 Nov 2026 18:20:00 +0000
+
 sysible-branding (0.1.1) sysible; urgency=medium
 
   * redesign GDM login background: drop the centered S-mark (it overlapped the login dialog) and shrink the wordmark to a small bottom footer
