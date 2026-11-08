@@ -51,6 +51,17 @@ grep -rqs "sysible-login-logo.png" /etc/dconf/db/gdm.d/ \
     || fail "GDM login-screen logo not pointed at the Sysible watermark"
 echo "sysible-verify: OK — GDM login watermark installed and wired."
 
+# 5b) The greeter must actually be painted. The watermark check above passes on
+# a completely stock greeter, because the logo we wire in is a transparent 1x1
+# PNG — the branding is the background, and nothing asserted the background.
+# That is how 547444b shipped an unbranded greeter for two months.
+if command -v gresource >/dev/null 2>&1; then
+    gresource list /usr/share/gnome-shell/gnome-shell-theme.gresource 2>/dev/null \
+        | grep -q 'sysible-login.png' \
+        || fail "greeter background is not in the shell theme gresource — the login screen will be stock GNOME (run /usr/lib/sysible/brand-greeter)"
+    echo "sysible-verify: OK — greeter background compiled into the shell theme."
+fi
+
 # 6) Branding integrity. Every logo in the image (GRUB boot menu, Plymouth,
 # Calamares, GDM, app-grid) is rendered from ONE canonical mark
 # (branding/logo/sysible-mark.svg) and its sha256 recorded in a manifest shipped

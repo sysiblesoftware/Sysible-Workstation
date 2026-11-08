@@ -35,6 +35,19 @@ fi
 #    stays authoritative after an upgrade.
 [ -x /usr/lib/sysible/apply-login-background ] && /usr/lib/sysible/apply-login-background || true
 
+# 2b) Greeter background. gnome-shell-common OWNS the theme gresource, so any
+#     gnome-shell upgrade reverts it and the greeter silently goes stock. Only
+#     re-apply on machines that opted in — brand-greeter leaves the marker — and
+#     only when the resource has actually gone back to stock. brand-greeter is
+#     itself safe: it builds to a temp file, validates, and never touches the
+#     live resource on failure.
+if [ -f /etc/sysible/greeter-branding ] && [ -x /usr/lib/sysible/brand-greeter ] \
+   && command -v gresource >/dev/null 2>&1 \
+   && ! gresource list /usr/share/gnome-shell/gnome-shell-theme.gresource 2>/dev/null \
+        | grep -q 'sysible-login.png'; then
+    /usr/lib/sysible/brand-greeter || echo "sysible-guard: greeter re-brand failed (greeter left stock)"
+fi
+
 # 3) GRUB entry titles — grub-common upgrades restore the stock 10_linux, turning
 #    "Sysible Workstation" back into "Sysible GNU/Linux". Re-apply the one-line patch,
 #    and only regenerate grub.cfg if we actually changed something.

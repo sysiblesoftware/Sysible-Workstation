@@ -41,12 +41,11 @@ command -v dconf >/dev/null 2>&1 && dconf update 2>/dev/null || true
 GRES=/usr/share/gnome-shell/gnome-shell-theme.gresource
 if command -v gresource >/dev/null 2>&1 && [ -f "$GRES" ] \
    && gresource list "$GRES" 2>/dev/null | grep -q 'sysible-login.png'; then
-    msg="sysible: this machine has a legacy patched gnome-shell-theme.gresource.
-sysible: The GDM greeter is painted from inside it, so greeter branding is
-sysible: frozen at whatever was baked in at install time and package upgrades
-sysible: cannot change it. Repair with:
-sysible:     sudo apt install --reinstall gnome-shell-common && sudo reboot
-sysible: After that the greeter follows /usr/share/backgrounds/sysible/sysible-login.png."
+    msg="sysible: the greeter background is compiled into gnome-shell-theme.gresource,
+sysible: so shipping a new sysible-login.png does not reach it. To refresh it:
+sysible:     sudo sysible-brand-greeter && sudo reboot
+sysible: (that rebuilds from the stock resource, so the image is taken fresh).
+sysible: To go back to a stock GNOME greeter:  sudo sysible-brand-greeter --revert"
     echo "$msg" >&2
     command -v logger >/dev/null 2>&1 && \
         echo "$msg" | logger -t sysible-branding -p daemon.warning 2>/dev/null || true

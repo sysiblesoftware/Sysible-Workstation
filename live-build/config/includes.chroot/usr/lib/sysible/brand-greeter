@@ -1,0 +1,139 @@
+#!/bin/sh
+# Paint the Sysible background onto the GDM greeter — safely.
+#
+# WHY THIS EXISTS AT ALL. The GNOME greeter on Debian ignores
+# org.gnome.desktop.background: setting picture-uri in the gdm dconf profile
+# does nothing to the login screen. The only thing that paints it is the
+# #lockDialogGroup rule inside gnome-shell-theme.gresource. That was known and
+# implemented, then 547444b ("universal boot-safe branding") removed the
+# gresource rebuild and left the dconf keys behind — keys that have never had
+# any effect. Every image built since 1 Sep 2026 therefore ships a stock grey
+# greeter, and the login-screen `logo` key points at a deliberately transparent
+# 1x1 PNG, so there is no fallback branding either. Demonstrated directly: a
+# machine whose baked resource was restored to stock lost its greeter branding
+# entirely while that dconf profile was still in place.
+#
+# WHY 547444b WAS STILL RIGHT TO WORRY. The old implementation compiled with
+# --target pointed AT THE LIVE FILE, kept no backup, and sent errors to
+# /dev/null. A failure part-way through leaves a truncated gresource in the
+# boot-to-greeter path, which wedges the greeter on some GPUs — a desktop lost
+# for a logo. That is a property of that implementation, not of the approach.
+#
+# So this one: compiles to a temporary file, VALIDATES it before it goes
+# anywhere near /usr/share, keeps the stock resource so the change is
+# reversible, and installs with mv (atomic within a filesystem). If anything
+# fails, the live resource is never touched.
+#
+#   brand-greeter            apply (idempotent)
+#   brand-greeter --revert   restore the stock resource
+#   brand-greeter --status   report what is installed
+set -eu
+
+GRES=/usr/share/gnome-shell/gnome-shell-theme.gresource
+LOGIN_BG=/usr/share/backgrounds/sysible/sysible-login.png
+BACKUP=/var/backups/sysible/gnome-shell-theme.gresource.stock
+MARKER=/etc/sysible/greeter-branding
+MARK_RES=sysible-login.png
+
+log() { echo "sysible-greeter: $*"; }
+die() { echo "sysible-greeter: $*" >&2; exit 1; }
+
+is_branded() { gresource list "$GRES" 2>/dev/null | grep -q "$MARK_RES"; }
+
+case "${1:-apply}" in
+--status)
+    command -v gresource >/dev/null 2>&1 || die "gresource not installed"
+    if is_branded; then log "greeter IS branded (resource present)"
+    else log "greeter is STOCK (no Sysible background)"; fi
+    [ -f "$BACKUP" ] && log "stock backup kept at $BACKUP" || log "no stock backup kept"
+    [ -f "$MARKER" ] && log "opted in ($MARKER present)" || log "not opted in"
+    exit 0 ;;
+--revert)
+    [ -f "$BACKUP" ] || die "no stock backup at $BACKUP; run: apt install --reinstall gnome-shell-common"
+    cp "$BACKUP" "$GRES.sysible-new" && mv "$GRES.sysible-new" "$GRES"
+    rm -f "$MARKER"
+    log "stock greeter restored; reboot to see it"
+    exit 0 ;;
+apply) ;;
+*) die "usage: brand-greeter [--revert|--status]" ;;
+esac
+
+command -v gresource            >/dev/null 2>&1 || die "gresource not installed"
+command -v glib-compile-resources >/dev/null 2>&1 || die "glib-compile-resources not installed"
+[ -f "$GRES" ]     || die "$GRES is missing"
+[ -f "$LOGIN_BG" ] || die "$LOGIN_BG is missing (install sysible-branding)"
+
+# Already carrying OUR resource? Then the only thing that can be stale is the
+# image itself, so rebuild from the stock backup rather than layering on top.
+if is_branded; then
+    if [ -f "$BACKUP" ]; then
+        log "already branded — rebuilding from the stock backup to pick up a new image"
+        cp "$BACKUP" "$GRES.sysible-src"
+        SRC="$GRES.sysible-src"
+    else
+        log "already branded and no stock backup exists; nothing to do safely"
+        exit 0
+    fi
+else
+    # First run: keep the stock resource before touching anything.
+    mkdir -p "$(dirname "$BACKUP")"
+    [ -f "$BACKUP" ] || cp "$GRES" "$BACKUP"
+    SRC="$GRES"
+fi
+
+WORK=$(mktemp -d)
+cleanup() { rm -rf "$WORK" "$GRES.sysible-src" 2>/dev/null || true; }
+trap cleanup EXIT INT TERM
+
+for res in $(gresource list "$SRC" 2>/dev/null); do
+    rel=${res#/org/gnome/shell/theme/}
+    mkdir -p "$WORK/$(dirname "$rel")"
+    gresource extract "$SRC" "$res" > "$WORK/$rel" \
+        || die "could not extract $res — live resource untouched"
+done
+
+cp "$LOGIN_BG" "$WORK/$MARK_RES"
+css_patched=0
+for css in gnome-shell.css gnome-shell-dark.css gnome-shell-light.css \
+           gnome-shell-high-contrast.css gdm.css gdm3.css; do
+    [ -f "$WORK/$css" ] || continue
+    cat >> "$WORK/$css" <<CSS
+
+/* Sysible lock / login background */
+#lockDialogGroup {
+  background: #0a0d13 url('resource:///org/gnome/shell/theme/$MARK_RES');
+  background-size: cover;
+  background-repeat: no-repeat;
+  background-position: center;
+}
+CSS
+    css_patched=$((css_patched + 1))
+done
+[ "$css_patched" -gt 0 ] || die "no greeter stylesheet found in the resource — live resource untouched"
+
+{
+    echo '<?xml version="1.0" encoding="UTF-8"?>'
+    echo '<gresources><gresource prefix="/org/gnome/shell/theme">'
+    ( cd "$WORK" && find . -type f ! -name 'sysible.gresource.xml' \
+        | sed 's|^\./||' | sort | while read -r f; do echo "  <file>$f</file>"; done )
+    echo '</gresource></gresources>'
+} > "$WORK/sysible.gresource.xml"
+
+# Compile to a TEMPORARY target. This is the whole difference from the old
+# implementation, which compiled straight over the live file.
+NEW="$WORK/built.gresource"
+( cd "$WORK" && glib-compile-resources --sourcedir="$WORK" \
+    --target="$NEW" sysible.gresource.xml ) \
+    || die "compile failed — live resource untouched"
+
+# Validate before it goes anywhere near /usr/share: it must be readable, must
+# carry our image, and must still carry a greeter stylesheet.
+gresource list "$NEW" >/dev/null 2>&1 || die "built resource is unreadable — not installing"
+gresource list "$NEW" 2>/dev/null | grep -q "$MARK_RES" \
+    || die "built resource lacks the background — not installing"
+gresource list "$NEW" 2>/dev/null | grep -q 'gnome-shell.*\.css' \
+    || die "built resource lacks a stylesheet — not installing"
+
+cp "$NEW" "$GRES.sysible-new" && mv "$GRES.sysible-new" "$GRES"
+mkdir -p "$(dirname "$MARKER")" && : > "$MARKER"
+log "greeter branding applied (stock kept at $BACKUP); reboot to see it"

@@ -15,6 +15,10 @@ override_dh_auto_install:
 	install -d $(D)/usr/share/backgrounds/sysible $(D)/usr/lib/sysible
 	cp -a $(CH)/usr/share/backgrounds/sysible/sysible-login.png $(D)/usr/share/backgrounds/sysible/
 	if [ -f $(CH)/usr/lib/sysible/apply-login-background ]; then cp -a $(CH)/usr/lib/sysible/apply-login-background $(D)/usr/lib/sysible/; fi
+	if [ -f $(CH)/usr/lib/sysible/brand-greeter ]; then cp -a $(CH)/usr/lib/sysible/brand-greeter $(D)/usr/lib/sysible/; fi
+	# A name an operator can actually find and type.
+	install -d $(D)/usr/sbin
+	ln -sf ../lib/sysible/brand-greeter $(D)/usr/sbin/sysible-brand-greeter
 	# Sora brand font
 	install -d $(D)/usr/share/fonts/truetype/sora
 	cp -a $(CH)/usr/share/fonts/truetype/sora/. $(D)/usr/share/fonts/truetype/sora/

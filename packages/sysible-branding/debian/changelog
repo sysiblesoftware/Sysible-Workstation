@@ -1,3 +1,26 @@
+sysible-branding (0.1.3) sysible; urgency=medium
+
+  * restore greeter branding, safely. The GNOME greeter on Debian ignores
+    org.gnome.desktop.background — the only thing that paints the login screen
+    is the #lockDialogGroup rule inside gnome-shell-theme.gresource. 547444b
+    removed that rebuild and left the dconf keys behind, so every image built
+    since 1 Sep 2026 has shipped a stock grey greeter with a transparent 1x1
+    logo: no branding at all.
+  * new /usr/sbin/sysible-brand-greeter. Unlike the implementation 547444b was
+    right to remove, it compiles to a TEMPORARY file, validates the result
+    (readable, carries the image, still carries a stylesheet), keeps the stock
+    resource under /var/backups/sysible for --revert, and installs with mv. On
+    any failure the live resource is never touched, so a bad run costs nothing
+    instead of wedging the greeter.
+  * branding-guard re-applies it after a gnome-shell upgrade reverts the
+    resource — but only on machines that opted in (brand-greeter leaves
+    /etc/sysible/greeter-branding), never by default.
+  * the legacy-gresource notice no longer recommends reinstalling
+    gnome-shell-common: that restores the stock resource and REMOVES branding,
+    which is exactly what it did when followed.
+
+ -- Sysible <maintainers@sysible.com>  Sun, 08 Nov 2026 11:30:00 +0000
+
 sysible-branding (0.1.2) sysible; urgency=medium
 
   * detect the legacy patched gnome-shell-theme.gresource and say so. Until

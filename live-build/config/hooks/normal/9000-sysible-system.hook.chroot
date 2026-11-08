@@ -288,8 +288,19 @@ fi
 # hardware). Greeter logo removal + background hint live entirely in the gdm dconf
 # profile written below (the supported, boot-safe path). apply-login-background is
 # now a boot-safe no-op stub that only re-asserts that dconf state.
-chmod 0755 /usr/lib/sysible/apply-login-background /usr/lib/sysible/branding-guard 2>/dev/null || true
+chmod 0755 /usr/lib/sysible/apply-login-background /usr/lib/sysible/branding-guard \
+          /usr/lib/sysible/brand-greeter 2>/dev/null || true
 /usr/lib/sysible/apply-login-background || true
+
+# Paint the greeter. The dconf keys written above do NOT do this: the GNOME
+# greeter on Debian ignores org.gnome.desktop.background, and 547444b removed
+# the gresource rebuild that was actually painting it — so every image built
+# since 1 Sep 2026 has shipped a stock grey login screen with a transparent
+# logo, i.e. no branding at all. brand-greeter restores it the safe way:
+# it compiles to a temp file, validates the result, keeps the stock resource
+# for --revert, and leaves the live resource untouched on any failure. A
+# failure here is cosmetic and must never fail the build.
+/usr/lib/sysible/brand-greeter || echo "sysible: greeter branding skipped (stock greeter)"
 
 # Branding guard: re-assert package-owned branding (os-release, the greeter
 # background, GRUB titles) after every apt/dpkg upgrade and on boot, so an
