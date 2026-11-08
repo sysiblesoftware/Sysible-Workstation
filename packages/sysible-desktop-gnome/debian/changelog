@@ -1,3 +1,20 @@
+sysible-desktop-gnome (0.1.8) sysible; urgency=medium
+
+  * state disable-user-extensions=false in the dconf system default. GNOME Shell
+    sets this to true BY ITSELF when it believes an extension hung the shell, and
+    when it does every extension stops loading — dock, desktop icons, the panel
+    monitor — while gnome-extensions still lists them all and enabled-extensions
+    still names them. Each one reports State: INITIALIZED instead of ACTIVE, and
+    nothing anywhere tells the user. Seen in the field after a workstation took
+    two months of Debian updates at once: the shell wedged, GNOME flipped the
+    switch, and the desktop stayed stripped across every later login.
+  * this is a DEFAULT, not a lock. GNOME flipping it is a real safety valve
+    against a crash loop and must keep working; a user value still wins. What the
+    default buys is that a fresh install, and every new user, starts with
+    extensions on.
+
+ -- Sysible <maintainers@sysible.com>  Sun, 08 Nov 2026 12:40:00 +0000
+
 sysible-desktop-gnome (0.1.7) sysible; urgency=medium
 
   * drop the dead [org.gnome.desktop.screensaver] block from the gschema

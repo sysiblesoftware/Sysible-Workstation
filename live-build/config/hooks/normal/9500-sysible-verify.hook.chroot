@@ -62,6 +62,48 @@ if command -v gresource >/dev/null 2>&1; then
     echo "sysible-verify: OK — greeter background compiled into the shell theme."
 fi
 
+# 5c) THE DESKTOP MUST ACTUALLY COME UP BRANDED. Everything below was learned
+# from one workstation that lost its dock, desktop icons and panel monitor for a
+# day. Each check is a thing that was silently wrong and that nothing caught.
+
+# The extension defaults must be a dconf SYSTEM DB keyfile. A gschema default
+# does not survive: GNOME rewrites org.gnome.shell keys into the user db on
+# session start and shadows it.
+_EXT=/etc/dconf/db/local.d/05-sysible-extensions
+[ -f "$_EXT" ] || fail "no dconf default for shell extensions ($_EXT) — the dock and desktop icons will not load"
+
+# GNOME's master kill switch. When the shell flips this to true EVERY extension
+# stops loading while still listing as enabled, and nothing tells the user. The
+# default must say false explicitly so a fresh install and every new user start
+# with extensions on.
+grep -q '^disable-user-extensions=false' "$_EXT" \
+    || fail "$_EXT does not set disable-user-extensions=false — one silent switch can strip the whole desktop"
+
+# Every extension we enable must actually be installed, or we are enabling
+# something that cannot load.
+_MISSING=""
+for _u in $(sed -n "s/^enabled-extensions=//p" "$_EXT" | tr -d "[]' " | tr ',' ' '); do
+    [ -n "$_u" ] || continue
+    [ -d "/usr/share/gnome-shell/extensions/$_u" ] \
+        || [ -d "/usr/local/share/gnome-shell/extensions/$_u" ] \
+        || _MISSING="$_MISSING $_u"
+done
+[ -z "$_MISSING" ] || fail "enabled but NOT installed:$_MISSING — these will never load"
+echo "sysible-verify: OK — shell extensions enabled by default and all installed."
+
+# dconf update must have run, or none of the keyfiles above are in effect.
+[ -f /etc/dconf/db/local ] \
+    || fail "/etc/dconf/db/local was never compiled — every dconf default in local.d is inert"
+
+# The wallpaper the desktop defaults to has to exist. It is referenced by path,
+# and a missing file gives a flat near-black desktop with no error anywhere.
+for _k in picture-uri picture-uri-dark; do
+    _w=$(sed -n "s/^$_k='file:\/\/\(.*\)'$/\1/p" /etc/dconf/db/local.d/00-sysible-desktop 2>/dev/null | head -1)
+    [ -n "$_w" ] || continue
+    [ -f "$_w" ] || fail "default wallpaper $_k points at $_w which is not in the image"
+done
+echo "sysible-verify: OK — default wallpapers present."
+
 # 6) Branding integrity. Every logo in the image (GRUB boot menu, Plymouth,
 # Calamares, GDM, app-grid) is rendered from ONE canonical mark
 # (branding/logo/sysible-mark.svg) and its sha256 recorded in a manifest shipped

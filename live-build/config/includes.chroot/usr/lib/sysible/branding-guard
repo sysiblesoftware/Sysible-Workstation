@@ -48,6 +48,34 @@ if [ -f /etc/sysible/greeter-branding ] && [ -x /usr/lib/sysible/brand-greeter ]
     /usr/lib/sysible/brand-greeter || echo "sysible-guard: greeter re-brand failed (greeter left stock)"
 fi
 
+# 2c) GNOME's extension kill switch. If the shell flipped it, the desktop has
+#     silently lost its dock, desktop icons and panel monitor, and nothing says
+#     so. We do NOT flip it back: GNOME sets it to break a crash loop, and
+#     overriding that from a boot hook could pin a user in one. We make it
+#     visible, with the one line that fixes it.
+for _rd in /run/user/*; do
+    [ -d "$_rd" ] || continue
+    _uid=$(basename "$_rd")
+    case "$_uid" in ''|*[!0-9]*) continue ;; esac
+    [ "$_uid" -ge 1000 ] || continue
+    _usr=$(getent passwd "$_uid" | cut -d: -f1) || continue
+    [ -n "$_usr" ] && [ -S "$_rd/bus" ] || continue
+    _off=$(runuser -u "$_usr" -- env DBUS_SESSION_BUS_ADDRESS="unix:path=$_rd/bus" \
+           gsettings get org.gnome.shell disable-user-extensions 2>/dev/null) || continue
+    if [ "$_off" = "true" ]; then
+        _m="sysible-guard: GNOME has disabled ALL shell extensions for '$_usr'
+sysible-guard: (org.gnome.shell disable-user-extensions = true). The dock,
+sysible-guard: desktop icons and the panel monitor will not load, and every
+sysible-guard: extension reports INITIALIZED instead of ACTIVE. GNOME sets this
+sysible-guard: by itself after it thinks an extension hung the shell. To undo:
+sysible-guard:     gsettings set org.gnome.shell disable-user-extensions false
+sysible-guard: then log out and back in."
+        echo "$_m" >&2
+        command -v logger >/dev/null 2>&1 && \
+            echo "$_m" | logger -t sysible-desktop -p daemon.warning 2>/dev/null || true
+    fi
+done
+
 # 3) GRUB entry titles — grub-common upgrades restore the stock 10_linux, turning
 #    "Sysible Workstation" back into "Sysible GNU/Linux". Re-apply the one-line patch,
 #    and only regenerate grub.cfg if we actually changed something.

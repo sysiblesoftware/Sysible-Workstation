@@ -7,5 +7,22 @@
 # org.gnome.shell keys into the user db on session start, which shadows a gschema
 # default. A later-sorting file in local.d wins over 00-sysible-desktop, so this
 # is the single source of truth for the enabled set.
+# The master kill switch, stated explicitly. GNOME Shell sets this to TRUE on
+# its own when it believes extensions caused a hang, and when it does, EVERY
+# extension stops loading — dock, desktop icons, the panel monitor — while
+# `gnome-extensions list` still shows them all present and enabled-extensions
+# still lists them. Every extension reports State: INITIALIZED rather than
+# ACTIVE, and nothing anywhere tells the user why their desktop emptied out.
+#
+# Seen in the field: a workstation took two months of Debian updates in one go,
+# the shell wedged once, GNOME flipped this, and the desktop stayed stripped
+# across every subsequent login. The repair is one line
+# (gsettings set org.gnome.shell disable-user-extensions false) and is
+# undiscoverable without knowing the key exists.
+#
+# This is a DEFAULT, not a lock. GNOME flipping it is a safety valve against a
+# crash loop and must keep working; a user value still wins. What the default
+# buys is that a fresh install, and any new user, starts with extensions on.
 [org/gnome/shell]
+disable-user-extensions=false
 enabled-extensions=['ding@rastersoft.com', 'dash-to-dock@micxgx.gmail.com', 'workspace-indicator@gnome-shell-extensions.gcampax.github.com', 'sysible-sysmonitor@sysible.com']
