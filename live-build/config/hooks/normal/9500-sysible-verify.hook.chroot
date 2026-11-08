@@ -418,6 +418,44 @@ command -v sshpass >/dev/null 2>&1 \
     || fail "sshpass is not in the image — Ansible cannot use a password over SSH, so bootstrapping a host that has no key yet fails at the first play"
 echo "sysible-verify: OK — sshpass present (Ansible can bootstrap over a password)."
 
+# 16b) A CONTAINER RUNTIME, and compose, are in the image.
+# This is the one thing every Sysible product needs in order to run at all, and
+# until now no verify step mentioned it. The chain that produced the bug report:
+#
+#   docker-ce is a Recommends (not a Depends) pulled from download.docker.com,
+#   it is in the VEND exclusion list in build.sh so it never reaches the
+#   generated toolkit list, and the vendor hook's apt-get install is the ONLY
+#   thing that puts it in the image. Nothing then checked. So an ISO built while
+#   that third-party repo was unreachable looked green, shipped, and the operator
+#   found out at `install-sysible`.
+#
+# Assert the capability, not the brand: podman + podman-docker satisfies this as
+# squarely as docker-ce does (the shim is /usr/bin/docker and the socket is
+# symlinked), and the installer now installs either. What must never ship is an
+# image with NEITHER.
+command -v docker >/dev/null 2>&1 || command -v podman >/dev/null 2>&1 \
+    || fail "no container runtime in the image (neither docker nor podman) — every Sysible product runs as a container, so install-sysible cannot do anything on this image"
+_rt="$(command -v docker >/dev/null 2>&1 && echo docker || echo podman)"
+
+# Compose is packaged separately from the engine on every path, so "the engine
+# landed" does not mean a product can be brought up. sysiblectl looks for the v2
+# plugin first and standalone docker-compose second; accept either, and
+# podman-compose for a podman-only image.
+_compose=none
+for _c in /usr/libexec/docker/cli-plugins/docker-compose \
+          /usr/lib/docker/cli-plugins/docker-compose \
+          /usr/local/lib/docker/cli-plugins/docker-compose; do
+    [ -x "$_c" ] && { _compose="docker compose (plugin)"; break; }
+done
+if [ "$_compose" = none ]; then
+    if command -v docker-compose >/dev/null 2>&1; then _compose="docker-compose (standalone)"
+    elif command -v podman-compose >/dev/null 2>&1; then _compose="podman-compose"
+    fi
+fi
+[ "$_compose" != none ] \
+    || fail "no compose implementation in the image (no docker compose plugin, no docker-compose, no podman-compose) — every product is brought up with compose"
+echo "sysible-verify: OK — container runtime present ($_rt) with $_compose."
+
 # 17) No Raspberry Pi bootloader firmware. raspi-firmware is NOT in any package
 # list — it rides in as a Recommends of firmware-brcm80211, which ships the Pi's
 # Wi-Fi blobs next to the laptop Broadcom ones we want. Its initramfs hook copies

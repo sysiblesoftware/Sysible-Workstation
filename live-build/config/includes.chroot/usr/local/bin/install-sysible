@@ -1,5 +1,5 @@
 #!/bin/sh
-# sync-sha256: d10a8e040988db2fc4f74f395c27377235a1404dd182a3503e4d2f16fa8a0d98
+# sync-sha256: ec5621d43cbae84c29a624331985b3be2afeff802e182a11446d9633eaf169a5
 # install-sysible — install the Sysible CE stack on this machine, on demand.
 # Nothing about the platform is baked into the ISO except this helper, so a fresh
 # install runs no Sysible services and opens no ports until you choose to install
@@ -122,26 +122,100 @@ _online() {
 command -v git >/dev/null 2>&1 || {
   _tell "Cannot install" "git is required and is missing from PATH.\n\nIt ships on every Sysible edition, so this usually means PATH is\nbroken.\nNothing has been installed."
   exit 1; }
-command -v docker >/dev/null 2>&1 || {
-  _tell "Cannot install" "Docker is required and is not installed.\n\nEvery Sysible app runs as a container. Install Docker Engine and the\ncompose plugin, then run this again.\n\nNothing has been installed."
+say "== checking the internet connection =="
+_online || {
+  _tell "No internet connection" "This installer downloads the Sysible source from GitHub and the\ncontainer base images from Docker Hub, so it needs to be online.\n\ngithub.com could not be reached.\n\nConnect to a network (Wi-Fi or Ethernet), then run this again — or\nfrom a terminal:  sudo install-sysible\n\nNothing has been installed."
+  exit 1; }
+say "  online."
+
+# ---- the container runtime: INSTALL it, don't just complain about it ------
+# This used to be a bare `command -v docker || exit 1` — "Docker is required and
+# is not installed", and out. That put the one prerequisite the operator could do
+# least about on the one person who had just been handed a finished install, and
+# it happened for a reason nothing in the image guarded against:
+#
+#   podman/buildah/skopeo are HARD Depends of the Sysible metapackage and come
+#   from Debian's own archive, so they are on every install. docker-ce is a
+#   Recommends pulled from download.docker.com by a build hook, it is excluded
+#   from the ISO's generated package list, and no verify step ever asserted it
+#   landed. The runtime that is guaranteed and the runtime the stack demanded
+#   were not the same one.
+#
+# So: install whatever is missing. The network check above runs FIRST because
+# every path here is an apt fetch, and "could not install Docker" is the wrong
+# thing to say to someone who is simply offline.
+_apt() { DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends "$@"; }
+
+# Compose, as sysiblectl will look for it: the v2 plugin, else standalone.
+_compose_ok() {
+  docker compose version >/dev/null 2>&1 && return 0
+  command -v docker-compose >/dev/null 2>&1
+}
+
+_install_runtime() {
+  command -v apt-get >/dev/null 2>&1 || return 1
+  say "== no container runtime on this machine — installing one =="
+  apt-get update >/dev/null 2>&1 || _warn "  apt-get update failed; using the cached lists."
+  # Docker CE first: it is what every existing Sysible install runs and what the
+  # products are built and tested against. It lives in the third-party repo that
+  # sysible-release configures, so it is only installable when that repo is
+  # actually wired up and reachable.
+  if _apt docker-ce docker-compose-plugin containerd.io; then
+    systemctl enable --now docker >/dev/null 2>&1 || service docker start >/dev/null 2>&1 || true
+    return 0
+  fi
+  _warn "  Docker CE is not installable here — its apt repo is not configured or"
+  _warn "  not reachable. Falling back to Podman, which is in Debian itself and is"
+  _warn "  already a hard dependency of this edition."
+  # podman-docker ships /usr/bin/docker as a shim that execs podman, and a
+  # tmpfiles rule symlinking /run/docker.sock onto /run/podman/podman.sock — so
+  # both the docker CLI and anything speaking the Docker API over that socket
+  # keep working, which is the whole of how sysiblectl drives containers. It
+  # Conflicts with docker-ce-cli, which is exactly why this is a fallback and
+  # never installed alongside Docker.
+  #
+  # docker-compose (standalone) and NOT podman-compose: both can drive the
+  # socket, but only docker-compose writes the com.docker.compose.* labels that
+  # sysiblectl reads back to find a product's compose file and working dir.
+  # podman-compose writes io.podman.compose.* and those lookups come back empty.
+  _apt podman podman-docker docker-compose || return 1
+  systemctl enable --now podman.socket >/dev/null 2>&1 || true
+  # The shim prints "Emulate Docker CLI using podman" on stderr for EVERY call.
+  # Left alone that lands in the middle of every build and status this installer
+  # and sysiblectl ever run. The shim itself documents the way to quiet it.
+  [ -d /etc/containers ] && : > /etc/containers/nodocker 2>/dev/null || true
+  return 0
+}
+
+command -v docker >/dev/null 2>&1 || _install_runtime || {
+  _tell "Cannot install" "No container runtime is installed and one could not be installed.\n\nEvery Sysible app runs as a container, so there is nothing this\ninstaller can do until one is present. Try by hand:\n\n  sudo apt-get install -y podman podman-docker docker-compose\n\nNothing has been installed."
   exit 1; }
 
-# The Docker daemon must be UP — on a fresh install it is enabled but may not have
-# started yet.
+# The daemon must be UP — on a fresh install it is enabled but may not have
+# started yet. podman-docker's `docker` is a shim onto podman, so what needs
+# starting there is podman.socket and not docker.service; try both, only one of
+# them exists on any given machine.
 if ! docker info >/dev/null 2>&1; then
   say "== starting the Docker daemon =="
-  systemctl start docker 2>/dev/null || service docker start 2>/dev/null || true
+  systemctl start docker 2>/dev/null || systemctl start podman.socket 2>/dev/null \
+    || service docker start 2>/dev/null || true
   _i=0; while [ "$_i" -lt 10 ] && ! docker info >/dev/null 2>&1; do sleep 2; _i=$((_i+1)); done
 fi
 docker info >/dev/null 2>&1 || {
   _tell "Cannot install" "The Docker daemon is not running and could not be started.\n\nTry:  sudo systemctl start docker\n\nNothing can run in containers until it is up, so nothing has been\ninstalled."
   exit 1; }
 
-say "== checking the internet connection =="
-_online || {
-  _tell "No internet connection" "This installer downloads the Sysible source from GitHub and the\ncontainer base images from Docker Hub, so it needs to be online.\n\ngithub.com could not be reached.\n\nConnect to a network (Wi-Fi or Ethernet), then run this again — or\nfrom a terminal:  sudo install-sysible\n\nNothing has been installed."
+# Compose is the half that actually brings a product up, and it is installed
+# separately from the runtime on every path — so a machine with a working daemon
+# and no compose used to get all the way to the first bring-up before failing.
+_compose_ok || {
+  say "== installing compose =="
+  apt-get update >/dev/null 2>&1 || true
+  _apt docker-compose-plugin || _apt docker-compose || true
+}
+_compose_ok || {
+  _tell "Cannot install" "A container runtime is running but no compose implementation is\ninstalled, and one could not be installed.\n\nEvery product is brought up with compose. Try by hand:\n\n  sudo apt-get install -y docker-compose-plugin\n\nNothing has been installed."
   exit 1; }
-say "  online."
 
 # ---- choose which builds to install --------------------------------------
 # WANT = the apps to bring up; SLOP=1 also brings up the gateway that fronts them.

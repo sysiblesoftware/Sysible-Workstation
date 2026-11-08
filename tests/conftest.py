@@ -54,6 +54,49 @@ exit 0
     "docker": r"""#!/bin/sh
 printf 'docker %s\n' "$*" >> "$FAKE_LOG"
 [ "$1" = info ] && { [ "${FAKE_DOCKER_UP:-1}" = 1 ] || exit 1; exit 0; }
+# `docker compose` is the v2 PLUGIN, installed separately from the engine — a
+# machine can have a working daemon and no compose at all, which is what the
+# marker stands for. Without this the installer's compose gate was untestable.
+[ "$1" = compose ] && { [ -e "$FAKE_BIN/.compose-plugin" ] || exit 1; exit 0; }
+exit 0
+""",
+    # Standalone compose, the second thing the installer's gate looks for.
+    "docker-compose": r"""#!/bin/sh
+printf 'docker-compose %s\n' "$*" >> "$FAKE_LOG"
+exit 0
+""",
+    # apt-get is the installer's ONLY way to put a runtime on a machine that has
+    # none, so the fake has to really provision: it drops the commands it claims
+    # to install into the sandbox PATH. A fake that just exited 0 would let a
+    # version of the script that "tries" and recovers nothing pass this suite.
+    #
+    # FAKE_APT_NO is a space-separated list of packages THIS machine cannot get —
+    # that is how a test says "download.docker.com was never wired up here",
+    # which is the condition that produced the original bug report.
+    "apt-get": r"""#!/bin/sh
+printf 'apt-get %s\n' "$*" >> "$FAKE_LOG"
+[ "$1" = update ] && exit "${FAKE_APT_UPDATE_RC:-0}"
+for p in "$@"; do
+  for bad in ${FAKE_APT_NO:-}; do
+    [ "$p" = "$bad" ] && { echo "E: Unable to locate package $p" >&2; exit 100; }
+  done
+done
+for p in "$@"; do
+  case "$p" in
+    docker-ce)             cp "$FAKE_SEED/docker" "$FAKE_BIN/docker" ;;
+    podman)                cp "$FAKE_SEED/podman" "$FAKE_BIN/podman" ;;
+    # podman-docker is what makes the Podman fallback real: it ships
+    # /usr/bin/docker as a shim onto podman. So the fake installs the docker
+    # command, exactly as the package does.
+    podman-docker)         cp "$FAKE_SEED/docker" "$FAKE_BIN/docker" ;;
+    docker-compose-plugin) : > "$FAKE_BIN/.compose-plugin" ;;
+    docker-compose)        cp "$FAKE_SEED/docker-compose" "$FAKE_BIN/docker-compose" ;;
+  esac
+done
+exit 0
+""",
+    "podman": r"""#!/bin/sh
+printf 'podman %s\n' "$*" >> "$FAKE_LOG"
 exit 0
 """,
     "curl": r"""#!/bin/sh
@@ -112,16 +155,27 @@ class Sandbox:
         self.bin.mkdir()
         self.log = tmp_path / "calls.log"
         self.log.write_text("")
+        # The sandbox PATH, and a pristine SEED copy beside it. apt-get installs
+        # by copying out of the seed, so "the installer recovered" means a command
+        # really appeared on PATH where there was none — not that a stub exited 0.
+        self.seed = tmp_path / "seed"
+        self.seed.mkdir()
         for name, body in FAKES.items():
-            f = self.bin / name
-            f.write_text(body)
-            f.chmod(0o755)
+            for d in (self.bin, self.seed):
+                f = d / name
+                f.write_text(body)
+                f.chmod(0o755)
+        # A healthy machine has the compose v2 plugin. `docker compose` consults
+        # this marker, so a test drops it to mean "engine up, no compose".
+        (self.bin / ".compose-plugin").write_text("")
         # The sandbox is the WHOLE PATH (see _env). Without that, dropping a fake
         # to simulate "this workstation has no docker" just fell through to the
         # real binary in /usr/bin and the test proved nothing. So the ordinary
         # tools the script needs are linked in explicitly, and only those.
         for name in ("basename", "dirname", "tr", "sleep", "mkdir", "ln", "id",
                      "cat", "sed", "rm", "env", "uname", "chmod", "printf", "awk",
+                     # cp: the apt-get fake installs by copying out of the seed.
+                     "cp",
                      # grep: the script reads the CLI's own refusal to work out
                      # which build verb it speaks. Without it here the probe
                      # silently answered "the old one" and the bring-up assertions
@@ -150,12 +204,20 @@ class Sandbox:
         for n in names:
             (self.bin / n).unlink(missing_ok=True)
 
+    def drop_compose(self):
+        """Neither the v2 plugin nor standalone compose — the state a machine is
+        in when the engine installed and its compose package did not."""
+        (self.bin / ".compose-plugin").unlink(missing_ok=True)
+        (self.bin / "docker-compose").unlink(missing_ok=True)
+
     def _env(self, extra):
         env = {
             # ONLY the sandbox: a test that removes a command must actually remove
             # it, not be shadowed by the real one on this machine.
             "PATH": str(self.bin),
             "FAKE_LOG": str(self.log),
+            "FAKE_BIN": str(self.bin),
+            "FAKE_SEED": str(self.seed),
             "HOME": str(self.tmp),
             # Root already: the script's `exec sudo` line is for a real desktop.
         }

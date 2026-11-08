@@ -40,11 +40,84 @@ class TestPrerequisitesAreCheckedBeforeAnythingIsAsked:
         assert "Docker daemon is not running" in p.stderr
         assert "systemctl start docker" in p.stderr, "tell them the command"
 
-    def test_missing_docker_is_named_not_guessed_at(self, installer):
+    def test_a_missing_runtime_is_installed_not_reported(self, installer):
+        """The bug this class exists for. It used to print "Docker is required and
+        is not installed" and exit 1 — handing the one prerequisite the operator
+        could do least about to the one person who had just been given a finished
+        install. An installer that stops at a missing dependency it could fetch
+        has not installed the software."""
         installer.drop("docker")
         p = installer.run("all")
+        assert p.returncode == 0, p.stderr
+        assert "apt-get install" in installer.calls(), \
+            "it refused instead of installing a runtime"
+        # and it got all the way through to bringing the products up
+        assert "sysiblectl controller rebuild" in installer.calls()
+
+    def test_it_falls_back_to_podman_when_docker_ce_is_unreachable(self, installer):
+        """Exactly the machine that produced the report. docker-ce is a Recommends
+        from download.docker.com, excluded from the ISO package list and installed
+        by a build hook; podman/buildah/skopeo are hard Depends from Debian itself.
+        So the runtime that is guaranteed and the runtime the stack demanded were
+        different ones, and when the Docker repo was not wired up the operator was
+        told to go and install Docker by hand."""
+        installer.drop("docker")
+        p = installer.run("all", FAKE_APT_NO="docker-ce")
+        assert p.returncode == 0, p.stderr
+        calls = installer.calls()
+        assert re.search(r"apt-get install.*\bpodman-docker\b", calls), calls
+        assert "sysiblectl controller rebuild" in calls, \
+            "it installed a runtime and then still did not install the software"
+
+    def test_the_podman_fallback_takes_compose_that_writes_docker_labels(self, installer):
+        """podman-compose would be the obvious partner and is the wrong one:
+        sysiblectl finds a product's compose file by reading the running
+        container's com.docker.compose.* labels back, and podman-compose writes
+        io.podman.compose.* instead, so every one of those lookups returns empty.
+        Standalone docker-compose drives podman's socket and writes the labels."""
+        installer.drop("docker")
+        installer.run("all", FAKE_APT_NO="docker-ce")
+        calls = installer.calls()
+        assert "podman-compose" not in calls, calls
+        assert re.search(r"apt-get install.*\bdocker-compose\b", calls), calls
+
+    def test_no_runtime_and_no_way_to_get_one_still_says_so(self, installer):
+        """Installing is the new behaviour; inventing a success is not."""
+        installer.drop("docker")
+        p = installer.run("all", FAKE_APT_NO="docker-ce podman podman-docker")
         assert p.returncode != 0
-        assert "Docker is required" in p.stderr
+        assert "No container runtime" in p.stderr
+        assert "Nothing has been installed" in p.stderr
+        assert "sysiblectl controller rebuild" not in installer.calls()
+
+    def test_a_runtime_with_no_compose_is_completed_not_abandoned(self, installer):
+        """Compose is installed separately from the engine on every path, so a
+        machine can have a working daemon and nothing to bring a product up with.
+        That used to be found at the first bring-up, products in, half-installed."""
+        installer.drop_compose()
+        p = installer.run("all")
+        assert p.returncode == 0, p.stderr
+        assert re.search(r"apt-get install.*compose", installer.calls()), \
+            "it went to the bring-up with no compose at all"
+
+    def test_the_runtime_is_sorted_out_before_the_menu(self, installer):
+        """Same reason the network check moved up: a prerequisite discovered
+        mid-run loses its message when the launcher's window closes."""
+        installer.drop("docker")
+        calls = installer.run("all").stdout + installer.calls()
+        apt = installer.calls().index("apt-get install")
+        ctl = installer.calls().index("sysiblectl controller rebuild")
+        assert apt < ctl, "it started installing products before it had a runtime"
+
+    def test_being_offline_is_reported_before_blaming_the_runtime(self, installer):
+        """Every runtime path here is an apt fetch, so "could not install Docker"
+        is the wrong thing to say to someone who is simply not on a network."""
+        installer.drop("docker")
+        p = installer.run("all", FAKE_ONLINE=0)
+        assert p.returncode != 0
+        assert "No internet connection" in p.stderr
+        assert "container runtime" not in p.stderr
+        assert "apt-get install" not in installer.calls()
 
     def test_missing_git_is_named(self, installer):
         installer.drop("git")
