@@ -198,7 +198,52 @@ jobs:
             Kubernetes, infrastructure-as-code, cloud CLIs, VSCodium and the SysTerm
             terminal — plus the Sysible Controller CE installer.
 
-            **Fixed in 1.0.5 — wallpapers that stay sharp on a laptop.** The
+            **Fixed in 1.0.6 — the login screen is branded again.** Since
+            1 September the greeter had been stock GNOME grey on every image.
+            The background was being painted from a rule compiled into
+            `gnome-shell-theme.gresource`; a change that removed that rebuild
+            kept only a dconf key the Debian greeter has never read, so there
+            was nothing left painting it — and nothing noticed, because the
+            build only checked that the login watermark was wired up, and that
+            watermark is a deliberately transparent 1×1 PNG. The branding was
+            always the background. An installed machine can refresh it with
+            `sudo sysible-brand-greeter`, which keeps the stock resource so
+            `--revert` puts GNOME back exactly as it was.
+
+            **Fixed in 1.0.6 — the desktop can no longer empty itself in
+            silence.** GNOME Shell sets `disable-user-extensions` to true by
+            itself when it believes an extension hung it. Every extension then
+            stops loading — dock, desktop icons, the panel readout — while
+            still listing as enabled, and nothing anywhere says so. Seen on a
+            machine that took two months of Debian updates at once. The default
+            now states the switch explicitly, and the branding guard reports it
+            with the one line that undoes it.
+
+            **Fixed in 1.0.6 — wallpapers back to the rendering people liked.**
+            1.0.5 widened the contour strokes to stop them going sub-pixel on a
+            small laptop panel. Anchoring widths at the smallest shipped panel
+            makes every larger one proportionally heavier, so on a 2560-wide
+            screen the green accents landed near 4px and read as stripes. The
+            art is restored to the 28 August rendering, carrying the
+            ENGINEERING · AUTOMATION · CLOUD tagline, and is now pinned by
+            checksum so it cannot change again without someone saying so.
+
+            **Fixed in 1.0.6 — VM pointer integration reaches installed
+            machines.** `spice-vdagent` and `qemu-guest-agent` were added to the
+            ISO in 1.0.3 and never to the metapackage, which is the only thing
+            `apt upgrade` delivers — so the fix for clicks landing away from the
+            cursor on KVM reached fresh installs and nobody else.
+
+            **Fixed in 1.0.6 — `apt upgrade` stopped failing on this repository.**
+            Packages were stamped with a CI run number that is unique per
+            workflow rather than globally, so two different builds could claim
+            one filename while the pool is served immutable. That produced
+            `File has unexpected size` on every Sysible package. Versions now
+            carry a timestamp, the run id and the commit, publishes are
+            serialised, and a publish that would overwrite an existing path
+            fails instead of corrupting the repository.
+
+            **From 1.0.5 — wallpapers that stay sharp on a laptop.** The
             artwork is drawn at 7680x4320, but almost nobody looks at it there:
             the desktop scales it to the panel. Stroke widths were set as a
             fraction of that master, so they shrank with the screen — the
