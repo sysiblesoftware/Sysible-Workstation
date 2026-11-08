@@ -55,7 +55,7 @@ Recommends:
 # is much larger). Obsidian isn't in Debian; the vendor hook installs it.
  libreoffice-writer, libreoffice-calc, libreoffice-impress, libreoffice-gnome,
 # VM guest integration (clipboard, display auto-resize, pointer alignment) —
-# Sysible Linux commonly runs in a VM, incl. on Apple Silicon. This needs BOTH
+# Sysible Workstation commonly runs in a VM, incl. on Apple Silicon. This needs BOTH
 # families and the reason is not cosmetic.
 #
 # open-vm-tools is VMware's and does nothing on a KVM/QEMU host. On KVM with

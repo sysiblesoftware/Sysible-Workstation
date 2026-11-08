@@ -47,8 +47,8 @@ label=green,black
 
 # Which edition this is, for the window titles. PRETTY_NAME carries a tagline on
 # Workstation ("Sysible Workstation — Engineering Automation Cloud"); keep the name.
-_EDITION="$( ( . /etc/os-release 2>/dev/null; printf '%s' "${PRETTY_NAME:-Sysible Linux}" ) | sed 's/ [—-].*//' )"
-[ -n "$_EDITION" ] || _EDITION="Sysible Linux"
+_EDITION="$( ( . /etc/os-release 2>/dev/null; printf '%s' "${PRETTY_NAME:-Sysible Workstation}" ) | sed 's/ [—-].*//' )"
+[ -n "$_EDITION" ] || _EDITION="Sysible Workstation"
 
 say()  { printf '%s\n' "$*"; }
 # Every failure path here called _warn, and nothing defined it. Under `set -eu`
