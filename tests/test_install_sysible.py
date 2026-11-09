@@ -328,3 +328,61 @@ class TestItAsksTheCliWhichVerbItSpeaks:
         argument parsing and touches nothing."""
         installer.run("all")
         assert "__probe__" not in installer.calls()
+
+
+class TestTheConsolesAreBuiltForWhereTheyAreServed:
+    """A fresh `install-sysible slop` came up with blank Controller and SLEP
+    consoles.
+
+    Behind the SLOP gateway each app is path-routed (/slep/, /connect/). A
+    console built for the domain root bakes an absolute /assets/index-*.js into
+    its index.html, so the browser asks the SLOP PORTAL for that app's script,
+    gets a 404, and renders nothing — no error, just a blank page.
+
+    SLOP's own install.sh passes SYSIBLE_BASE_PATH per app for exactly this
+    reason. `install-sysible` brings products up through sysiblectl instead, and
+    sysiblectl never sets one, so this path passed nothing at all.
+    """
+
+    def _basepaths(self, installer):
+        out = {}
+        for line in installer.calls().splitlines():
+            if line.startswith("basepath "):
+                k, _, v = line[len("basepath "):].partition("=")
+                out[k] = v
+        return out
+
+    def test_an_app_behind_the_gateway_is_built_for_its_prefix(self, installer):
+        installer.run("slop")
+        bp = self._basepaths(installer)
+        assert bp.get("slep") == "/slep/", bp
+        assert bp.get("connect") == "/connect/", bp
+
+    def test_the_controller_is_not_pinned_to_a_prefix(self, installer):
+        """Its console defaults to a relative base and reads the prefix at
+        runtime from <base href>, so ONE build is right behind the gateway and on
+        its own port. Pinning would break the direct address — the same
+        controller is reached both ways."""
+        installer.run("slop")
+        bp = self._basepaths(installer)
+        assert bp.get("controller") in ("<unset>", ""), \
+            f"the controller was pinned to {bp.get('controller')!r}"
+
+    def test_a_standalone_install_pins_nothing(self, installer):
+        """With no gateway every app is served at its own root; a prefix there is
+        the same bug pointing the other way."""
+        installer.run("all")
+        bp = self._basepaths(installer)
+        for app in ("controller", "slep", "connect"):
+            assert bp.get(app) in ("<unset>", ""), (app, bp)
+
+    def test_the_prefix_matches_the_gateway_route(self, installer):
+        """The gateway path-routes /<product>/, so the build-time prefix has to
+        be exactly that, leading and trailing slash included — vite joins it to
+        asset names by concatenation."""
+        installer.run("slop")
+        for app, got in self._basepaths(installer).items():
+            if got in ("<unset>", ""):
+                continue
+            assert got.startswith("/") and got.endswith("/"), (app, got)
+            assert got == f"/{app}/", (app, got)

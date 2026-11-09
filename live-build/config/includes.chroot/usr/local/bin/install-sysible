@@ -1,5 +1,5 @@
 #!/bin/sh
-# sync-sha256: ec5621d43cbae84c29a624331985b3be2afeff802e182a11446d9633eaf169a5
+# sync-sha256: 120ab5a1dbf8b72d7aa415d18173ff938f11e519b618cbfdd31ad3dbd9777b25
 # install-sysible — install the Sysible CE stack on this machine, on demand.
 # Nothing about the platform is baked into the ISO except this helper, so a fresh
 # install runs no Sysible services and opens no ports until you choose to install
@@ -316,7 +316,29 @@ for p in $WANT; do
   _dir="$SRC_DIR/$(dirname_for "$p")"
   _var="$(envvar_for "$p")"
   # SYSIBLE_<P>_DIR lets sysiblectl find the checkout before any container exists.
-  if env "$_var=$_dir" sysiblectl "$p" "$CTL_BUILD_VERB"; then
+  #
+  # SYSIBLE_BASE_PATH is the URL prefix a console's assets are fetched from, and
+  # it has to be decided HERE because sysiblectl never sets one. Behind the SLOP
+  # gateway each app is path-routed (/slep/, /connect/), so a console built for
+  # the domain root bakes an absolute /assets/index-*.js into its index.html —
+  # the browser then asks the SLOP PORTAL for that app's script, gets a 404, and
+  # renders a blank page. SLOP's own install.sh passes the prefix for exactly
+  # this reason; `install-sysible slop` went through sysiblectl instead and so
+  # passed nothing, which is why a fresh SLOP install came up with blank
+  # consoles.
+  #
+  # NOT for the controller. Its console defaults to a RELATIVE base and reads
+  # the prefix at runtime from <base href>, so one build is correct both behind
+  # the gateway and on its own port — and pinning a prefix would break the
+  # direct address, since the same controller is reached both ways.
+  #
+  # Only when the gateway is actually being installed: a standalone app is
+  # served at its own root and a prefix would break it.
+  _bp=""
+  if [ "$SLOP" -eq 1 ]; then
+    case "$p" in controller) _bp="" ;; *) _bp="/$p/" ;; esac
+  fi
+  if env "$_var=$_dir" ${_bp:+SYSIBLE_BASE_PATH="$_bp"} sysiblectl "$p" "$CTL_BUILD_VERB"; then
     say "  $p is up."
   else
     FAILED="$FAILED $p"; _warn "  $p did not come up — continuing with the rest (scroll up for the error)."

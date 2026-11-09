@@ -119,6 +119,11 @@ if [ "$1" = rebuild ] && [ "$2" = __probe__ ]; then
   exit 1
 fi
 printf 'sysiblectl %s\n' "$*" >> "$FAKE_LOG"
+# The URL prefix a console's assets are built for. sysiblectl never sets one, so
+# install-sysible has to — and getting it wrong is invisible until a browser asks
+# the SLOP portal for an app's script and renders a blank page. Log it per call
+# so a test can assert it per product.
+printf 'basepath %s=%s\n' "$1" "${SYSIBLE_BASE_PATH-<unset>}" >> "$FAKE_LOG"
 exit "${FAKE_CTL_RC:-0}"
 """,
     # `list` answers in the real catalog's shape: a header row, one row per tool,
