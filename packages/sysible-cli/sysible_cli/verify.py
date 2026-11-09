@@ -111,6 +111,11 @@ def c_ssh() -> Result:
 
 
 def c_docker() -> Result:
+    # Docker Engine + Compose are hard Depends of the metapackage: every Sysible
+    # product runs as a container and is brought up with compose. So this is not
+    # an "is a runtime around somewhere" check — a box that cannot run them is
+    # not ready, and saying so softly is how one reached an operator who was then
+    # told by install-sysible to go and fetch Docker themselves.
     if _have("docker"):
         try:
             if _run(["docker", "info"]).returncode == 0:
@@ -119,16 +124,32 @@ def c_docker() -> Result:
             pass
         return Result(WARN, "docker CLI present, daemon not reachable (add your user to the docker group?)")
     if _have("podman"):
-        return Result(OK, "podman present (rootless containers)")
-    return Result(FAIL, "no container runtime (docker/podman)")
+        # podman alone works, but nothing drives it: sysiblectl invokes `docker`.
+        # podman-docker supplies that shim and would have matched above, so
+        # reaching here means the shim is missing.
+        return Result(WARN, "podman present but no docker command — install podman-docker, "
+                            "or docker-ce (sudo apt-get install -y docker-ce docker-compose-plugin)")
+    return Result(FAIL, "no container runtime (docker/podman) — no Sysible product can run")
 
 
 def c_compose() -> Result:
+    # Compose was a WARN here, which is the wrong severity now that it is a hard
+    # dependency: it is packaged separately from the engine on every path, so a
+    # machine really can have a working daemon and nothing to bring a product up
+    # with, and that used to be discovered at the first bring-up.
     if _have("docker") and _run(["docker", "compose", "version"]).returncode == 0:
         return Result(OK, "docker compose v2")
     if _have("docker-compose"):
         return Result(WARN, "legacy docker-compose v1 (prefer the v2 plugin)")
-    return Result(WARN, "compose not installed")
+    if _have("podman-compose"):
+        # It drives podman, but sysiblectl finds a product's compose file by
+        # reading com.docker.compose.* labels back off the running container and
+        # podman-compose writes io.podman.compose.*, so those lookups come back
+        # empty and discovery falls through to the checkout path.
+        return Result(WARN, "only podman-compose (writes io.podman.compose.* labels; "
+                            "prefer docker-compose-plugin or docker-compose)")
+    return Result(FAIL, "compose not installed — nothing can bring a product up "
+                        "(sudo apt-get install -y docker-compose-plugin)")
 
 
 def c_ansible() -> Result:

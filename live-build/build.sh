@@ -63,6 +63,56 @@ case "$STVER" in
         exit 1 ;;
 esac
 
+# --- Docker's apt repo, available BEFORE any package is installed -----------
+# docker-ce and docker-compose-plugin are hard Depends of the metapackage: every
+# Sysible product runs as a container and is brought up with compose, so an
+# install without them cannot run the software it was installed to run.
+#
+# That makes WHEN the repo appears load-bearing. The metapackage .deb is
+# installed out of config/packages.chroot during the package phase, which is
+# before any hooks/normal/* run — so the repo that sysible-release and the vendor
+# hook configure arrives too late to satisfy a Depends, and the build would die
+# on "Package 'docker-ce' has no installation candidate". live-build's
+# config/archives is the mechanism that lands a repo early enough; this is also
+# why docker-ce can stay in the VEND list below (it is not in Debian, and the
+# metapackage's own Depends is what pulls it in).
+#
+# The key is FINGERPRINT-CHECKED against Docker's published signing key. A
+# silently-rotated vendor key has broken this build before (HashiCorp's), and the
+# failure mode is 40 minutes of build followed by an unresolvable dependency, so
+# a mismatch stops here and names the key instead.
+DOCKER_KEY_FPRS="9DC858229FC7DD38854AE2D88D81803C0EBFCD88 D3306A018370199E527AE7997EA0A9C3F273FCD8"
+mkdir -p config/archives
+printf 'deb https://download.docker.com/linux/debian %s stable\n' "$CODENAME" \
+    > config/archives/docker.list.chroot
+curl -fsS --connect-timeout 20 --max-time 120 --retry 5 --retry-delay 3 --retry-all-errors \
+    https://download.docker.com/linux/debian/gpg \
+    -o config/archives/docker.key.chroot \
+    || { echo "ERROR: could not fetch Docker's apt signing key from download.docker.com." >&2
+         echo "       docker-ce is a hard dependency of the metapackage, so the build cannot" >&2
+         echo "       continue without the repo that provides it." >&2
+         exit 1; }
+if command -v gpg >/dev/null 2>&1; then
+    _dfpr="$(gpg --show-keys --with-colons --fingerprint \
+                 config/archives/docker.key.chroot 2>/dev/null \
+             | awk -F: '/^fpr:/ {print $10}')"
+    for _want in $DOCKER_KEY_FPRS; do
+        printf '%s\n' "$_dfpr" | grep -qx "$_want" || {
+            echo "ERROR: Docker's apt signing key does not carry the pinned fingerprint" >&2
+            echo "       $_want" >&2
+            echo "       The key it served carries: $(printf '%s' "$_dfpr" | tr '\n' ' ')" >&2
+            echo "       If Docker rotated the key, verify the new one against Docker's" >&2
+            echo "       published fingerprint and update DOCKER_KEY_FPRS here and in" >&2
+            echo "       packages/sysible-release/scripts/fetch-third-party-keyrings.sh." >&2
+            exit 1; }
+    done
+    echo "Docker apt repo: $CODENAME stable (signing key fingerprints verified)."
+else
+    echo "WARNING: gpg is not available here, so Docker's signing key could NOT be"
+    echo "         fingerprint-checked. The repo is still pinned to that key, but a"
+    echo "         rotation would not be caught until apt rejects the archive."
+fi
+
 # --- expand the metapackage into the Debian-native toolkit -----------------
 # Every package in sysible-workstation's Depends/Recommends/Suggests EXCEPT the
 # sysible-* ones (included directly), systerm (its own repo), and the vendor /

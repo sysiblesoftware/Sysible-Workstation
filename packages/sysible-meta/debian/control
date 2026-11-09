@@ -43,6 +43,31 @@ Depends: ${misc:Depends},
 # missing package first.
  sshpass,
 # --- containers ---
+# Docker Engine + Compose are HARD dependencies, not Recommends. Every Sysible
+# product runs as a container and is brought up with compose, so an install
+# without them cannot run the software it was installed to run — which is exactly
+# what happened: a machine reached an operator who was then told by the installer
+# to go and fetch Docker themselves.
+#
+# They sat in Recommends because they come from download.docker.com rather than
+# Debian, and a Recommends meant "a missing upstream repo never blocks the whole
+# install". The cost of that safety was that the one thing the products cannot do
+# without was the one thing nothing guaranteed: docker-ce is excluded from the
+# generated ISO toolkit list by the VEND filter in live-build/build.sh, the vendor
+# hook was the only thing installing it, and no verify step checked the result.
+#
+# Depends is only safe because the ISO build now configures Docker's apt repo
+# through live-build's config/archives, which is set up BEFORE packages are
+# installed. This .deb is installed from config/packages.chroot during that same
+# phase, so without the archive the dependency would be unresolvable and the ISO
+# build would fail outright. build.sh writes both the list and the (fingerprint-
+# checked) key; tests/test_docker_is_part_of_the_default_install.py pins all of it
+# together so the three cannot drift apart again.
+ docker-ce, docker-compose-plugin, containerd.io,
+# podman stays alongside, and is not redundant: it is in Debian proper, so it is
+# the runtime that is present even when the Docker repo is unreachable, and
+# install-sysible falls back to it (with podman-docker) on a machine where
+# docker-ce could not be installed.
  podman, buildah, skopeo,
 Recommends:
 # Heavier or GUI pieces — installed by default, removable with --no-install-recommends.
@@ -90,7 +115,6 @@ Recommends:
  cherrytree,
 # These come from third-party repos wired up by sysible-release; Recommends so a
 # missing upstream repo never blocks the whole install:
- docker-ce, docker-compose-plugin, containerd.io,
  kubectl, helm, k9s,
  opentofu,
  awscli, sops, age,
@@ -104,10 +128,11 @@ Description: Sysible Workstation — engineering workstation (all-in-one)
  Linux/DevOps/SRE/platform engineer reaches for, installed and ready on first boot,
  so there is no half-hour of apt after every fresh install.
  .
- Depends carries the must-haves (shell, networking, containers via podman, the
- modern CLI set, Python, Ansible, the Sysible CLI and SysTerm terminal). Recommends
- carries the heavier and GUI pieces (GNOME, VSCodium, Docker CE, Kubernetes, OpenTofu,
- cloud CLIs, virtualization) so a lean build can drop them with --no-install-recommends.
+ Depends carries the must-haves (shell, networking, the container runtime and
+ compose that every Sysible product runs on, the modern CLI set, Python, Ansible,
+ the Sysible CLI and SysTerm terminal). Recommends carries the heavier and GUI
+ pieces (GNOME, VSCodium, Kubernetes, OpenTofu, cloud CLIs, virtualization) so a
+ lean build can drop them with --no-install-recommends.
  .
  Tools that are not in Debian (Docker CE, kubectl/helm, Terraform/OpenTofu, cloud
  CLIs, VS Code) are pulled from their upstream apt repositories, which sysible-release
