@@ -466,18 +466,22 @@ echo "sysible-verify: OK — container runtime present ($_rt) with $_compose."
 #
 # dpkg ownership is the thing that makes it updatable, so that is what is
 # asserted, not merely that the file exists.
-[ -x /usr/sbin/install-sysible ] \
-    || fail "/usr/sbin/install-sysible is missing — the sysible-cli package did not install it, so apt cannot keep the installer current"
-_owner="$(dpkg -S /usr/sbin/install-sysible 2>/dev/null | cut -d: -f1)"
-[ -n "$_owner" ] \
-    || fail "/usr/sbin/install-sysible is not owned by any package — it is back to being image-only, which no apt upgrade can reach"
-# The documented path every runbook uses must resolve to the packaged file, and
-# must be a LINK: a regular file there outranks /usr/sbin on root's PATH and
-# would shadow every future update, which is exactly the old bug.
-[ -L /usr/local/bin/install-sysible ] \
-    || fail "/usr/local/bin/install-sysible is not a symlink — a real file there shadows the packaged installer on root's PATH and apt updates would never take effect"
-[ "$(readlink -f /usr/local/bin/install-sysible)" = /usr/sbin/install-sysible ] \
-    || fail "/usr/local/bin/install-sysible points at $(readlink -f /usr/local/bin/install-sysible), not the packaged /usr/sbin/install-sysible"
+# ALL THREE names, because an operator types whichever one they know:
+# `sysible-install` is how Sysible Server is installed, and
+# `install-sysible-controller` is still in runbooks. The aliases only exec
+# install-sysible, but if one of them is a stale regular file it outranks
+# /usr/sbin on root's PATH and no apt update of it ever takes effect.
+for _n in install-sysible sysible-install install-sysible-controller; do
+    [ -x "/usr/sbin/$_n" ] \
+        || fail "/usr/sbin/$_n is missing — the sysible-cli package did not install it, so apt cannot keep it current"
+    _owner="$(dpkg -S "/usr/sbin/$_n" 2>/dev/null | cut -d: -f1)"
+    [ -n "$_owner" ] \
+        || fail "/usr/sbin/$_n is not owned by any package — it is back to being image-only, which no apt upgrade can reach"
+    [ -L "/usr/local/bin/$_n" ] \
+        || fail "/usr/local/bin/$_n is not a symlink — a real file there shadows the packaged copy on root's PATH and apt updates would never take effect"
+    [ "$(readlink -f "/usr/local/bin/$_n")" = "/usr/sbin/$_n" ] \
+        || fail "/usr/local/bin/$_n points at $(readlink -f "/usr/local/bin/$_n"), not the packaged /usr/sbin/$_n"
+done
 # And it offers the teardown, because "uninstall" that removes only the CLI
 # symlinks is what sent operators to delete volumes by hand.
 grep -q -- '--uninstall' /usr/sbin/install-sysible \

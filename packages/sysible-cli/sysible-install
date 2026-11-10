@@ -1,4 +1,5 @@
 #!/bin/sh
+# sync-sha256: 1701246572856cdd0d039c680946158a76bb3a5a272384e964ba5cb68c6bca3f
 # sysible-install — friendly alias for `install-sysible`.
 #
 # The unified installer is `install-sysible` (verb-noun, matching install-sysible-

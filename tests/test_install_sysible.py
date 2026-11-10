@@ -510,3 +510,76 @@ class TestReinstalling:
         p = installer.run("--frobnicate")
         assert p.returncode != 0
         assert "unknown option" in p.stderr
+
+
+class TestEveryNameAnOperatorTypes:
+    """`sysible-install` is how Sysible Server is installed — it is the name an
+    operator is most likely to type, and it was shipping only inside the ISO.
+
+    Both aliases just exec install-sysible, so a stale alias does the right thing
+    anyway. The reason they are packaged is the other half: a stale REGULAR FILE
+    at any of these /usr/local/bin paths outranks /usr/sbin on root's PATH, so
+    the postinst has to take over all three, not just the canonical one.
+    """
+    ALIASES = ("sysible-install", "install-sysible-controller")
+
+    @pytest.mark.parametrize("name", ALIASES)
+    def test_the_alias_ships_from_the_package(self, name):
+        from conftest import PKG_BIN, BIN
+        assert (PKG_BIN / name).is_file(), (
+            f"{name} is not in the package, so no apt upgrade can reach it"
+        )
+        assert not (BIN / name).exists(), (
+            f"{name} is in includes.chroot as well — two copies is how they drift"
+        )
+
+    @pytest.mark.parametrize("name", ALIASES)
+    def test_the_alias_still_just_delegates(self, name):
+        """If one ever grows logic of its own, the suite has three installers to
+        keep in step instead of one. That is what install-sysible-controller used
+        to be, and it shipped a pre-container layout for months."""
+        from conftest import script_source
+        lines = script_source(name).read_text().splitlines()
+        assert lines[0] == "#!/bin/sh", lines[0]
+        # Everything after the shebang that is not a comment — the sync stamp is
+        # a comment too, so filtering them is what leaves the actual body.
+        body = [l for l in lines[1:] if l.strip() and not l.strip().startswith("#")]
+        assert len(body) == 1, f"{name} is no longer a one-line alias: {body}"
+        assert body[0].startswith("exec install-sysible"), body[0]
+
+    def test_the_package_installs_all_three_to_usr_sbin(self):
+        from conftest import PKG_BIN
+        inst = (PKG_BIN / "debian" / "sysible-cli.install").read_text().split()
+        for name in ("install-sysible",) + self.ALIASES:
+            assert name in inst, f"{name} is not in debian/sysible-cli.install"
+        assert inst.count("usr/sbin") == 3
+
+    @pytest.mark.parametrize("name", ("install-sysible",) + ALIASES)
+    def test_the_postinst_takes_over_a_stale_copy_of_each(self, name):
+        """A regular file left by an older ISO shadows the packaged one forever.
+        Taking over only install-sysible would leave Server's own entry point
+        stale."""
+        from conftest import PKG_BIN
+        post = (PKG_BIN / "debian" / "sysible-cli.postinst").read_text()
+        assert name in post, f"the postinst does not take over {name}"
+        assert "/var/backups/sysible" in post, \
+            "it replaces the operator's file without keeping a copy"
+
+    @pytest.mark.parametrize("name", ("install-sysible",) + ALIASES)
+    def test_the_prerm_only_removes_a_link_that_is_ours(self, name):
+        from conftest import PKG_BIN
+        pre = (PKG_BIN / "debian" / "sysible-cli.prerm").read_text()
+        assert name in pre
+        assert "readlink" in pre, \
+            "it removes the path without checking the link still points at us"
+
+    def test_the_iso_refuses_to_ship_an_unowned_copy(self):
+        """The guarantee is dpkg OWNERSHIP, not existence — existence was always
+        true and was never the problem."""
+        import pathlib
+        v = (pathlib.Path(__file__).resolve().parents[1] / "live-build" / "config"
+             / "hooks" / "normal" / "9500-sysible-verify.hook.chroot").read_text()
+        assert "dpkg -S" in v, "the ISO does not check that a package owns the installer"
+        assert "not owned by any package" in v
+        for name in ("install-sysible", "sysible-install", "install-sysible-controller"):
+            assert name in v, f"the ISO assertion does not cover {name}"

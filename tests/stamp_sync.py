@@ -22,6 +22,11 @@ HEADER = "# sync-sha256: "
 # Files that must stay identical across the edition repos.
 SHARED = [
     "packages/sysible-cli/install-sysible",
+    # The two alias names, shipped from the package for the same reason as the
+    # installer itself. `sysible-install` is how Sysible Server is installed, so
+    # it is the name an operator is most likely to type.
+    "packages/sysible-cli/sysible-install",
+    "packages/sysible-cli/install-sysible-controller",
     "live-build/config/includes.chroot/usr/local/bin/sysible-hint",
     "live-build/config/includes.chroot/usr/local/bin/sysible-release-check",
 ]

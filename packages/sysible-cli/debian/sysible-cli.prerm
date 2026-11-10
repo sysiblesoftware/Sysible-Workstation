@@ -1,13 +1,15 @@
 #!/bin/sh
-# Remove the compatibility link on the way out, but only if it still points at
-# us — never a file or link the operator has since put there themselves.
+# Remove the compatibility links on the way out, but only where one still points
+# at us — never a file or link the operator has since put there themselves.
 set -e
-LINK=/usr/local/bin/install-sysible
 case "$1" in
   remove|deconfigure)
-    if [ -L "$LINK" ] && [ "$(readlink "$LINK")" = "/usr/sbin/install-sysible" ]; then
-      rm -f "$LINK"
-    fi
+    for n in install-sysible sysible-install install-sysible-controller; do
+      link="/usr/local/bin/$n"
+      if [ -L "$link" ] && [ "$(readlink "$link")" = "/usr/sbin/$n" ]; then
+        rm -f "$link"
+      fi
+    done
     ;;
 esac
 #DEBHELPER#
