@@ -40,6 +40,10 @@ case "$1" in
     # the destination is the LAST argument
     for d in "$@"; do :; done
     mkdir -p "$d/.git"
+    # Every real product checkout has a compose file, and install-sysible now
+    # records the console's URL prefix in the .env beside it. A fake clone with
+    # no compose file is not a checkout any of this could act on.
+    printf 'services:\n  app:\n    image: busybox\n' > "$d/docker-compose.yml"
     case "$d" in
       *controller*)
         [ "${FAKE_CTL_HAS_CLI:-1}" = 1 ] || exit 0

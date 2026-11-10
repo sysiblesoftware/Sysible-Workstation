@@ -345,11 +345,34 @@ class TestTheConsolesAreBuiltForWhereTheyAreServed:
     """
 
     def _basepaths(self, installer):
+        """What each product's checkout will be built with, read from the .env
+        compose actually consults — not from the environment of one command.
+
+        The first version of this asserted the env var passed to that single
+        sysiblectl call, and passed while the real behaviour was still wrong:
+        the value is gone by the next `sysiblectl <p> rebuild`, which rebuilds
+        the console for the domain root and blanks it again. So the assertion
+        has to be the durable thing.
+        """
         out = {}
-        for line in installer.calls().splitlines():
-            if line.startswith("basepath "):
-                k, _, v = line[len("basepath "):].partition("=")
-                out[k] = v
+        for d in sorted(installer.src_dir.glob("*")):
+            env = None
+            for c in (d, d / "deploy", d / "deploy" / "docker"):
+                if (c / ".env").is_file():
+                    env = c / ".env"
+                    break
+            key = {"sysible-controller": "controller",
+                   "sysible-linux-engineering-platform": "slep",
+                   "sysible-connect": "connect",
+                   "sysible-linux-operations-platform": "slop"}.get(d.name)
+            if key is None:
+                continue
+            val = "<unset>"
+            if env:
+                for line in env.read_text().splitlines():
+                    if line.startswith("SYSIBLE_BASE_PATH="):
+                        val = line.split("=", 1)[1]
+            out[key] = val
         return out
 
     def test_an_app_behind_the_gateway_is_built_for_its_prefix(self, installer):

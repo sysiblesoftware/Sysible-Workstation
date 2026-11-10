@@ -1,5 +1,5 @@
 #!/bin/sh
-# sync-sha256: 120ab5a1dbf8b72d7aa415d18173ff938f11e519b618cbfdd31ad3dbd9777b25
+# sync-sha256: 6e6dcc26cc18e8619b5fda576a2214aa24d0c1567b264634cb7eca670e08af38
 # install-sysible — install the Sysible CE stack on this machine, on demand.
 # Nothing about the platform is baked into the ISO except this helper, so a fresh
 # install runs no Sysible services and opens no ports until you choose to install
@@ -257,6 +257,29 @@ else
   WANT="controller slep connect"
 fi
 
+# Where a product's compose file lives — the directory `docker compose` reads
+# its .env from. Same search order sysiblectl uses.
+_compose_dir_of() {
+  for _c in "$1" "$1/deploy" "$1/deploy/docker"; do
+    for _f in docker-compose.yml docker-compose.yaml compose.yml compose.yaml; do
+      [ -f "$_c/$_f" ] && { printf '%s' "$_c"; return 0; }
+    done
+  done
+  return 1
+}
+
+# Set KEY=VALUE in a .env, replacing any line already there for that key.
+# '|' as the sed delimiter because every value written here is a URL path.
+_upsert_env() {  # _upsert_env <file> <key> <value>
+  _f="$1"; _k="$2"; _v="$3"
+  [ -f "$_f" ] || : > "$_f"
+  if grep -q "^${_k}=" "$_f" 2>/dev/null; then
+    sed -i "s|^${_k}=.*|${_k}=${_v}|" "$_f"
+  else
+    printf '%s=%s\n' "$_k" "$_v" >> "$_f"
+  fi
+}
+
 repo_for() { case "$1" in controller) echo "$CTL_REPO" ;; slep) echo "$SLEP_REPO" ;; connect) echo "$CONNECT_REPO" ;; slop) echo "$SLOP_REPO" ;; esac; }
 dirname_for() { basename "$(repo_for "$1")"; }
 envvar_for() { case "$1" in controller) echo SYSIBLE_CONTROLLER_DIR ;; slep) echo SYSIBLE_SLEP_DIR ;; connect) echo SYSIBLE_CONNECT_DIR ;; slop) echo SYSIBLE_SLOP_DIR ;; esac; }
@@ -334,11 +357,27 @@ for p in $WANT; do
   #
   # Only when the gateway is actually being installed: a standalone app is
   # served at its own root and a prefix would break it.
-  _bp=""
-  if [ "$SLOP" -eq 1 ]; then
-    case "$p" in controller) _bp="" ;; *) _bp="/$p/" ;; esac
+  # Record it in the checkout's .env, NOT as a variable for this one command.
+  #
+  # Passing it in the environment builds the console correctly exactly once: the
+  # value is gone by the next `sysiblectl <p> rebuild`, which then rebuilds the
+  # assets for the domain root and the console goes blank again — so the fix
+  # lasted until the first update and looked like it had never worked. compose
+  # reads .env from the directory holding the compose file on EVERY build, which
+  # is why SLOP's own install.sh writes it there (install.sh:610) rather than
+  # exporting it.
+  if [ "$SLOP" -eq 1 ] && [ "$p" != controller ]; then
+    if _cdir="$(_compose_dir_of "$_dir")"; then
+      _upsert_env "$_cdir/.env" SYSIBLE_BASE_PATH "/$p/"
+      say "  console assets will be built for /$p/ (recorded in $_cdir/.env)"
+    else
+      FAILED="$FAILED $p(no-compose-file)"
+      _warn "  no compose file under $_dir — cannot record the URL prefix, so $p's"
+      _warn "  console would be built for the wrong address. Skipping it."
+      continue
+    fi
   fi
-  if env "$_var=$_dir" ${_bp:+SYSIBLE_BASE_PATH="$_bp"} sysiblectl "$p" "$CTL_BUILD_VERB"; then
+  if env "$_var=$_dir" sysiblectl "$p" "$CTL_BUILD_VERB"; then
     say "  $p is up."
   else
     FAILED="$FAILED $p"; _warn "  $p did not come up — continuing with the rest (scroll up for the error)."
