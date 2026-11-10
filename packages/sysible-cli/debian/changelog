@@ -1,3 +1,17 @@
+sysible-cli (0.3.0) sysible; urgency=medium
+
+  * Ship install-sysible from this package, at /usr/sbin/install-sysible.
+    It used to live only in the ISO's includes.chroot, so no apt upgrade could
+    ever replace it: every installer fix reached new images only and left the
+    installed base on a broken copy. postinst takes over a stale
+    /usr/local/bin/install-sysible from an older ISO, which would otherwise keep
+    shadowing the packaged one on root's PATH.
+  * install-sysible gains --uninstall and --reinstall, covering every product
+    (containers, data volumes, checkouts and the CLI) rather than just the
+    sysiblectl symlinks that `sysiblectl uninstall` removes.
+
+ -- Sysible <maintainers@sysible.com>  Mon, 10 Nov 2026 00:00:00 +0000
+
 sysible-cli (0.1.0) sysible; urgency=medium
 
   * Initial release: `sysible verify` (readiness checks, --json, per-area flags).

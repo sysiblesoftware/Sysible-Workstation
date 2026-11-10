@@ -23,6 +23,20 @@ import pytest
 REPO = Path(__file__).resolve().parents[1]
 CHROOT = REPO / "live-build" / "config" / "includes.chroot"
 BIN = CHROOT / "usr" / "local" / "bin"
+# install-sysible moved OUT of includes.chroot and into the sysible-cli package.
+# It used to ship only inside the ISO, so no `apt upgrade` could ever replace it
+# and every installer fix reached new images only. The package installs it to
+# /usr/sbin and its postinst takes over the stale /usr/local/bin copy an older
+# ISO left behind. The other launchers here are still image-only.
+PKG_BIN = REPO / "packages" / "sysible-cli"
+
+
+def script_source(name):
+    """Where a launcher's source lives, wherever it ships from."""
+    for d in (PKG_BIN, BIN):
+        if (d / name).is_file():
+            return d / name
+    raise AssertionError(f"{name} is in neither {PKG_BIN} nor {BIN}")
 UNITS = CHROOT / "usr" / "lib" / "systemd" / "system"
 
 # Fakes stand in for the whole outside world. Each logs its argv, and reads an
@@ -195,7 +209,7 @@ class Sandbox:
                 (self.bin / name).symlink_to(real)
         # A copy of the real script, with only its install root redirected — the
         # logic under test is untouched.
-        src = (BIN / script).read_text()
+        src = script_source(script).read_text()
         self.src_dir = tmp_path / "src"
         assert "SRC_DIR=/opt/sysible-src" in src, "the script no longer sets SRC_DIR"
         src = src.replace("SRC_DIR=/opt/sysible-src", f"SRC_DIR={self.src_dir}")

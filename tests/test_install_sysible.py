@@ -171,8 +171,8 @@ class TestOneScriptForEveryEdition:
 
     def test_the_edition_name_is_read_at_runtime(self, installer, tmp_path):
         """Not written into the file, or the two copies differ by construction."""
-        from conftest import BIN
-        src = (BIN / "install-sysible").read_text()
+        from conftest import script_source
+        src = script_source("install-sysible").read_text()
         body = "\n".join(l for l in src.splitlines() if not l.strip().startswith("#"))
         assert "Sysible Workstation" not in body, \
             "the edition is named in the script, so the Server's copy cannot be identical"
@@ -271,8 +271,8 @@ class TestOptionalSoftware:
         assert "WITH PROBLEMS" in both
 
     def test_it_no_longer_calls_the_deleted_helper(self):
-        from conftest import BIN
-        src = (BIN / "install-sysible").read_text()
+        from conftest import script_source
+        src = script_source("install-sysible").read_text()
         body = "\n".join(l for l in src.splitlines() if not l.strip().startswith("#"))
         assert "sysible-install-obsidian" not in body, \
             "that script was removed with the package split; calling it silently skips Obsidian"
@@ -409,3 +409,104 @@ class TestTheConsolesAreBuiltForWhereTheyAreServed:
                 continue
             assert got.startswith("/") and got.endswith("/"), (app, got)
             assert got == f"/{app}/", (app, got)
+
+
+class TestRemovingEverything:
+    """`sysiblectl uninstall` removes the CLI symlinks and NOTHING else — it
+    leaves every container, volume and checkout in place, and takes away the tool
+    you would have removed them with. Asked for: "a complete uninstall and
+    reinstall command for all products not just sysiblectl"."""
+
+    def test_it_refuses_without_a_confirmation(self, installer):
+        """Piped, with no --yes. Deleting every data volume on a guess is not a
+        default anything should have."""
+        (installer.src_dir / "sysible-controller").mkdir(parents=True, exist_ok=True)
+        p = installer.run("--uninstall")
+        assert p.returncode != 0
+        assert "refusing to remove anything" in p.stderr
+        assert (installer.src_dir / "sysible-controller").exists(), \
+            "it deleted a checkout without being confirmed"
+
+    def test_yes_takes_every_product_down_with_its_volumes(self, installer):
+        p = installer.run("--uninstall", "--yes")
+        assert p.returncode == 0, p.stderr
+        calls = installer.calls()
+        for app in ("controller", "slep", "connect", "slop"):
+            assert re.search(rf"sysiblectl {app} destroy -v\b", calls), (app, calls)
+
+    def test_keep_data_removes_containers_but_not_volumes(self, installer):
+        p = installer.run("--uninstall", "--yes", "--keep-data")
+        assert p.returncode == 0, p.stderr
+        calls = installer.calls()
+        for app in ("controller", "slep", "connect", "slop"):
+            assert re.search(rf"sysiblectl {app} destroy\b(?! -v)", calls), (app, calls)
+        assert "destroy -v" not in calls, "--keep-data still deleted the data volumes"
+
+    def test_the_checkouts_go(self, installer):
+        (installer.src_dir / "sysible-controller").mkdir(parents=True, exist_ok=True)
+        installer.run("--uninstall", "--yes")
+        assert not installer.src_dir.exists(), f"{installer.src_dir} survived"
+
+    def test_it_needs_no_network(self, installer):
+        """A host you are removing Sysible from may well be the one that cannot
+        reach GitHub — that can be WHY you are removing it."""
+        p = installer.run("--uninstall", "--yes", FAKE_ONLINE=0)
+        assert p.returncode == 0, p.stderr
+        assert "No internet connection" not in p.stderr
+        assert "git clone" not in installer.calls()
+
+    def test_it_works_when_the_install_never_finished(self, installer):
+        """No CLI, no checkouts — the state a failed install leaves, and the one
+        an operator most wants a clean slate from."""
+        installer.drop("sysiblectl")
+        p = installer.run("--uninstall", "--yes")
+        assert p.returncode == 0, p.stderr
+        assert "Sysible has been removed" in p.stdout
+
+    def test_it_does_not_offer_the_install_menu(self, installer):
+        """It used to fall through into the product checklist, because the menu
+        ran before the mode was acted on."""
+        out, _status, _asked = installer.run_on_a_terminal("--uninstall", "--yes")
+        assert "Pick what to install" not in out
+
+    def test_it_never_deletes_a_volume_by_name_pattern(self):
+        """compose down -v is the only thing that knows which volumes belong to
+        which project. These sit beside volumes that are not ours, and matching
+        'sysible' against a name is how you delete somebody else's data."""
+        from conftest import script_source
+        body = script_source("install-sysible").read_text()
+        assert "docker volume rm" not in body.replace(
+            "  Remove one with:  docker volume rm <name>", ""), \
+            "the teardown removes volumes directly instead of through compose"
+
+    def test_it_says_the_os_is_left_alone(self, installer):
+        """Removing the products is not removing Docker or the sysible-* packages,
+        and an operator should not have to guess which happened."""
+        p = installer.run("--uninstall", "--yes")
+        assert "OS itself is untouched" in p.stdout
+
+
+class TestReinstalling:
+    def test_it_tears_down_before_installing(self, installer):
+        p = installer.run("--reinstall", "all", "--yes")
+        assert p.returncode == 0, p.stderr
+        calls = installer.calls()
+        first_destroy = calls.index("destroy")
+        first_build = calls.index("controller rebuild")
+        assert first_destroy < first_build, \
+            "it rebuilt before removing, so the old stack was never cleared"
+
+    def test_it_checks_the_prerequisites_first(self, installer):
+        """The destructive half must not run until the install half is known to
+        be possible — otherwise an offline host is left with nothing and no way
+        back."""
+        p = installer.run("--reinstall", "all", "--yes", FAKE_ONLINE=0)
+        assert p.returncode != 0
+        assert "No internet connection" in p.stderr
+        assert "destroy" not in installer.calls(), \
+            "it tore the stack down and only then found it could not reinstall"
+
+    def test_an_unknown_option_is_refused(self, installer):
+        p = installer.run("--frobnicate")
+        assert p.returncode != 0
+        assert "unknown option" in p.stderr

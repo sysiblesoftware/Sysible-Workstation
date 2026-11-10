@@ -1,0 +1,44 @@
+#!/bin/sh
+# install-sysible used to ship ONLY inside the ISO, in
+# live-build/config/includes.chroot/usr/local/bin. Nothing in a package owned it,
+# so no `apt upgrade` could ever replace it: every fix to the installer reached
+# new images only, and the machine that most needed it — one already installed,
+# whose operator had just hit the bug — kept the broken copy forever. That is the
+# same failure this project has now had three times (guest agents, greeter
+# branding, the installer itself).
+#
+# The package owns /usr/sbin/install-sysible. This keeps the documented path
+# working and, more importantly, TAKES OVER a stale regular file left behind by
+# an older ISO — /usr/local/bin precedes /usr/sbin in root's PATH, so without
+# this the old copy would keep shadowing the packaged one no matter how many
+# times apt updated it.
+set -e
+
+LINK=/usr/local/bin/install-sysible
+TARGET=/usr/sbin/install-sysible
+
+case "$1" in
+  configure)
+    [ -x "$TARGET" ] || exit 0
+    mkdir -p /usr/local/bin
+    if [ -L "$LINK" ]; then
+      # Already a link: repoint it in case an older layout aimed it elsewhere.
+      ln -sfn "$TARGET" "$LINK"
+    elif [ -e "$LINK" ]; then
+      # A real file from an older ISO. Keep one copy of it for an operator who
+      # wants to diff, then get it out of the way — it is dead weight that
+      # outranks the packaged script on PATH.
+      mkdir -p /var/backups/sysible
+      cp -a "$LINK" "/var/backups/sysible/install-sysible.pre-$(date -u +%Y%m%d%H%M%S)" || true
+      rm -f "$LINK"
+      ln -sfn "$TARGET" "$LINK"
+      echo "sysible-cli: replaced the ISO's /usr/local/bin/install-sysible with a" >&2
+      echo "             link to $TARGET, so apt can keep it current from now on." >&2
+    else
+      ln -sfn "$TARGET" "$LINK"
+    fi
+    ;;
+esac
+
+#DEBHELPER#
+exit 0

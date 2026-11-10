@@ -21,7 +21,7 @@ HEADER = "# sync-sha256: "
 
 # Files that must stay identical across the edition repos.
 SHARED = [
-    "live-build/config/includes.chroot/usr/local/bin/install-sysible",
+    "packages/sysible-cli/install-sysible",
     "live-build/config/includes.chroot/usr/local/bin/sysible-hint",
     "live-build/config/includes.chroot/usr/local/bin/sysible-release-check",
 ]

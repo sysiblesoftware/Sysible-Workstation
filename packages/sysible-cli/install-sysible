@@ -1,5 +1,5 @@
 #!/bin/sh
-# sync-sha256: 6e6dcc26cc18e8619b5fda576a2214aa24d0c1567b264634cb7eca670e08af38
+# sync-sha256: fffe8172966e92b297ac27c42bcc871a0cd6b9c96c311fa5a2bb0409a9ac49af
 # install-sysible — install the Sysible CE stack on this machine, on demand.
 # Nothing about the platform is baked into the ISO except this helper, so a fresh
 # install runs no Sysible services and opens no ports until you choose to install
@@ -91,12 +91,59 @@ _pause_on_exit() {
 }
 trap _pause_on_exit EXIT
 
-# ---- prerequisites, BEFORE the menu --------------------------------------
-# Everything below is fetched from the internet (GitHub for the source, Docker Hub
-# for the base images) and built into containers. Both used to be discovered only
-# once the run was underway — so the operator picked what to install, watched the
-# clone fail, and lost the message with the window. Check first, and say so in the
-# same UI the menu uses.
+# ---- what this run is for ------------------------------------------------
+# Parsed BEFORE the prerequisite checks, because --uninstall needs a container
+# runtime but not a network, and --help needs neither.
+MODE=install
+ASSUME_YES=0
+KEEP_DATA=0
+_rest=""
+for a in "$@"; do
+  case "$a" in
+    --uninstall)      MODE=uninstall ;;
+    --reinstall)      MODE=reinstall ;;
+    --keep-data)      KEEP_DATA=1 ;;
+    -y|--yes)         ASSUME_YES=1 ;;
+    -h|--help)        MODE=help ;;
+    --*|-?)           die "unknown option '$a' (try: install-sysible --help)" ;;
+    *)                _rest="$_rest $a" ;;
+  esac
+done
+# shellcheck disable=SC2086  # deliberate split: the product names
+set -- $_rest
+
+if [ "$MODE" = help ]; then
+  cat <<'USAGE'
+install-sysible — install, remove or reinstall the Sysible CE stack.
+
+  sudo install-sysible                    pick from a menu (default: all apps)
+  sudo install-sysible controller slep    install specific products
+  sudo install-sysible all                Controller + SLEP + Connect
+  sudo install-sysible slop               all three BEHIND the SLOP gateway
+                                          (one front door at https://slop.lan/)
+
+  sudo install-sysible --uninstall        remove EVERY product from this host:
+                                          containers, data volumes, the
+                                          checkouts under /opt/sysible-src and
+                                          the sysiblectl links. Asks first.
+  sudo install-sysible --uninstall --keep-data
+                                          the same, but keep the data volumes
+  sudo install-sysible --reinstall slop   uninstall, then install cleanly
+
+  -y, --yes                               do not ask before removing anything
+
+Note: `sysiblectl uninstall` is NOT this. It removes only the sysiblectl
+symlinks and leaves every product running.
+USAGE
+  exit 0
+fi
+
+repo_for() { case "$1" in controller) echo "$CTL_REPO" ;; slep) echo "$SLEP_REPO" ;; connect) echo "$CONNECT_REPO" ;; slop) echo "$SLOP_REPO" ;; esac; }
+dirname_for() { basename "$(repo_for "$1")"; }
+envvar_for() { case "$1" in controller) echo SYSIBLE_CONTROLLER_DIR ;; slep) echo SYSIBLE_SLEP_DIR ;; connect) echo SYSIBLE_CONNECT_DIR ;; slop) echo SYSIBLE_SLOP_DIR ;; esac; }
+
+# UI helpers. Defined up here because the teardown below uses them, and a
+# function called before it is defined is exit 127 under `set -eu`.
 _interactive() { command -v whiptail >/dev/null 2>&1 && [ -t 0 ] && [ -t 1 ]; }
 
 # Tell the operator, in whichever UI they are actually in.
@@ -108,6 +155,129 @@ _tell() {  # _tell <title> <message>
   # would print them literally — one unreadable line in the terminal fallback.
   printf '\n%b\n%b\n' "$1" "$2" >&2
 }
+
+# ---- removing everything -------------------------------------------------
+# `sysiblectl uninstall` removes the CLI symlinks and NOTHING ELSE — it leaves
+# every container, volume and checkout in place, and takes away the tool you
+# would have removed them with. That is the wrong shape for the thing an
+# operator means by "uninstall", so the real teardown lives here, beside the
+# install it undoes.
+PRODUCTS_ALL="slop connect slep controller"
+
+_confirm_removal() {
+  _what="every Sysible product on this host: containers, the checkouts under
+$SRC_DIR, and the sysiblectl links"
+  if [ "$KEEP_DATA" -eq 1 ]; then
+    _what="$_what.
+
+Data volumes will be KEPT."
+  else
+    _what="$_what, AND every data volume.
+
+THIS DELETES YOUR DATA: hosts, run history, restore points, accounts.
+Take a backup first if you want one:  sudo sysiblectl <product> backup"
+  fi
+  [ "$ASSUME_YES" -eq 1 ] && return 0
+  if _interactive; then
+    whiptail --backtitle "$_EDITION" --title " Remove Sysible " \
+      --yes-button "Remove" --no-button "Cancel" \
+      --yesno "\n$_what\n" 18 76 || { say "Cancelled."; exit 0; }
+    return 0
+  fi
+  # No whiptail: make them type it, because -y was not given and this cannot be
+  # undone. A piped run with no -y refuses rather than guessing.
+  if [ -t 0 ]; then
+    printf '%s\n\nType REMOVE to continue: ' "$_what" >&2
+    read _ans || _ans=""
+    [ "$_ans" = REMOVE ] || { say "Cancelled."; exit 0; }
+    return 0
+  fi
+  die "refusing to remove anything without a confirmation — pass --yes if that is what you meant."
+}
+
+_uninstall_everything() {
+  _confirm_removal
+  say
+  say "============================================================"
+  say " Removing every Sysible product"
+  say "============================================================"
+  _left=""
+
+  # Compose first, and BEFORE the checkouts go: `compose down -v` is the only
+  # thing that knows which volumes belong to which project. Matching volume
+  # names by pattern instead would be guessing, and these sit next to volumes
+  # that are not ours.
+  for p in $PRODUCTS_ALL; do
+    _d="$SRC_DIR/$(dirname_for "$p")"
+    if command -v sysiblectl >/dev/null 2>&1; then
+      say "== $p =="
+      if [ "$KEEP_DATA" -eq 1 ]; then
+        env "$(envvar_for "$p")=$_d" sysiblectl "$p" destroy || _left="$_left $p"
+      else
+        env "$(envvar_for "$p")=$_d" sysiblectl "$p" destroy -v || _left="$_left $p"
+      fi
+    fi
+  done
+
+  # Containers the CLI could not see — a half-finished install is exactly when
+  # there is no compose file to drive and a container is left running anyway.
+  if command -v docker >/dev/null 2>&1; then
+    _stray="$(docker ps -a --filter 'name=^/sysible-' --format '{{.Names}}' 2>/dev/null || true)"
+    if [ -n "$_stray" ]; then
+      say "== removing containers the CLI did not account for =="
+      for _c in $_stray; do
+        say "  $_c"
+        docker rm -f "$_c" >/dev/null 2>&1 || true
+      done
+    fi
+  fi
+
+  # The checkouts.
+  if [ -d "$SRC_DIR" ]; then
+    say "== removing $SRC_DIR =="
+    rm -rf "$SRC_DIR"
+  fi
+
+  # The CLI links last: everything above needed them.
+  for _l in /usr/local/bin/sysiblectl /usr/local/bin/sysible_ctl; do
+    [ -e "$_l" ] || [ -L "$_l" ] || continue
+    rm -f "$_l" && say "  removed $_l"
+  done
+
+  say
+  if [ -n "$_left" ]; then
+    _warn "These did not come down cleanly:$_left"
+    _warn "Check for leftovers with:  docker ps -a | grep sysible"
+  fi
+  # Volumes are never pattern-matched away, so say what is still there rather
+  # than deleting something that only looks like ours.
+  if command -v docker >/dev/null 2>&1; then
+    _vols="$(docker volume ls -q 2>/dev/null | grep -E 'sysible|slop|flashback|baseline' || true)"
+    if [ -n "$_vols" ]; then
+      _warn "Volumes still present (NOT removed — check them before you do):"
+      for _v in $_vols; do _warn "    $_v"; done
+      _warn "  Remove one with:  docker volume rm <name>"
+    fi
+  fi
+  say "Sysible has been removed from this host."
+  say "The OS itself is untouched: Docker, podman and the sysible-* packages stay."
+  say "Reinstall at any time with:  sudo install-sysible"
+}
+
+# --uninstall needs NO network and no compose, and must work on a host whose
+# install never finished — so it runs here, before every prerequisite check,
+# and leaves.
+if [ "$MODE" = uninstall ]; then
+  _uninstall_everything
+  exit 0
+fi
+
+# ---- prerequisites, BEFORE the menu --------------------------------------
+# Everything below is fetched from the internet (GitHub for the source, Docker Hub
+# for the base images) and built into containers. Both used to be discovered only
+# once the run was underway — so the operator picked what to install, watched the
+# clone fail, and lost the message with the window. Check first, and say so in the
+# same UI the menu uses.
 
 _online() {
   # Reach the host we actually clone from. Not ping (blocked on plenty of
@@ -280,9 +450,15 @@ _upsert_env() {  # _upsert_env <file> <key> <value>
   fi
 }
 
-repo_for() { case "$1" in controller) echo "$CTL_REPO" ;; slep) echo "$SLEP_REPO" ;; connect) echo "$CONNECT_REPO" ;; slop) echo "$SLOP_REPO" ;; esac; }
-dirname_for() { basename "$(repo_for "$1")"; }
-envvar_for() { case "$1" in controller) echo SYSIBLE_CONTROLLER_DIR ;; slep) echo SYSIBLE_SLEP_DIR ;; connect) echo SYSIBLE_CONNECT_DIR ;; slop) echo SYSIBLE_SLOP_DIR ;; esac; }
+
+# --reinstall tears down AFTER the prerequisites have passed and the products
+# have been chosen. Doing it earlier would leave an operator with everything
+# deleted and no way to put it back when the network turns out to be down.
+if [ "$MODE" = reinstall ]; then
+  _uninstall_everything
+  say
+  say "Now reinstalling."
+fi
 
 mkdir -p "$SRC_DIR"
 

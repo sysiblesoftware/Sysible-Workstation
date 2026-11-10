@@ -456,6 +456,34 @@ fi
     || fail "no compose implementation in the image (no docker compose plugin, no docker-compose, no podman-compose) — every product is brought up with compose"
 echo "sysible-verify: OK — container runtime present ($_rt) with $_compose."
 
+# 16c) install-sysible is OWNED BY A PACKAGE, so apt can replace it.
+# This is the third time this project has shipped a fix that reached new images
+# and skipped the installed base (guest agents, greeter branding, and the
+# installer itself). install-sysible used to live only in includes.chroot: no
+# package owned it, so no `apt upgrade` could ever replace it, and the machine
+# that most needed an installer fix — one already installed, whose operator had
+# just hit the bug — kept the broken copy for good.
+#
+# dpkg ownership is the thing that makes it updatable, so that is what is
+# asserted, not merely that the file exists.
+[ -x /usr/sbin/install-sysible ] \
+    || fail "/usr/sbin/install-sysible is missing — the sysible-cli package did not install it, so apt cannot keep the installer current"
+_owner="$(dpkg -S /usr/sbin/install-sysible 2>/dev/null | cut -d: -f1)"
+[ -n "$_owner" ] \
+    || fail "/usr/sbin/install-sysible is not owned by any package — it is back to being image-only, which no apt upgrade can reach"
+# The documented path every runbook uses must resolve to the packaged file, and
+# must be a LINK: a regular file there outranks /usr/sbin on root's PATH and
+# would shadow every future update, which is exactly the old bug.
+[ -L /usr/local/bin/install-sysible ] \
+    || fail "/usr/local/bin/install-sysible is not a symlink — a real file there shadows the packaged installer on root's PATH and apt updates would never take effect"
+[ "$(readlink -f /usr/local/bin/install-sysible)" = /usr/sbin/install-sysible ] \
+    || fail "/usr/local/bin/install-sysible points at $(readlink -f /usr/local/bin/install-sysible), not the packaged /usr/sbin/install-sysible"
+# And it offers the teardown, because "uninstall" that removes only the CLI
+# symlinks is what sent operators to delete volumes by hand.
+grep -q -- '--uninstall' /usr/sbin/install-sysible \
+    || fail "install-sysible no longer offers --uninstall"
+echo "sysible-verify: OK — install-sysible packaged in $_owner (apt can update it), /usr/local/bin link intact."
+
 # 17) No Raspberry Pi bootloader firmware. raspi-firmware is NOT in any package
 # list — it rides in as a Recommends of firmware-brcm80211, which ships the Pi's
 # Wi-Fi blobs next to the laptop Broadcom ones we want. Its initramfs hook copies
