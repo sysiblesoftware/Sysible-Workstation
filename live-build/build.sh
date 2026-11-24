@@ -170,8 +170,16 @@ else
     # amd64: grub-efi-amd64 covers UEFI targets (the common case, incl. VMs and
     # Apple-silicon guests). grub-pc-bin coexists with grub-efi (only the grub-pc
     # metapackage conflicts) so BIOS grub-install has its modules in the pool too.
+    # grub-efi-ia32-bin: firmware bitness is NOT CPU bitness. An amd64 machine
+    # behind 32-bit EFI (some VMs, Bay Trail, older Macs) needs the ia32 flavour,
+    # and with nothing in the offline pool the install stops dead at
+    # "The 'grub-efi-ia32' package failed to install into /target/". Reported on
+    # Sysible Server, which shares this build; Calamares installs GRUB here, but
+    # it installs it from the same pool, so the same gap is the same failure.
+    # The -bin package coexists with grub-efi-amd64 -- only the METApackages
+    # conflict, which is why grub-pc-bin is here and grub-pc is not.
     printf '%s\n' grub-efi-amd64 grub-efi-amd64-bin grub-efi-amd64-signed \
-                  shim-signed mokutil grub-pc-bin grub-common \
+                  shim-signed mokutil grub-efi-ia32-bin grub-pc-bin grub-common \
         > config/package-lists/sysible-grub.list.chroot
 fi
 echo "Target bootloader packages: $(tr '\n' ' ' < config/package-lists/sysible-grub.list.chroot)"
