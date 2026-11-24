@@ -55,7 +55,22 @@ jobs:
       - name: Build the ISO
         run: |
           cd live-build
-          ./build.sh
+          # Keep the build's own output, because the only part of a job log
+          # readable through the API is its tail, and the diagnostics step
+          # below is long enough to push the real error out of it.
+          #
+          # No `| tee` and no `set -o pipefail`: this runs under `sh -e`, where
+          # pipefail is an illegal option that -e turns into an instant failure,
+          # and without pipefail a pipe would report tee's exit status and make
+          # every failed build look green. Redirect, then replay, then exit with
+          # the build's own status -- works the same in sh and bash.
+          # `|| rc=$?` and not `; rc=$?`: under -e a bare failing command aborts
+          # the step on the spot, so the replay below never ran and a failed
+          # build left NO output in the job log at all. A || list is exempt.
+          rc=0
+          ./build.sh > /tmp/sysible-build.log 2>&1 || rc=$?
+          cat /tmp/sysible-build.log
+          exit $rc
 
       # The one thing a failed build could not tell anyone. A dependency failure
       # lands ~4 minutes in, and the lines that say WHY -- whether the vendor
@@ -112,6 +127,16 @@ jobs:
             || echo "  (apt-get update produced no Docker-related output at all)"
           echo "--- and now? ---"
           chroot chroot apt-cache policy docker-ce 2>&1 | head -8
+          echo
+          # LAST, deliberately. Only the end of a job log is readable through the
+          # API -- the full log lives in blob storage that is not reachable from
+          # everywhere -- so the single most important thing has to be printed
+          # last. Three failures in a row were diagnosed from state dumps alone
+          # because the line that named the failing stage had scrolled out of
+          # reach, and one of them could not be diagnosed at all.
+          echo "=== the end of the build itself, which is where it actually died ==="
+          tail -60 /tmp/sysible-build.log 2>/dev/null \
+            || echo "  (no build log -- the build step did not get as far as writing one)"
 
       - name: Name the ISO
         run: |
