@@ -81,6 +81,48 @@ def test_a_copy_that_did_not_land_stops_the_build_here():
         "nothing verifies the bundle actually reached the chroot"
 
 
+def test_the_bootstrap_cache_cannot_put_the_old_chroot_back():
+    """The first version of this fix was defeated by live-build's own cache.
+
+    lb_bootstrap_cache's restore runs at the start of the bootstrap stage, which
+    `lb build` re-enters, and it is literally:
+
+        if [ -d cache/bootstrap ]; then rm -rf chroot; cp -a cache/bootstrap chroot
+
+    The cached copy predates the planted bundle, so the CA store was installed
+    and then deleted a minute later, and the build failed at the same
+    four-minute mark with the same docker-ce message as before any fix.
+
+    Two independent defences, either of which is sufficient (both were checked
+    by running `lb bootstrap_cache restore` against a planted chroot):
+    no cache/bootstrap for the `if` to find, and the restore stagefile already
+    present so Check_stagefile exits 0 before reaching the rm.
+    """
+    code = _code()
+    plant = re.search(r"install -D[^\n]*ca-certificates\.crt", code)
+    build = re.search(r"^\s*\$SUDO lb build\s*$", code, re.M)
+
+    drop_cache = re.search(r"^\s*\$SUDO rm -rf cache\s*$", code, re.M)
+    assert drop_cache, \
+        "nothing removes the bootstrap cache, so restore would overwrite the chroot"
+    stamp = re.search(r"^\s*\$SUDO touch \.build/bootstrap_cache\.restore\s*$", code, re.M)
+    assert stamp, \
+        "the restore stagefile is not pre-created, so Check_stagefile would not skip it"
+
+    for what, m in (("cache removal", drop_cache), ("restore stagefile", stamp)):
+        assert plant.start() < m.start() < build.start(), (
+            f"{what} must come after the CA store is planted and before lb build; "
+            f"plant@{plant.start()} {what}@{m.start()} build@{build.start()}")
+
+
+def test_lb_build_is_not_left_to_debootstrap_again():
+    """If the bootstrap stamp were missing, `lb build` would debootstrap from
+    scratch over the top of the planted store -- the other way this comes apart,
+    and indistinguishable from it in the log."""
+    assert re.search(r"\[ -f \.build/bootstrap \]", _code()), \
+        "nothing checks the bootstrap stage was actually stamped as done"
+
+
 def test_the_shipped_image_gets_a_store_a_package_owns():
     """The planted copy belongs to no package: update-ca-certificates could
     never regenerate it, and the hash symlinks that directory-based verifiers

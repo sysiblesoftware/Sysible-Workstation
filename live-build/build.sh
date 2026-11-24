@@ -280,7 +280,33 @@ $SUDO cmp -s /etc/ssl/certs/ca-certificates.crt \
     echo "       would fail its TLS handshake, and the build would stop four" >&2
     echo "       minutes from now naming docker-ce instead of a certificate." >&2
     exit 1; }
-echo "Chroot trusts $($SUDO grep -c 'END CERTIFICATE' chroot/etc/ssl/certs/ca-certificates.crt) CAs before the first https repo is added."
+# AND STOP live-build PUTTING THE OLD CHROOT BACK. It caches the bootstrapped
+# chroot and restores it at the start of the bootstrap stage -- which `lb build`
+# below re-enters. lb_bootstrap_cache's restore is, verbatim:
+#
+#     if [ -d cache/bootstrap ]; then rm -rf chroot; cp -a cache/bootstrap chroot
+#
+# and the cached copy was taken BEFORE the bundle was planted. So the first
+# version of this fix installed the CA store and had it deleted a minute later,
+# failing at the same four-minute mark with the same docker-ce message as if
+# nothing had been changed at all. What identified it was this build's own
+# diagnostics: "GONE but chroot/ exists", next to a .build/ listing showing
+# bootstrap_cache.save at one minute and bootstrap_cache.restore at the next.
+#
+# Two independent ways to stop it, both read out of lb_bootstrap_cache and
+# functions/stagefile.sh rather than guessed at:
+#   * no cache/bootstrap directory, so restore's own `if` is false; and
+#   * the restore stagefile already in place, so Check_stagefile exits 0 before
+#     reaching the rm.
+# `lb clean --purge` at the top of this script deletes cache/ on every run
+# anyway, so dropping what this run just saved costs nothing.
+$SUDO rm -rf cache
+$SUDO touch .build/bootstrap_cache.restore
+[ -f .build/bootstrap ] || {
+    echo "ERROR: no .build/bootstrap stamp, so lb build would debootstrap from" >&2
+    echo "       scratch and overwrite the CA store just installed." >&2
+    exit 1; }
+echo "Chroot trusts $($SUDO grep -c 'END CERTIFICATE' chroot/etc/ssl/certs/ca-certificates.crt) CAs, and the bootstrap cache can no longer overwrite it."
 $SUDO lb build
 
 # --- brand GRUB (UEFI, incl. arm64) in the finished ISO --------------------
