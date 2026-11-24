@@ -204,7 +204,36 @@ echo "Arch hardware packages: $(tr '\n' ' ' < config/package-lists/sysible-hw.li
 # in, not generated, so they don't depend on where a given live-build keeps its
 # templates.
 lb clean --purge || true
+# CA CERTIFICATES, AT BOOTSTRAP TIME. This is what made the ISO unbuildable.
+#
+# Debian's own mirrors are plain http, so Docker's repo is the FIRST https
+# source the chroot ever sees -- and a freshly debootstrapped chroot has no CA
+# certificates at all. apt could not complete the handshake:
+#
+#   W: No system certificates available. Try installing ca-certificates.
+#   W: Failed to fetch .../bookworm/InRelease  Certificate verification failed:
+#      The certificate is NOT trusted. The certificate issuer is unknown.
+#
+# So the index was never fetched, docker-ce had no candidate, and the build died
+# four minutes later on "Depends: docker-ce but it is not installable" with
+# nothing in ninety thousand lines connecting the two. Adding docker-ce as a
+# hard dependency is what turned a quietly-skipped vendor repo into a hard stop.
+#
+# ca-certificates has to be in the chroot BEFORE lb_chroot_archives runs its apt
+# update. Package lists and hooks both run later, so the only stage early enough
+# is the debootstrap itself. LB_BOOTSTRAP_INCLUDE is read from the environment
+# by lb config, which is version-agnostic -- the --bootstrap-include FLAG does
+# not exist in every live-build.
+export LB_BOOTSTRAP_INCLUDE="${LB_BOOTSTRAP_INCLUDE:+${LB_BOOTSTRAP_INCLUDE},}ca-certificates"
 lb config
+# Prove it landed. A silently-dropped value here costs a full build to discover,
+# and the failure it causes names a package rather than a certificate.
+grep -q "ca-certificates" config/bootstrap 2>/dev/null || {
+    echo "ERROR: ca-certificates did not reach config/bootstrap." >&2
+    echo "       The chroot would have no CA store, Docker's https repo would" >&2
+    echo "       fail its TLS handshake, and docker-ce would be uninstallable." >&2
+    exit 1; }
+echo "Bootstrap includes ca-certificates (Docker's repo is https)."
 $SUDO lb build
 
 # --- brand GRUB (UEFI, incl. arm64) in the finished ISO --------------------
