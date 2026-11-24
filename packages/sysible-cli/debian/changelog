@@ -1,3 +1,9 @@
+sysible-cli (0.3.1) sysible; urgency=medium
+
+  * install-sysible: check Docker Hub in the preflight, not just GitHub
+
+ -- Sysible <maintainers@sysible.com>  Tue, 24 Nov 2026 18:46:21 +0000
+
 sysible-cli (0.3.0) sysible; urgency=medium
 
   * Ship install-sysible from this package, at /usr/sbin/install-sysible.

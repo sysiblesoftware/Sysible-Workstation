@@ -117,9 +117,16 @@ exit 0
 printf 'podman %s\n' "$*" >> "$FAKE_LOG"
 exit 0
 """,
+    # FAKE_REGISTRY_ONLINE=0 fails ONLY Docker Hub, which is the case that was
+    # reported: github.com resolved and cloned fine, then the compose build died
+    # on `lookup auth.docker.io ... no such host`. Faking "offline" wholesale
+    # cannot express that, and it is the half the preflight used not to check.
     "curl": r"""#!/bin/sh
 printf 'curl %s\n' "$*" >> "$FAKE_LOG"
 [ "${FAKE_ONLINE:-1}" = 1 ] || exit 7
+case "$*" in
+  *docker.io*) [ "${FAKE_REGISTRY_ONLINE:-1}" = 1 ] || exit 6 ;;
+esac
 exit 0
 """,
     # The real CLI refuses `rebuild __probe__` while PARSING, before it touches

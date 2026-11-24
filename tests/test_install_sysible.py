@@ -206,6 +206,68 @@ class TestOneScriptForEveryEdition:
         assert stamp_sync.main(["--check"]) == 0
 
 
+class TestBothHostsItNeedsAreChecked:
+    """Reported as "docker-compose is still a problem for installing slop etc on
+    server". It was not compose. The preflight promised, in its own words, that
+    this installer "downloads the Sysible source from GitHub and the container
+    base images from Docker Hub" -- and then tested github.com alone.
+
+    So on a host that could reach GitHub but not Docker Hub the check passed,
+    803 objects cloned happily, apt ran, and the failure landed in the middle of
+    a compose build minutes later:
+
+        failed to fetch anonymous token ... lookup auth.docker.io: no such host
+
+    by which time the menu was long gone off the top of the screen.
+    """
+
+    def test_an_unreachable_registry_stops_it_before_the_clone(self, installer):
+        p = installer.run("all", FAKE_REGISTRY_ONLINE=0)
+        assert p.returncode != 0, "it carried on to build against a registry it cannot reach"
+        assert "git clone" not in installer.calls(), \
+            "it cloned before finding out it could not reach Docker Hub"
+
+    def test_it_names_the_host_that_failed_and_what_to_try(self, installer):
+        out = installer.run("all", FAKE_REGISTRY_ONLINE=0).stderr
+        assert "Docker Hub" in out, "it does not say which host is unreachable"
+        assert "auth.docker.io" in out, "it does not name the host to test"
+        assert "getent hosts" in out, "it does not say how to check DNS"
+        assert "restart docker" in out, \
+            "it does not mention the usual cause -- Docker resolving differently"
+
+    def test_being_offline_still_reads_as_offline(self, installer):
+        """The registry case must not swallow the plain no-network wording."""
+        out = installer.run("all", FAKE_ONLINE=0).stderr
+        assert "No internet connection" in out
+        assert "github.com" in out
+
+    def test_a_registry_mirror_can_skip_the_check(self, installer):
+        """A host with a mirror, or with the base images already pulled, builds
+        without ever reaching Docker Hub. Refusing those would be wrong."""
+        p = installer.run("all", FAKE_REGISTRY_ONLINE=0,
+                          SYSIBLE_SKIP_REGISTRY_CHECK="1")
+        assert "Cannot reach Docker Hub" not in p.stderr, \
+            "the override did not take"
+
+    def test_the_registry_is_checked_with_a_reachability_probe(self):
+        """`curl -f` fails on 401, and /v2/ answers 401 until you authenticate --
+        a 401 from Docker Hub is a perfectly reachable Docker Hub."""
+        import pathlib
+        src = (pathlib.Path(__file__).resolve().parents[1]
+               / "packages" / "sysible-cli" / "install-sysible").read_text()
+        body = src[src.index("_reach() {"):]
+        body = body[:body.index("\n}")]
+        code = "\n".join(l for l in body.split("\n") if not l.strip().startswith("#"))
+        # Match the FLAG CLUSTER, not the bare string: the first version of this
+        # did `"-f" not in code.replace("-fsS", "KEEP")`, which erased the exact
+        # flag it was hunting for and passed against `curl -fsS`. Found by
+        # mutation -- the guard was green while the bug was present.
+        import re as _re
+        bad = _re.search(r"curl\s+(-[a-zA-Z]*\s+)*-[a-zA-Z]*f", code)
+        assert not bad, \
+            f"the probe uses -f ({bad.group(0)!r}), so an ordinary 401 reads as unreachable"
+
+
 class TestWhatItActuallyInstalls:
     def test_all_brings_up_the_three_apps(self, installer):
         installer.run("all")

@@ -1,5 +1,5 @@
 #!/bin/sh
-# sync-sha256: fffe8172966e92b297ac27c42bcc871a0cd6b9c96c311fa5a2bb0409a9ac49af
+# sync-sha256: 1f45bfae5b1b07ae5ac6758941ef1730f67ce47875c96bee7b6120014934e581
 # install-sysible — install the Sysible CE stack on this machine, on demand.
 # Nothing about the platform is baked into the ISO except this helper, so a fresh
 # install runs no Sysible services and opens no ports until you choose to install
@@ -279,14 +279,49 @@ fi
 # clone fail, and lost the message with the window. Check first, and say so in the
 # same UI the menu uses.
 
+# BOTH hosts, because the install needs both and finding out about the second
+# one ten minutes in is the expensive way. Reported exactly that way: github.com
+# resolved and cloned 803 objects happily, then the compose build died on
+#   failed to fetch anonymous token ... lookup auth.docker.io ... no such host
+# with the menu long gone off the top of the screen. The message above already
+# promised this installer needs Docker Hub; it just never checked.
+OFFLINE_HOST=""
+OFFLINE_WHY=""
+# "No internet connection" stays the title when github.com is unreachable: that
+# IS simply being offline, and it is the wording the operator-facing tests pin.
+# A reachable github with an unreachable registry is a different fact and says so.
+OFFLINE_TITLE="No internet connection"
+
+_reach() {
+  # ANY http response means DNS + TCP + TLS all worked, which is what is being
+  # tested. No -f: the registry answers /v2/ with 401 until you authenticate,
+  # and a 401 from Docker Hub is a perfectly reachable Docker Hub.
+  curl -sS --max-time 10 -o /dev/null "$1" >/dev/null 2>&1
+}
+
 _online() {
-  # Reach the host we actually clone from. Not ping (blocked on plenty of
-  # networks) and not DNS alone (a captive portal resolves everything happily).
-  if command -v curl >/dev/null 2>&1; then
-    curl -fsS --max-time 10 -o /dev/null "https://github.com" 2>/dev/null
-  else
-    git ls-remote --exit-code "$CTL_REPO" HEAD >/dev/null 2>&1
+  # Not ping (blocked on plenty of networks) and not DNS alone (a captive
+  # portal resolves everything happily).
+  if ! command -v curl >/dev/null 2>&1; then
+    git ls-remote --exit-code "$CTL_REPO" HEAD >/dev/null 2>&1 || {
+      OFFLINE_HOST="github.com"; OFFLINE_WHY="the Sysible source is cloned from it"
+      OFFLINE_TITLE="No internet connection"; return 1; }
+    return 0
   fi
+  _reach "https://github.com" || {
+    OFFLINE_HOST="github.com"; OFFLINE_WHY="the Sysible source is cloned from it"
+    OFFLINE_TITLE="No internet connection"; return 1; }
+  # Skippable: a host with a registry mirror, or with the base images already
+  # pulled, can build without ever reaching Docker Hub.
+  case "${SYSIBLE_SKIP_REGISTRY_CHECK:-}" in
+    1|true|yes|on) return 0 ;;
+  esac
+  _reach "https://auth.docker.io/token?service=registry.docker.io" || {
+    OFFLINE_HOST="auth.docker.io"
+    OFFLINE_WHY="the container base images are pulled from Docker Hub through it"
+    OFFLINE_TITLE="Cannot reach Docker Hub"
+    return 1; }
+  return 0
 }
 
 command -v git >/dev/null 2>&1 || {
@@ -294,7 +329,7 @@ command -v git >/dev/null 2>&1 || {
   exit 1; }
 say "== checking the internet connection =="
 _online || {
-  _tell "No internet connection" "This installer downloads the Sysible source from GitHub and the\ncontainer base images from Docker Hub, so it needs to be online.\n\ngithub.com could not be reached.\n\nConnect to a network (Wi-Fi or Ethernet), then run this again — or\nfrom a terminal:  sudo install-sysible\n\nNothing has been installed."
+  _tell "$OFFLINE_TITLE" "This installer downloads the Sysible source from GitHub and the\ncontainer base images from Docker Hub, so it needs both.\n\n$OFFLINE_HOST could not be reached — $OFFLINE_WHY.\n\nIf the rest of the network works, this is usually DNS. Check it with:\n  getent hosts $OFFLINE_HOST\n\nIf Docker resolves differently from the host (common behind a NAT\ngateway), restart it once the network is up:\n  sudo systemctl restart docker\n\nThen run this again:  sudo install-sysible\n\nIf this host uses a registry mirror, or already has the base images,\nskip the registry check with:\n  sudo SYSIBLE_SKIP_REGISTRY_CHECK=1 install-sysible\n\nNothing has been installed."
   exit 1; }
 say "  online."
 
