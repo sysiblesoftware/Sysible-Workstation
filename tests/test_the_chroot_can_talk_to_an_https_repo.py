@@ -81,38 +81,57 @@ def test_a_copy_that_did_not_land_stops_the_build_here():
         "nothing verifies the bundle actually reached the chroot"
 
 
-def test_the_bootstrap_cache_cannot_put_the_old_chroot_back():
-    """The first version of this fix was defeated by live-build's own cache.
+def test_the_bootstrap_cache_is_made_harmless_not_deleted():
+    """Two attempts at this went wrong in opposite directions.
 
-    lb_bootstrap_cache's restore runs at the start of the bootstrap stage, which
-    `lb build` re-enters, and it is literally:
+    live-build keeps a copy of the bootstrapped chroot in cache/bootstrap, and
+    two later stages read it. lb_bootstrap_cache's restore is, verbatim:
 
         if [ -d cache/bootstrap ]; then rm -rf chroot; cp -a cache/bootstrap chroot
 
-    The cached copy predates the planted bundle, so the CA store was installed
-    and then deleted a minute later, and the build failed at the same
-    four-minute mark with the same docker-ce message as before any fix.
+    so the cached copy -- taken before the bundle was planted -- gets put back
+    over it. The first attempt lost the CA store that way, and failed at the
+    same four-minute mark with the same docker-ce message as no fix at all.
 
-    Two independent defences, either of which is sufficient (both were checked
-    by running `lb bootstrap_cache restore` against a planted chroot):
-    no cache/bootstrap for the `if` to find, and the restore stagefile already
-    present so Check_stagefile exits 0 before reaching the rm.
+    The second attempt removed the cache to stop that, and broke the OTHER
+    reader: lb_installer_chroot copies cache/bootstrap to build the Debian
+    Installer's chroot, so Server died with
+
+        cp: cannot stat 'cache/bootstrap': No such file or directory
+
+    AFTER the chroot stage had completed and docker-ce had installed. It showed
+    up only on Server, because Workstation installs with Calamares and has no
+    installer_chroot stage to break.
+
+    So the cache must SURVIVE and must carry the same CA store. Verified by
+    running `lb bootstrap_cache restore` three ways: with the cache deleted
+    (installer_chroot's input gone), with the cache planted and the stagefile
+    present (restore skipped, both copies trusted), and with the stagefile
+    absent so the restore really runs (chroot still trusted -- the restore is
+    harmless now rather than merely blocked).
     """
     code = _code()
-    plant = re.search(r"install -D[^\n]*ca-certificates\.crt", code)
-    build = re.search(r"^\s*\$SUDO lb build\s*$", code, re.M)
+    assert "rm -rf cache" not in code, (
+        "deleting the bootstrap cache breaks lb_installer_chroot, which copies "
+        "cache/bootstrap to build the Debian Installer's chroot")
 
-    drop_cache = re.search(r"^\s*\$SUDO rm -rf cache\s*$", code, re.M)
-    assert drop_cache, \
-        "nothing removes the bootstrap cache, so restore would overwrite the chroot"
+    plant_cache = re.search(
+        r"install -D[^\n]*\n?[^\n]*cache/bootstrap/etc/ssl/certs/ca-certificates\.crt",
+        code)
+    assert plant_cache, \
+        "the cached bootstrap chroot gets no CA store, so a restore would " \
+        "replace the planted one with an un-trusted copy"
+
     stamp = re.search(r"^\s*\$SUDO touch \.build/bootstrap_cache\.restore\s*$", code, re.M)
     assert stamp, \
         "the restore stagefile is not pre-created, so Check_stagefile would not skip it"
 
-    for what, m in (("cache removal", drop_cache), ("restore stagefile", stamp)):
+    plant = re.search(r"install -D[^\n]*\n?[^\n]*chroot/etc/ssl/certs/ca-certificates\.crt", code)
+    build = re.search(r"^\s*\$SUDO lb build\s*$", code, re.M)
+    for what, m in (("the cached copy's CA store", plant_cache), ("restore stagefile", stamp)):
         assert plant.start() < m.start() < build.start(), (
-            f"{what} must come after the CA store is planted and before lb build; "
-            f"plant@{plant.start()} {what}@{m.start()} build@{build.start()}")
+            f"{what} must be set up after the chroot is bootstrapped and before "
+            f"lb build; plant@{plant.start()} {what}@{m.start()} build@{build.start()}")
 
 
 def test_lb_build_is_not_left_to_debootstrap_again():

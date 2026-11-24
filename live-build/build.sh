@@ -280,27 +280,48 @@ $SUDO cmp -s /etc/ssl/certs/ca-certificates.crt \
     echo "       would fail its TLS handshake, and the build would stop four" >&2
     echo "       minutes from now naming docker-ce instead of a certificate." >&2
     exit 1; }
-# AND STOP live-build PUTTING THE OLD CHROOT BACK. It caches the bootstrapped
-# chroot and restores it at the start of the bootstrap stage -- which `lb build`
-# below re-enters. lb_bootstrap_cache's restore is, verbatim:
+# AND STOP live-build PUTTING THE OLD CHROOT BACK -- WITHOUT DELETING THE CACHE.
+# live-build keeps a copy of the bootstrapped chroot in cache/bootstrap, and TWO
+# later stages read it:
 #
-#     if [ -d cache/bootstrap ]; then rm -rf chroot; cp -a cache/bootstrap chroot
+#   * lb_bootstrap_cache's restore, at the start of the bootstrap stage that
+#     `lb build` below re-enters. Verbatim:
+#         if [ -d cache/bootstrap ]; then rm -rf chroot; cp -a cache/bootstrap chroot
+#     The cached copy predates the planted bundle, so this silently puts the
+#     un-trusted chroot back. That is how the first attempt failed: the CA store
+#     was installed and deleted a minute later, failing at the same four-minute
+#     mark with the same docker-ce message as if nothing had changed.
 #
-# and the cached copy was taken BEFORE the bundle was planted. So the first
-# version of this fix installed the CA store and had it deleted a minute later,
-# failing at the same four-minute mark with the same docker-ce message as if
-# nothing had been changed at all. What identified it was this build's own
-# diagnostics: "GONE but chroot/ exists", next to a .build/ listing showing
-# bootstrap_cache.save at one minute and bootstrap_cache.restore at the next.
+#   * lb_installer_chroot, which copies cache/bootstrap to build the Debian
+#     Installer's own chroot (Server ships --debian-installer live).
 #
-# Two independent ways to stop it, both read out of lb_bootstrap_cache and
-# functions/stagefile.sh rather than guessed at:
-#   * no cache/bootstrap directory, so restore's own `if` is false; and
-#   * the restore stagefile already in place, so Check_stagefile exits 0 before
-#     reaching the rm.
-# `lb clean --purge` at the top of this script deletes cache/ on every run
-# anyway, so dropping what this run just saved costs nothing.
-$SUDO rm -rf cache
+# So removing the cache to stop the first one breaks the second -- AFTER the
+# whole chroot stage has succeeded and docker-ce has installed:
+#
+#     P: Chroot stage completed
+#     [lb installer_chroot] P: Begin copying chroot for the installer...
+#     cp: cannot stat 'cache/bootstrap': No such file or directory
+#     E: An unexpected failure occurred, exiting...
+#
+# That was the second attempt, and it only showed up on Server, because
+# Workstation installs with Calamares and has no installer_chroot stage to break.
+#
+# Give the cache the same CA store instead of deleting it. Then a restore
+# restores a chroot that still trusts the repo, and the installer chroot gets a
+# working trust store too -- the cache stops being a trap rather than being
+# destroyed.
+if [ -d cache/bootstrap ]; then
+    $SUDO install -D -m 0644 /etc/ssl/certs/ca-certificates.crt \
+                             cache/bootstrap/etc/ssl/certs/ca-certificates.crt
+    $SUDO cmp -s /etc/ssl/certs/ca-certificates.crt \
+                 cache/bootstrap/etc/ssl/certs/ca-certificates.crt || {
+        echo "ERROR: the cached bootstrap chroot did not get a CA store, so a" >&2
+        echo "       restore would put an un-trusted chroot back in its place." >&2
+        exit 1; }
+fi
+# Belt as well as braces, and independent of the above: with the restore
+# stagefile already present, Check_stagefile (functions/stagefile.sh) exits 0
+# and the restore never runs at all.
 $SUDO touch .build/bootstrap_cache.restore
 [ -f .build/bootstrap ] || {
     echo "ERROR: no .build/bootstrap stamp, so lb build would debootstrap from" >&2
