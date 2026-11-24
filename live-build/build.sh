@@ -87,14 +87,22 @@ printf 'deb https://download.docker.com/linux/debian %s stable\n' "$CODENAME" \
     > config/archives/docker.list.chroot
 curl -fsS --connect-timeout 20 --max-time 120 --retry 5 --retry-delay 3 --retry-all-errors \
     https://download.docker.com/linux/debian/gpg \
-    -o config/archives/docker.key.chroot \
+    -o config/archives/docker.key.asc \
     || { echo "ERROR: could not fetch Docker's apt signing key from download.docker.com." >&2
          echo "       docker-ce is a hard dependency of the metapackage, so the build cannot" >&2
          echo "       continue without the repo that provides it." >&2
          exit 1; }
-if command -v gpg >/dev/null 2>&1; then
+# gpg is installed above with live-build, so a missing one is a broken builder,
+# not a degraded mode. It used to warn and carry on -- which skipped the
+# fingerprint pinning silently AND left the key in the one format apt cannot
+# use (below), so "carrying on" could only ever produce a failed build.
+command -v gpg >/dev/null 2>&1 || {
+    echo "ERROR: gpg is missing, so Docker's signing key can be neither" >&2
+    echo "       fingerprint-checked nor converted to the format apt needs." >&2
+    exit 1; }
+if true; then
     _dfpr="$(gpg --show-keys --with-colons --fingerprint \
-                 config/archives/docker.key.chroot 2>/dev/null \
+                 config/archives/docker.key.asc 2>/dev/null \
              | awk -F: '/^fpr:/ {print $10}')"
     for _want in $DOCKER_KEY_FPRS; do
         printf '%s\n' "$_dfpr" | grep -qx "$_want" || {
@@ -106,11 +114,27 @@ if command -v gpg >/dev/null 2>&1; then
             echo "       packages/sysible-release/scripts/fetch-third-party-keyrings.sh." >&2
             exit 1; }
     done
-    echo "Docker apt repo: $CODENAME stable (signing key fingerprints verified)."
-else
-    echo "WARNING: gpg is not available here, so Docker's signing key could NOT be"
-    echo "         fingerprint-checked. The repo is still pinned to that key, but a"
-    echo "         rotation would not be caught until apt rejects the archive."
+    # DEARMOR IT. live-build copies config/archives/*.key.chroot verbatim to
+    # chroot/etc/apt/trusted.gpg.d/<name>.gpg, and apt hands those to gpgv --
+    # which CANNOT read an ASCII-armoured keyring. Docker serves the key
+    # armoured, so saving it as-is left gpgv reporting
+    #     [don't know]: invalid packet (ctb=2d)
+    # and verifying nothing: apt then drops the Docker archive as unsigned,
+    # docker-ce has no candidate, and the build dies thousands of lines later
+    # with "Depends: docker-ce but it is not installable" and no hint why.
+    # Verified both ways with gpgv: armoured keyring, no "Good signature";
+    # dearmored, good. This is the whole bug.
+    gpg --dearmor < config/archives/docker.key.asc \
+        > config/archives/docker.key.chroot || {
+        echo "ERROR: could not dearmor Docker's signing key." >&2
+        exit 1; }
+    rm -f config/archives/docker.key.asc
+    # A binary keyring starts with 0x99 (public-key packet), never "-----".
+    head -c 5 config/archives/docker.key.chroot | grep -q -- "-----" && {
+        echo "ERROR: Docker's key is still ASCII-armoured after dearmoring." >&2
+        echo "       apt would silently refuse the archive. Refusing to build." >&2
+        exit 1; }
+    echo "Docker apt repo: $CODENAME stable (key fingerprints verified, dearmored for apt)."
 fi
 
 # --- expand the metapackage into the Debian-native toolkit -----------------
