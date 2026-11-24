@@ -1,5 +1,5 @@
 #!/bin/sh
-# sync-sha256: d95fb181b70daa2239c81cd31c30bc7151b057b2f7f925eb7f774893b4eaa271
+# sync-sha256: 25f679f0d544c97eb38274fd20c1f2fd3ad9ac8e98246fd9905e6ba189e39074
 # sysible-hint — one line, at login, about the Sysible software on this machine.
 #
 # Two things an operator otherwise has to already know:
@@ -41,6 +41,25 @@ _installed() {
   done
   return 1
 }
+
+# Chosen during the install, still pending or given up on. Without this the
+# operator picks "slop" in the installer, the first-boot run fails on a network
+# it could not reach, and the machine then says only "No Sysible software is
+# installed" -- which reads as though nothing was ever asked for.
+if [ -s "$ETC/apps.wanted" ] && ! _installed; then
+  printf '\n%s%sThe Sysible apps you chose during the install have not finished setting up.%s\n' "$B" "$G" "$R"
+  printf '  Chosen: %s%s%s — it retries on the next boot.\n' "$B" "$(tr -d ' \n' < "$ETC/apps.wanted")" "$R"
+  printf '  Why it has not: %s/var/log/sysible-apps-firstboot.log%s\n' "$B" "$R"
+  printf '  Or do it now:   %ssudo install-sysible%s\n\n' "$B" "$R"
+  exit 0
+fi
+if [ -s "$ETC/apps-failed" ] && ! _installed; then
+  printf '\n%s%sThe Sysible apps you chose during the install could not be set up.%s\n' "$B" "$G" "$R"
+  printf '  Chosen: %s%s%s — it gave up after several tries.\n' "$B" "$(tr -d ' \n' < "$ETC/apps-failed")" "$R"
+  printf '  Why:          %s/var/log/sysible-apps-firstboot.log%s\n' "$B" "$R"
+  printf '  Try again:    %ssudo install-sysible%s\n\n' "$B" "$R"
+  exit 0
+fi
 
 if ! _installed; then
   printf '\n%s%sNo Sysible software is installed on this machine yet.%s\n' "$B" "$G" "$R"
