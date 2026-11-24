@@ -57,6 +57,62 @@ jobs:
           cd live-build
           ./build.sh
 
+      # The one thing a failed build could not tell anyone. A dependency failure
+      # lands ~4 minutes in, and the lines that say WHY -- whether the vendor
+      # repo was written, whether its key was trusted, whether apt could reach
+      # it -- are thousands of lines earlier, where nothing reading the tail of
+      # the log will ever see them. This prints that state at the END, on
+      # failure only, so the reason is wherever the reader is.
+      - name: Why the build failed (diagnostics)
+        if: failure()
+        run: |
+          cd live-build
+          echo "=== config/archives (vendor repos, added BEFORE packages install) ==="
+          ls -la config/archives/ 2>&1 || echo "  MISSING — nothing configured the vendor repos"
+          for f in config/archives/*.list.chroot; do
+            [ -e "$f" ] && { echo "--- $f ---"; cat "$f"; }
+          done 2>/dev/null
+          for f in config/archives/*.key.chroot; do
+            [ -e "$f" ] && { echo "--- $f ---"; file -b "$f"; head -c 40 "$f"; echo; }
+          done 2>/dev/null
+          echo
+          echo "=== did any of it reach the chroot? ==="
+          ls -la chroot/etc/apt/sources.list.d/ 2>&1 | head -20
+          cat chroot/etc/apt/sources.list.d/docker.list 2>&1 || echo "  no docker.list in the chroot"
+          ls -la chroot/etc/apt/trusted.gpg.d/ 2>&1 | head -20
+          echo
+          echo "=== what apt in the chroot thinks of docker-ce ==="
+          chroot chroot apt-cache policy docker-ce 2>&1 | head -20 || echo "  (could not query the chroot)"
+          echo
+          echo "=== did the CA store survive to the failure? ==="
+          # Distinguishes the two ways the staged CA fix can come apart. The
+          # bundle is planted after `lb bootstrap`; if `lb build` re-ran
+          # debootstrap instead of honouring the .build/bootstrap stamp, it
+          # wiped the chroot and the bundle with it. Present-but-still-failing
+          # means something other than trust is wrong.
+          if [ -s chroot/etc/ssl/certs/ca-certificates.crt ]; then
+            echo "  present: $(grep -c 'END CERTIFICATE' chroot/etc/ssl/certs/ca-certificates.crt) CAs -- trust was NOT the problem this time"
+          elif [ -d chroot ]; then
+            echo "  GONE but chroot/ exists -- the bundle was removed or never landed"
+          else
+            echo "  no chroot/ at all -- the build died before or during bootstrap"
+          fi
+          ls -la .build/ 2>&1 | head -12
+          echo
+          echo "=== apt lists: was the Docker index ever fetched? ==="
+          ls chroot/var/lib/apt/lists/ 2>/dev/null | grep -i docker || echo "  NO docker index — the repo was never fetched"
+          echo
+          echo "=== run apt-get update IN the chroot and see what it says about Docker ==="
+          # This is the question the last run could not answer: the repo line and
+          # the key are both in place, yet apt holds no index for it. Either the
+          # update never ran after they landed, or it ran and rejected the repo.
+          # Asking apt directly is the only thing that distinguishes the two.
+          cp /etc/resolv.conf chroot/etc/resolv.conf 2>/dev/null || true
+          chroot chroot apt-get update 2>&1 | grep -iE "docker|^Err|^W:|^E:|NO_PUBKEY|not signed" | head -30 \
+            || echo "  (apt-get update produced no Docker-related output at all)"
+          echo "--- and now? ---"
+          chroot chroot apt-cache policy docker-ce 2>&1 | head -8
+
       - name: Name the ISO
         run: |
           cd live-build
