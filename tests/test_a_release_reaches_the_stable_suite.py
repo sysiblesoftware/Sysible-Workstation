@@ -83,3 +83,82 @@ def test_the_reason_is_written_down_where_it_will_be_read():
     text = PUBLISH.read_text()
     assert "GITHUB_TOKEN" in text, \
         "nothing explains why the tag trigger cannot fire"
+
+
+# ---------------------------------------------------------------------------
+# A publish must not poison the CDN
+# ---------------------------------------------------------------------------
+# Reported from a fresh Workstation install, on `apt upgrade`:
+#
+#   Err:1 .../sysible-stable/main amd64 sysible-cli all 0.3.2
+#     File has unexpected size (22056 != 22062). Mirror sync in progress?
+#
+# Note the filename in that error: sysible-cli_0.3.2_all.deb, with NO +ci
+# suffix. aptly names pool files by VERSION, not by content, so republishing
+# the same version with different bytes overwrites that URL -- while the edge,
+# told the path is immutable, keeps serving the old copy against a fresh index.
+# apt validates size and hash, so it fails outright.
+#
+# Sysible Workstation hit this, root-caused it and fixed it; Sysible Server was
+# left publishing at fixed paths with no stamp, no guard and no purge. The two
+# pipelines are the same pipeline, so these properties are asserted in both.
+
+PUBLISH = ROOT / ".github" / "workflows" / "publish.yml"
+
+
+def _publish_text():
+    return PUBLISH.read_text()
+
+
+def test_every_package_is_published_at_a_fresh_path():
+    """The root-cause fix: a unique, monotonic version suffix, so a rebuild can
+    never land on a path the CDN has already cached."""
+    t = _publish_text()
+    assert "SYSIBLE_VERSION_SUFFIX" in t, (
+        "packages publish at a fixed version path; a same-version rebuild will "
+        "collide with the immutably-cached .deb at the edge")
+
+
+def test_the_suffix_is_actually_unique_not_just_a_run_number():
+    """`+ci<run_number>` is NOT unique: run_number is per-workflow, and two
+    workflows reach this job (publish.yml directly, and iso.yml calling it), so
+    their counters collide on different source trees. That is what produced the
+    failure the scheme exists to prevent."""
+    t = _publish_text()
+    m = [l for l in t.splitlines() if "SYSIBLE_VERSION_SUFFIX=" in l and "+ci" in l]
+    assert m, "no version suffix is constructed"
+    line = m[0]
+    assert "GITHUB_RUN_ID" in line, (
+        f"the suffix is not globally unique: {line.strip()}")
+
+
+def test_an_existing_pool_path_is_refused_rather_than_overwritten():
+    """pool/ is uploaded immutable -- a promise that a URL's bytes never
+    change. Breaking it poisons the edge for a year, silently. The guard turns
+    that into a failed build instead."""
+    t = _publish_text()
+    assert "already exists in the bucket" in t, \
+        "nothing stops this run overwriting an immutably-cached pool path"
+    assert "head-object" in t, "the guard does not actually check the bucket"
+
+
+def test_the_index_is_never_cached():
+    """dists/ is what apt fetches first and validates everything against."""
+    t = _publish_text()
+    assert "no-cache" in t, "the Release/Packages index may be served stale"
+
+
+def test_the_cdn_is_purged():
+    t = _publish_text()
+    assert "Purge Cloudflare cache" in t, "a stale edge is never cleared"
+
+
+def test_the_suite_resolves_when_a_release_calls_this_workflow():
+    """`github.event.inputs` is null for a workflow_call, so a release-triggered
+    publish would silently fall through to the DEV suite -- publishing a release
+    to the channel nobody installs from. `inputs` resolves for both."""
+    t = _publish_text()
+    assert "github.event.inputs.suite" not in t, (
+        "github.event.inputs is null on a workflow_call; the release publish "
+        "would silently go to dev")
+    assert "inputs.suite" in t, "the suite input is not read at all"
