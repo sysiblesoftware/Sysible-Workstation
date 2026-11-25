@@ -24,6 +24,10 @@ Depends: ${misc:Depends},
  screen, tree, less, bash-completion, rsync, lsof, strace, procps, psmisc,
 # --- networking ---
  net-tools, iproute2, iputils-ping, dnsutils, mtr-tiny, traceroute, tcpdump,
+# nftables: both product pages advertise it and sysible-cli's own firewall check
+# looks for it by name, but nothing installed it -- so `sysible verify` reported
+# "no firewall configured" on a fresh install of a product sold as having one.
+ nftables,
  nmap, netcat-openbsd, iperf3, ethtool,
 # --- archives ---
  unzip, zip, bzip2, gzip, xz-utils, p7zip-full,
