@@ -1,0 +1,103 @@
+#!/bin/sh
+# sysiblectl — the name a Sysible host answers to BEFORE the platform exists.
+#
+# WHY THIS FILE EXISTS. The unified `sysiblectl` lives in the Controller
+# checkout, and SLOP's installer links it into /usr/local/bin. So on a freshly
+# installed Sysible host, with nothing cloned yet, `sysiblectl` was not a command
+# at all -- and `sysiblectl first-run`, which is documented as THE first thing to
+# run, could not be the first thing to run. The one command a new box needs
+# cannot be one that only appears after the box has been set up.
+#
+# So the OS ships this. It handles the bootstrap verbs itself and forwards
+# everything else to the real CLI once that exists.
+#
+# PRECEDENCE, and why it is safe: this installs to /usr/sbin, and the real CLI
+# installs to /usr/local/bin, which comes FIRST in root's PATH (see ENV_SUPATH in
+# /etc/login.defs). Once the platform is installed the real one wins and this is
+# never consulted again. The explicit hand-off below covers the case where it
+# landed somewhere else instead.
+set -u
+
+ME=${0##*/}
+
+# Find the REAL, installed CLI on PATH — never this file.
+#
+# NOT `command -v -a`. That option does not exist in dash OR bash (it is a
+# zsh/ksh spelling), so under #!/bin/sh it fails outright; with `|| true` after
+# it the result is silently empty and the hand-off below never happens, which
+# reads as "the platform is not installed" on a host where it plainly is.
+# Walk PATH instead, and compare resolved paths so a symlink to the same script
+# is recognised as ourselves.
+_real() {
+    # ONE HOP ONLY. Each shim skips ITSELF, which is not enough: if two of them
+    # can see each other on PATH (SLOP's deploy/ shim and the OS one), A execs B,
+    # B skips itself, finds A, and execs it back -- forever. The sentinel makes a
+    # hand-off happen at most once per process chain.
+    [ -n "${SYSIBLE_CTL_HANDOFF:-}" ] && return 1
+    _self=$0
+    case $_self in */*) : ;; *) _self=$(command -v "$_self" 2>/dev/null || printf '%s' "$_self") ;; esac
+    _self=$(readlink -f "$_self" 2>/dev/null || printf '%s' "$_self")
+    _oldifs=$IFS; IFS=:
+    for _d in $PATH; do
+        [ -n "$_d" ] || _d=.
+        for _n in sysiblectl sysible_ctl; do
+            [ -x "$_d/$_n" ] || continue
+            _c=$(readlink -f "$_d/$_n" 2>/dev/null || printf '%s' "$_d/$_n")
+            [ "$_c" = "$_self" ] && continue
+            IFS=$_oldifs; printf '%s\n' "$_d/$_n"; return 0
+        done
+    done
+    IFS=$_oldifs
+    return 1
+}
+
+_slop_checkout() {
+    for _d in "${SYSIBLE_SLOP_DIR:-}" /opt/sysible-linux-operations-platform \
+              /opt/sysible-src/sysible-linux-operations-platform \
+              "$HOME/sysible-linux-operations-platform" "$PWD"; do
+        [ -n "$_d" ] || continue
+        [ -f "$_d/install.sh" ] && [ -f "$_d/gateway/Caddyfile" ] && { printf '%s\n' "$_d"; return 0; }
+    done
+    return 1
+}
+
+case "${1:-first-run}" in
+  first-run|firstrun|first_run)
+    # `shift` with no positional parameters is a special builtin error, and in
+    # dash -- which /bin/sh IS here -- that exits the shell. Guard it.
+    [ $# -gt 0 ] && shift || :
+    if _slop=$(_slop_checkout); then
+        echo "$ME: installing the whole platform from $_slop"
+        exec sh "$_slop/install.sh" all --integrated "$@"
+    fi
+    command -v install-sysible >/dev/null 2>&1 || {
+        echo "$ME: install-sysible is missing — reinstall the sysible-cli package." >&2
+        exit 1; }
+    echo "$ME: fetching and installing the whole platform (Controller, SLEP, Connect behind the SLOP gateway)"
+    exec install-sysible -y slop "$@"
+    ;;
+  -h|--help|help|"")
+    if _r=$(_real); then SYSIBLE_CTL_HANDOFF=1 exec "$_r" "${@:-help}"; fi
+    cat <<USAGE
+$ME — Sysible platform control.
+
+The platform is not installed on this host yet, so only the bootstrap verb
+is available:
+
+    sudo $ME first-run     install everything: Controller, SLEP and Connect
+                           behind the SLOP gateway, one front door on this
+                           host's IP. Needs a network.
+
+Afterwards this name resolves to the full CLI, and
+'$ME status | update all | logs …' work from anywhere.
+USAGE
+    exit 0
+    ;;
+  *)
+    if _r=$(_real); then SYSIBLE_CTL_HANDOFF=1 exec "$_r" "$@"; fi
+    echo "$ME: the platform is not installed on this host yet, so '$1' has nothing to act on." >&2
+    echo "Install it first:" >&2
+    echo "    sudo $ME first-run" >&2
+    exit 127
+    ;;
+esac

@@ -611,10 +611,34 @@ class TestEveryNameAnOperatorTypes:
 
     def test_the_package_installs_all_three_to_usr_sbin(self):
         from conftest import PKG_BIN
-        inst = (PKG_BIN / "debian" / "sysible-cli.install").read_text().split()
+        text = (PKG_BIN / "debian" / "sysible-cli.install").read_text()
+        pairs = [l.split() for l in text.splitlines() if l.strip()]
+        where = {p[0]: p[1] for p in pairs if len(p) == 2}
         for name in ("install-sysible",) + self.ALIASES:
-            assert name in inst, f"{name} is not in debian/sysible-cli.install"
-        assert inst.count("usr/sbin") == 3
+            assert name in where, f"{name} is not in debian/sysible-cli.install"
+            assert where[name] == "usr/sbin", f"{name} goes to {where[name]}, not usr/sbin"
+
+    def test_the_bootstrap_shim_must_not_be_linked_into_usr_local_bin(self):
+        """sysiblectl is NOT one of the names above, and must never join them.
+
+        The three installer names are taken over at /usr/local/bin because a
+        stale copy there outranks /usr/sbin. sysiblectl is the opposite case:
+        /usr/local/bin/sysiblectl is where the REAL, full CLI installs itself
+        once the platform is up. Linking the bootstrap shim over it would
+        replace a working CLI with one that only knows how to bootstrap -- and
+        the PATH order it relies on (/usr/local/bin before /usr/sbin) is exactly
+        what makes shipping the shim to /usr/sbin safe in the first place."""
+        from conftest import PKG_BIN
+        post = (PKG_BIN / "debian" / "sysible-cli.postinst").read_text()
+        names = [l for l in post.splitlines() if l.startswith("NAMES=")]
+        assert names, "the postinst no longer declares NAMES"
+        assert "sysiblectl" not in names[0], (
+            "sysiblectl is in the postinst's NAMES, so it would be linked over "
+            "/usr/local/bin/sysiblectl — the real CLI's own path")
+        inst = (PKG_BIN / "debian" / "sysible-cli.install").read_text()
+        assert "sysiblectl usr/sbin" in inst, "the shim is not shipped at all"
+        assert "sysiblectl usr/local/bin" not in inst, \
+            "the shim ships to /usr/local/bin, where it would shadow the real CLI"
 
     @pytest.mark.parametrize("name", ("install-sysible",) + ALIASES)
     def test_the_postinst_takes_over_a_stale_copy_of_each(self, name):

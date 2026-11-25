@@ -1,3 +1,4 @@
 install-sysible usr/sbin
 sysible-install usr/sbin
 install-sysible-controller usr/sbin
+sysiblectl usr/sbin
