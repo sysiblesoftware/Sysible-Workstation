@@ -37,6 +37,30 @@ jobs:
       - name: Check live-build config
         run: python3 scripts/check-config.py
 
+  tests:
+    # tests/ holds 19 guard modules that drive the REAL shell helpers and parse
+    # the REAL workflow files. Every one of them existed and NOTHING ran them:
+    # this repo's CI had config-lint and build only, so each guard was a comment
+    # with a .py extension. The apt-publish guards written for the 25 Nov
+    # publish fix were in that state too -- they would have caught the dangling
+    # package reference and they were never executed once.
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - name: Run the shell-helper tests
+        # PyYAML as well as pytest: several guards assert on the STRUCTURE of
+        # the workflow YAML rather than grepping its text, and a missing yaml
+        # aborts COLLECTION -- which fails the run before any test executes
+        # instead of skipping those modules.
+        #
+        # As root, because the installer sandbox the tests build has to create
+        # and tear down trees the runner user does not own.
+        run: |
+          python3 -m venv /tmp/pytest-venv
+          /tmp/pytest-venv/bin/pip install --quiet --disable-pip-version-check pytest pyyaml
+          sudo -E /tmp/pytest-venv/bin/python -m pytest
+
   build:
     runs-on: ubuntu-latest
     steps:
