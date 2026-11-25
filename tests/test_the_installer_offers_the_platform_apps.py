@@ -183,3 +183,70 @@ def test_the_service_waits_for_a_real_network():
     assert execs, directives
     assert all("|| true" in e for e in execs), (
         f"a failed attempt would mark the system degraded: {execs}")
+
+
+# ---------------------------------------------------------------------------
+# An opt-in package must not be baked into the image
+# ---------------------------------------------------------------------------
+
+BUILD = ROOT / "live-build" / "build.sh"
+
+
+def _repo_built_packages():
+    out = set()
+    for control in (ROOT / "packages").glob("*/debian/control"):
+        for line in control.read_text().splitlines():
+            if line.startswith("Package:"):
+                out.add(line.split(":", 1)[1].strip())
+    return out
+
+
+def test_nothing_the_page_offers_is_already_installed_by_the_image():
+    """Everything left in config/packages.chroot is INSTALLED during the package
+    phase -- build.sh's own metapackage note depends on exactly that. So a
+    package whose point is "only if the operator ticks the box" is installed on
+    every machine if it ships there, and the page becomes a decoration while its
+    own text promises that "leaving them unticked installs nothing".
+
+    This was already happening to sysible-obsidian-installer: its first-boot
+    service downloaded and installed a proprietary application on every
+    Workstation, unasked. The platform markers would have installed the entire
+    Sysible platform the same way."""
+    build = BUILD.read_text()
+    offered = set(_packages_offered()) & _repo_built_packages()
+    assert offered, "no repo-built package is offered -- this guard would be vacuous"
+    # Comments stripped: a name in a comment is not an exclusion.
+    code = "\n".join(l for l in build.splitlines() if not l.lstrip().startswith("#"))
+    missing = [p for p in sorted(offered) if p not in code]
+    assert not missing, (
+        "opt-in package(s) would be installed on every machine because build.sh "
+        f"never removes them from config/packages.chroot: {missing}")
+
+
+def test_the_exclusion_actually_removes_them(tmp_path):
+    """Run the loop rather than read it. A glob that matches nothing removes
+    nothing, in silence -- and build-all.sh stamps a CI version suffix onto
+    every filename, so the pattern has to survive that too."""
+    import re
+    import subprocess
+    build = BUILD.read_text()
+    m = re.search(r'for _optin in (.*?)\bdone\b', build, re.S)
+    assert m, "could not find the opt-in exclusion loop in build.sh"
+    loop = m.group(0)
+
+    offered = sorted(set(_packages_offered()) & _repo_built_packages())
+    keep = ["sysible-cli_0.4.2_all", "sysible-meta_0.3.0+ci77_all", "systerm_0.1.9_amd64"]
+    drop = [f"{p}_0.1.0+ci77_all" for p in offered]
+    pc = tmp_path / "config" / "packages.chroot"
+    pc.mkdir(parents=True)
+    for f in keep + drop:
+        (pc / f"{f}.deb").touch()
+
+    r = subprocess.run(["sh", "-eu", "-c", loop], cwd=tmp_path,
+                       capture_output=True, text=True, timeout=120)
+    assert r.returncode == 0, r.stderr
+    left = sorted(p.name for p in pc.iterdir())
+    for f in keep:
+        assert f"{f}.deb" in left, f"the loop removed a package the image needs: {f}"
+    for f in drop:
+        assert f"{f}.deb" not in left, f"still baked into the image: {f}"

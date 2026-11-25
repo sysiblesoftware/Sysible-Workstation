@@ -37,7 +37,31 @@ if ! ls "$ROOT"/dist/*.deb >/dev/null 2>&1; then
 fi
 mkdir -p config/packages.chroot
 cp "$ROOT"/dist/*.deb config/packages.chroot/ 2>/dev/null || true
+
+# OPT-IN PACKAGES MUST NOT BE BAKED IN. Everything left in
+# config/packages.chroot is INSTALLED during the package phase (see the
+# metapackage note further down, which depends on exactly that). So a package
+# whose whole purpose is "only if the operator ticks the box" is installed on
+# every machine if it ships here, and the Optional-apps page becomes a
+# decoration: its own text promises that "leaving them unticked installs
+# nothing".
+#
+# This was already true of sysible-obsidian-installer, whose first-boot service
+# then downloaded and installed a proprietary application on every Workstation
+# nobody asked for. The platform-app markers would have done the same, installing
+# the entire Sysible platform on first boot whether or not it was chosen.
+#
+# They reach a machine the one way that records a CHOICE: ticked on the
+# netinstall page, installed from the apt repo at setup time, pulling
+# sysible-platform-installer in with them.
+for _optin in sysible-obsidian-installer \
+              sysible-platform-installer \
+              sysible-app-slop sysible-app-controller sysible-app-slep sysible-app-connect; do
+    rm -f config/packages.chroot/"${_optin}"_*.deb
+done
+
 echo "Included $(ls config/packages.chroot/*.deb 2>/dev/null | wc -l) Sysible package(s) directly."
+echo "Opt-in packages deliberately NOT in the image: $(ls "$ROOT"/dist/*.deb 2>/dev/null | wc -l) built, $(ls config/packages.chroot/*.deb 2>/dev/null | wc -l) shipped."
 
 # --- build SysTerm fresh from its own public repo and include the .deb ------
 # SysTerm ships full debian/ packaging; build it here (needs a real Debian
