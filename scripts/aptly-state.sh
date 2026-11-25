@@ -31,14 +31,76 @@
 #   R2_ENDPOINT   S3 endpoint
 set -eu
 
-ACTION="${1:?usage: aptly-state.sh restore|persist}"
+ACTION="${1:?usage: aptly-state.sh lock|unlock|restore|persist}"
 APTLY_ROOT="${APTLY_ROOT:-$HOME/.aptly}"
 : "${STATE_URI:?STATE_URI is required}"
 : "${R2_ENDPOINT:?R2_ENDPOINT is required}"
 STATE_TAR="${STATE_TAR:-${STATE_URI%/}.tar.gz}"
 S3="aws s3 --endpoint-url $R2_ENDPOINT"
 
+LOCK="${LOCK_URI:-${STATE_URI%/}.lock}"
+LOCK_TTL="${LOCK_TTL:-1800}"          # a crashed run must not block forever
+HOLDER="${GITHUB_REPOSITORY:-local}/${GITHUB_RUN_ID:-$$}/${GITHUB_RUN_ATTEMPT:-0}"
+
 case "$ACTION" in
+lock)
+    # Sysible Server and Sysible Workstation publish into ONE database, and a
+    # GitHub concurrency group is per-REPOSITORY, so nothing serialises them.
+    # Two pushes two seconds apart produced two concurrent publishes on
+    # 25 November; whichever persisted last would have dropped the other's
+    # packages, database record and pool file together.
+    #
+    # This is an advisory lock, not a mutex: S3 has no compare-and-swap that
+    # the AWS CLI exposes, so it writes, waits, and reads back to see whose
+    # write survived. That narrows the window to the read-back interval rather
+    # than closing it. Good enough to stop two scheduled publishes colliding;
+    # not a substitute for giving each product its own archive, which is the
+    # real fix if this keeps happening.
+    i=0
+    while [ "$i" -lt 60 ]; do
+        i=$((i + 1))
+        held=$($S3 cp "$LOCK" - 2>/dev/null || true)
+        if [ -n "$held" ]; then
+            when=$(printf '%s' "$held" | awk '{print $2}')
+            now=$(date -u +%s)
+            if [ -n "$when" ] && [ "$((now - when))" -lt "$LOCK_TTL" ]; then
+                owner=$(printf '%s' "$held" | awk '{print $1}')
+                [ "$owner" = "$HOLDER" ] && { echo "lock: already held by this run"; exit 0; }
+                echo "lock: held by $owner, waiting ($i/60)"
+                sleep 10
+                continue
+            fi
+            echo "lock: found a stale lock older than ${LOCK_TTL}s — taking it"
+        fi
+        printf '%s %s\n' "$HOLDER" "$(date -u +%s)" | $S3 cp - "$LOCK" >/dev/null
+        sleep 3
+        back=$($S3 cp "$LOCK" - 2>/dev/null || true)
+        if [ "$(printf '%s' "$back" | awk '{print $1}')" = "$HOLDER" ]; then
+            echo "lock: acquired by $HOLDER"
+            exit 0
+        fi
+        echo "lock: lost the race, retrying"
+        sleep 7
+    done
+    echo "ERROR: could not acquire the publish lock at $LOCK after 10 minutes." >&2
+    echo "If a previous run died holding it, delete that object and retry." >&2
+    exit 1
+    ;;
+
+unlock)
+    held=$($S3 cp "$LOCK" - 2>/dev/null || true)
+    owner=$(printf '%s' "$held" | awk '{print $1}')
+    if [ -z "$held" ]; then
+        echo "unlock: no lock present"
+    elif [ "$owner" = "$HOLDER" ]; then
+        $S3 rm "$LOCK" >/dev/null && echo "unlock: released by $HOLDER"
+    else
+        # Never delete someone else's lock: that is how two runs end up both
+        # believing they hold it.
+        echo "unlock: lock belongs to $owner, leaving it alone"
+    fi
+    ;;
+
 restore)
     mkdir -p "$APTLY_ROOT"
     err=$(mktemp)
@@ -80,5 +142,5 @@ persist)
     echo "persisted aptly database to $STATE_TAR"
     ;;
 *)
-    echo "usage: aptly-state.sh restore|persist" >&2; exit 2;;
+    echo "usage: aptly-state.sh lock|unlock|restore|persist" >&2; exit 2;;
 esac

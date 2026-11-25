@@ -143,3 +143,38 @@ def test_the_repair_actually_picks_the_newest(tmp_path):
     assert "1.0+ci20261125000000.r3.gc" in show.stdout, show.stdout
     for stale in ("r1.ga", "r2.gb"):
         assert stale not in show.stdout, f"stale build {stale} was re-added:\n{show.stdout}"
+
+def test_the_publish_takes_a_lock_spanning_the_whole_database_window():
+    """Server and Workstation share one database and a GitHub concurrency group
+    is per-REPOSITORY, so nothing serialises them. On 25 November two pushes two
+    seconds apart produced two concurrent publishes; whichever persisted last
+    would have dropped the other's packages, database record and pool file
+    together."""
+    names = [s.get("name") for s in yaml.safe_load(WF_TEXT)["jobs"]["publish"]["steps"]]
+    for n in ("Take the publish lock", "Release the publish lock"):
+        assert n in names, f"the publish no longer has a {n!r} step"
+    lock, unlock = names.index("Take the publish lock"), names.index("Release the publish lock")
+    restore, persist = names.index("Restore aptly database"), names.index("Persist aptly database")
+    assert lock < restore, "the lock is taken after the database is read"
+    assert unlock > persist, "the lock is released before the database is written"
+
+
+def test_the_lock_is_released_even_when_the_publish_fails():
+    """A publish that dies holding the lock blocks every product until the TTL
+    expires."""
+    steps = {s.get("name"): s for s in yaml.safe_load(WF_TEXT)["jobs"]["publish"]["steps"]}
+    assert steps["Release the publish lock"].get("if") == "always()", \
+        "the lock is only released on success, so a failed publish blocks the others"
+
+
+def test_a_run_cannot_release_someone_elses_lock():
+    """Deleting another run's lock is how two runs both come to believe they
+    hold it."""
+    c = _code(STATE)
+    assert "leaving it alone" in c or "belongs to" in c, \
+        "unlock does not check who owns the lock before deleting it"
+
+
+def test_a_stale_lock_cannot_block_forever():
+    c = _code(STATE)
+    assert "LOCK_TTL" in c, "a run that dies holding the lock would block publishing permanently"

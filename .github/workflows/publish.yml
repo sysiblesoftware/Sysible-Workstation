@@ -143,6 +143,13 @@ jobs:
               -e "s#/srv/repo.sysible.com/apt#$HOME/aptly-public#" \
               scripts/aptly.conf.sample > "$HOME/.aptly.conf"
 
+      - name: Take the publish lock
+        # Server and Workstation share one aptly database, and a GitHub
+        # concurrency group is per-repository, so two products publishing at
+        # once are not serialised by anything. Advisory lock in the bucket; see
+        # scripts/aptly-state.sh for exactly how far it does and does not go.
+        run: ./scripts/aptly-state.sh lock
+
       - name: Restore aptly database
         # One object, not a directory sync -- see scripts/aptly-state.sh. The
         # old sync had no --delete either way, so a restore could assemble a
@@ -253,15 +260,30 @@ jobs:
           fi
 
           # Pass 1: pool/ (the .deb payloads) — long-lived, immutable.
+          #
+          # Both passes name themselves on failure. `aws s3 sync` over hundreds
+          # of objects prints one line per upload and then exits 1 with nothing
+          # else to say, so a failure here reads as a bare "exit code 1" after a
+          # screenful of successes and the readable tail of the job log no
+          # longer contains whatever went wrong. That happened on 25 Nov and
+          # cost an hour of guessing.
           if [ -d "$HOME/aptly-public/pool" ]; then
             aws s3 sync "$HOME/aptly-public/pool/" "s3://sysible-apt/apt/pool/" \
               --endpoint-url "$R2_ENDPOINT" --no-progress \
-              --cache-control "public, max-age=31536000, immutable"
+              --cache-control "public, max-age=31536000, immutable" \
+              || { echo "::error::pool/ upload failed. dists/ was NOT touched, so the"
+                   echo "::error::published index still describes the previous publish and"
+                   echo "::error::the archive is consistent. Re-run this job."
+                   exit 1; }
           fi
           # Pass 2: dists/ (the index metadata) — never cache, always re-upload.
           aws s3 cp "$HOME/aptly-public/dists/" "s3://sysible-apt/apt/dists/" \
             --recursive --endpoint-url "$R2_ENDPOINT" --no-progress \
-            --cache-control "no-cache, max-age=0, must-revalidate"
+            --cache-control "no-cache, max-age=0, must-revalidate" \
+            || { echo "::error::dists/ upload failed AFTER pool/ succeeded. New pool"
+                 echo "::error::objects are present but unreferenced, which is harmless;"
+                 echo "::error::the index still describes the previous publish. Re-run."
+                 exit 1; }
 
       - name: Purge Cloudflare cache
         # Why this is required: pool/ .deb payloads are cached `immutable` for a
@@ -320,3 +342,7 @@ jobs:
       - name: Persist aptly database
         # Atomic: an S3 PUT is all-or-nothing, so no reader sees a mixture.
         run: APTLY_ROOT="$HOME/.aptly" ./scripts/aptly-state.sh persist
+
+      - name: Release the publish lock
+        if: always()
+        run: ./scripts/aptly-state.sh unlock
