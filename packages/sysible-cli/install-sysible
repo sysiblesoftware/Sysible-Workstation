@@ -1,5 +1,5 @@
 #!/bin/sh
-# sync-sha256: 1f45bfae5b1b07ae5ac6758941ef1730f67ce47875c96bee7b6120014934e581
+# sync-sha256: b86f3ee0086379102b72f3f392063f10af41618107508c6e72e8cb09dd86658f
 # install-sysible — install the Sysible CE stack on this machine, on demand.
 # Nothing about the platform is baked into the ISO except this helper, so a fresh
 # install runs no Sysible services and opens no ports until you choose to install
@@ -441,10 +441,10 @@ elif _interactive; then
   CHOICE="$(whiptail --backtitle "$_EDITION" --title " Install Sysible CE " \
     --checklist "\nPick what to install. Each app runs as a container; manage them\nlater with 'sysiblectl'. Tick SLOP to also put the single front door\n(https://slop.lan/) in front of all three.\n\n  [SPACE] toggle   [TAB] to buttons   [ENTER] confirm\n" \
     18 76 4 \
-    controller "Sysible Controller — fleet management console" on \
-    slep       "Sysible LEP — infra automation (Terraform/Ansible/Salt)" on \
-    connect    "Sysible Connect — browser terminal workspace" on \
-    slop       "SLOP gateway — one URL/login in front of all three" on \
+    controller "Standalone — Sysible Controller (fleet console)" on \
+    slep       "Standalone — Sysible LEP (Terraform/Ansible/Salt)" on \
+    connect    "Standalone — Sysible Connect (browser terminal)" on \
+    slop       "SLOP gateway — all three behind one URL and login" on \
     3>&1 1>&2 2>&3)" || { say "Cancelled."; exit 0; }
   CHOICE="$(printf '%s' "$CHOICE" | tr -d '"')"
   [ -n "$CHOICE" ] || { say "Nothing selected."; exit 0; }

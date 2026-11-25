@@ -5,49 +5,71 @@
 # install continues normally. Each package name below resolves against a vendor
 # apt repository that sysible-release has already configured, so `apt install`
 # Just Works without Sysible re-hosting any binaries.
-- name: "Sysible platform apps (set up on the first boot)"
+# TWO GROUPS, NOT ONE. These used to be four ticks under a single "Sysible
+# platform apps" parent, and Calamares' parent checkbox selects every child --
+# which here meant the gateway stack AND three standalone copies of the very
+# same apps. That is not installable: the gateway runs them under
+# container_name sysible-controller / sysible-slep / sysible-connect, the same
+# names a standalone install uses, so the second one collides on the name and
+# on the port. Reported as "if I click the top it checks everything but it
+# doesn't make sense to install everything".
+#
+# Split in two, ticking a parent means something in both: the first is the
+# platform, the second is all three standalones. They are ALTERNATIVES -- pick
+# from one or the other, not both.
+- name: "Sysible platform (recommended)"
   description: >
-    The Sysible platform itself. Nothing here is bundled in the ISO: cloning the
-    repositories and building the containers needs a network, so ticking a box
-    records the choice and the first networked boot does the work. Leaving them
-    all unticked installs nothing, and you can still run `sudo install-sysible`
-    later, or use the desktop launcher.
+    The whole platform behind the SLOP gateway: Controller, SLEP and Connect
+    reached through one front door on one origin, addressed by path
+    (/controller/, /slep/, /connect/), with one sign-in covering all three.
+    Nothing here is bundled in the ISO -- cloning the repositories and building
+    the containers needs a network, so ticking this records the choice and the
+    first networked boot does the work. This is an alternative to the standalone
+    apps below, not an addition to them.
   hidden: false
   selected: false
   critical: false
   expanded: true
   subgroups:
-    - name: "The whole platform, behind the SLOP gateway (recommended)"
+    - name: "SLOP gateway + Controller + SLEP + Connect"
       description: >
-        Controller, SLEP and Connect behind the SLOP gateway, so everything is
-        reached through one front door on one origin, addressed by path:
-        /controller/, /slep/, /connect/. One sign-in covers all three. This
-        supersedes the single-app choices below - picking it alongside them
-        installs the gateway only, not a second standalone copy of each app.
+        One address, one login, all three apps behind it. If you want the
+        platform, this is the only box you need.
       selected: false
       critical: false
       packages:
         - sysible-app-slop
-    - name: "Sysible Controller only"
+
+- name: "Sysible standalone apps"
+  description: >
+    The same three apps, each on its own address, with no gateway in front and
+    no shared sign-in. Tick this group for all three, or expand it and take
+    just the ones you want. Do not combine these with the platform above: they
+    are the same containers under the same names, so the two cannot run on one
+    machine.
+  hidden: false
+  selected: false
+  critical: false
+  expanded: true
+  subgroups:
+    - name: "Sysible Controller"
       description: >
-        Sysible Controller CE alone, on its own listener, with no gateway in
-        front of it. Its API is on port 9000 and its web console on 8800.
+        Sysible Controller CE alone, on its own listener. Its API is on port
+        9000 and its web console on 8800.
       selected: false
       critical: false
       packages:
         - sysible-app-controller
-    - name: "Sysible SLEP only"
+    - name: "Sysible SLEP"
       description: >
-        The Sysible Linux Engineering Platform alone, on its own listener, with
-        no gateway in front of it.
+        The Sysible Linux Engineering Platform alone, on its own listener.
       selected: false
       critical: false
       packages:
         - sysible-app-slep
-    - name: "Sysible Connect only"
+    - name: "Sysible Connect"
       description: >
-        Sysible Connect alone, on its own listener, with no gateway in front of
-        it.
+        Sysible Connect alone, on its own listener.
       selected: false
       critical: false
       packages:

@@ -250,3 +250,63 @@ def test_the_exclusion_actually_removes_them(tmp_path):
         assert f"{f}.deb" in left, f"the loop removed a package the image needs: {f}"
     for f in drop:
         assert f"{f}.deb" not in left, f"still baked into the image: {f}"
+
+
+# ---------------------------------------------------------------------------
+# Ticking a group's own box must select something installable
+# ---------------------------------------------------------------------------
+
+def test_no_group_selects_the_gateway_and_a_standalone_together():
+    """Calamares' parent checkbox selects every child. These were four ticks
+    under one "Sysible platform apps" parent, so ticking it chose the gateway
+    stack AND three standalone copies of the same apps -- reported as "if I
+    click the top it checks everything but it doesn't make sense to install
+    everything".
+
+    It is not merely odd, it cannot be installed: the gateway runs those three
+    under container_name sysible-controller / sysible-slep / sysible-connect,
+    the same names a standalone install uses, so the second one collides on the
+    name and on the port. A parent checkbox has to produce a set that works."""
+    standalone = {"sysible-app-controller", "sysible-app-slep", "sysible-app-connect"}
+    for group in _page():
+        picked = set(group.get("packages", []) or [])
+        for sub in group.get("subgroups", []) or []:
+            picked |= set(sub.get("packages", []) or [])
+        if "sysible-app-slop" in picked and picked & standalone:
+            raise AssertionError(
+                f"group {group['name']!r} selects the gateway and "
+                f"{sorted(picked & standalone)} together, which cannot run on one host")
+
+
+def test_the_gateway_is_one_tick_on_its_own():
+    """"it should be a separate box to just select SLOP". If you want the
+    platform, that is the whole decision."""
+    groups = [g for g in _page()
+              if "sysible-app-slop" in {p for sg in (g.get("subgroups") or [])
+                                        for p in (sg.get("packages") or [])}
+              | set(g.get("packages") or [])]
+    assert len(groups) == 1, f"slop appears in {len(groups)} groups"
+    picked = set(groups[0].get("packages") or [])
+    for sub in groups[0].get("subgroups") or []:
+        picked |= set(sub.get("packages") or [])
+    assert picked == {"sysible-app-slop"}, (
+        f"the gateway's group also drags in {sorted(picked - {'sysible-app-slop'})}")
+
+
+def test_the_standalones_can_be_taken_together_or_a_few():
+    """"a box to select all of the stand alones or just a few of them" -- so
+    they share one group, and each is its own child inside it."""
+    standalone = {"sysible-app-controller", "sysible-app-slep", "sysible-app-connect"}
+    groups = []
+    for g in _page():
+        picked = set(g.get("packages") or [])
+        for sub in g.get("subgroups") or []:
+            picked |= set(sub.get("packages") or [])
+        if picked & standalone:
+            groups.append((g, picked))
+    assert len(groups) == 1, f"the standalone apps are spread over {len(groups)} groups"
+    g, picked = groups[0]
+    assert picked == standalone, f"that group also contains {sorted(picked - standalone)}"
+    children = [sub for sub in (g.get("subgroups") or []) if sub.get("packages")]
+    assert len(children) == 3, (
+        f"they must be three separate ticks to take 'just a few': {len(children)}")
