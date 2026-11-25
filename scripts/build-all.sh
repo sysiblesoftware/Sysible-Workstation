@@ -73,7 +73,7 @@ done
 if [ "${SYSIBLE_SKIP_SYSTERM:-0}" != "1" ]; then
     echo "== building systerm (from dev) =="
     rm -rf /tmp/systerm-src
-    if git clone --depth 1 --branch dev https://github.com/sysiblesoftware/SysTerm /tmp/systerm-src; then
+    if git clone --depth 1 --branch main https://github.com/sysiblesoftware/SysTerm /tmp/systerm-src; then
         stamp_changelog /tmp/systerm-src/debian/changelog
         if ( cd /tmp/systerm-src && dpkg-buildpackage -us -uc -b ); then
             mv /tmp/systerm_*.deb "$DIST"/ 2>/dev/null || true

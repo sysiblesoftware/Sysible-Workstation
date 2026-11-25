@@ -70,13 +70,13 @@ echo "Opt-in packages deliberately NOT in the image: $(ls "$ROOT"/dist/*.deb 2>/
 # remote default) and drop any stale copy first, so the ISO can never ship an
 # old terminal. Fail the build outright if the result is pre-0.1.9 (which would
 # be missing the -e/Open-in-terminal fix and the Run Command menu).
-echo "== building SysTerm (dev) =="
+echo "== building SysTerm (main) =="
 rm -f config/packages.chroot/systerm_*.deb
 $SUDO apt-get install -y --no-install-recommends \
     git build-essential debhelper dh-python pybuild-plugin-pyproject \
     python3-all python3-setuptools dpkg-dev || true
 rm -rf /tmp/systerm-src
-git clone --depth 1 --branch dev https://github.com/sysiblesoftware/SysTerm /tmp/systerm-src
+git clone --depth 1 --branch main https://github.com/sysiblesoftware/SysTerm /tmp/systerm-src
 ( cd /tmp/systerm-src && dpkg-buildpackage -us -uc -b )
 cp /tmp/systerm_*.deb config/packages.chroot/
 STVER=$(dpkg-deb -f config/packages.chroot/systerm_*.deb Version 2>/dev/null || echo '?')
