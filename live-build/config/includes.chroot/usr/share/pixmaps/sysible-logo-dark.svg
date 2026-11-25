@@ -1,11 +1,26 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<!-- Sysible Workstation mark — SES rebrand. Dark tile + green ring + Sora "S" (vector
-     path, font-free) + short green underline. No hexagon. -->
+<!-- Sysible Workstation mark — SES rebrand. Dark tile + green ring + a terminal
+     WINDOW + short green underline.
+     The glyph used to be the Sora "S", which Sysible Server also used: the two
+     product marks were byte-identical apart from one word in this comment, so
+     Workstation and Server were distinguishable only by the wordmark set beside
+     them. The tile, the ring, the green and the underline are unchanged, so the
+     marks still read as one family; only the glyph inside tells them apart.
+     Workstation is the one a person sits in front of — VSCodium, SysTerm, a
+     desktop — so it gets a window with a prompt caret in it. Font-free vectors,
+     as before. -->
 <svg xmlns="http://www.w3.org/2000/svg" width="128" height="128" viewBox="0 0 128 128">
   <defs><linearGradient id="t" x1="0" y1="0" x2="0" y2="1">
     <stop offset="0" stop-color="#18202c"/><stop offset="1" stop-color="#0b0e15"/></linearGradient></defs>
   <rect x="6" y="6" width="116" height="116" rx="27" fill="url(#t)"/>
   <rect x="6" y="6" width="116" height="116" rx="27" fill="none" stroke="#6ddb73" stroke-width="3.5"/>
-  <g transform="translate(36.03,94.42) scale(0.0831,-0.0831)"><path d="M338.5 -19Q242 -19 175.25 12.0Q108.5 43 73.75 97.25Q39 151.5 39 221H178Q178 191.5 194.0 164.25Q210 137 245.25 120.0Q280.5 103 338.5 103Q391 103 425.75 117.75Q460.5 132.5 477.75 157.25Q495 182 495 213Q495 251.5 462.0 275.0Q429 298.5 359.5 304.5L295.5 310Q190.5 319 128.0 375.5Q65.5 432 65.5 525Q65.5 594.5 98.5 645.0Q131.5 695.5 191.0 723.25Q250.5 751 330.5 751Q413.5 751 473.75 722.0Q534 693 566.75 640.5Q599.5 588 599.5 517H460.5Q460.5 546.5 446.25 572.0Q432 597.5 403.25 613.25Q374.5 629 330.5 629Q288.5 629 260.5 614.75Q232.5 600.5 218.5 576.75Q204.5 553 204.5 525Q204.5 491 229.5 465.5Q254.5 440 308.5 435.5L372.5 430Q451 423.5 509.75 396.5Q568.5 369.5 601.25 323.75Q634 278 634 213Q634 144 597.75 91.5Q561.5 39 495.25 10.0Q429 -19 338.5 -19Z" fill="#eceff3"/></g>
+  <g fill="none" stroke-linecap="round" stroke-linejoin="round">
+    <rect x="30" y="31" width="68" height="53" rx="8" stroke="#eceff3" stroke-width="5.8"/>
+    <path d="M30 47.6 H98" stroke="#eceff3" stroke-width="5.8"/>
+    <path d="M43.8 60.9 L52.9 68 L43.8 75.1" stroke="#6ddb73" stroke-width="5.3"/>
+    <path d="M60 75.6 H82.7" stroke="#6ddb73" stroke-width="5.3"/>
+  </g>
+  <circle cx="39.3" cy="39.3" r="3.4" fill="#6ddb73"/>
+  <circle cx="50.6" cy="39.3" r="3.4" fill="#6ddb73"/>
   <rect x="43.2" y="94" width="41.5" height="5" rx="2" fill="#6ddb73"/>
 </svg>
