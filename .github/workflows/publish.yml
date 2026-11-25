@@ -144,7 +144,10 @@ jobs:
               scripts/aptly.conf.sample > "$HOME/.aptly.conf"
 
       - name: Restore aptly database
-        run: aws s3 sync --endpoint-url "$R2_ENDPOINT" "$STATE_URI" "$HOME/.aptly" || echo "no prior aptly state (first run)"
+        # One object, not a directory sync -- see scripts/aptly-state.sh. The
+        # old sync had no --delete either way, so a restore could assemble a
+        # database referencing data it never fetched.
+        run: APTLY_ROOT="$HOME/.aptly" ./scripts/aptly-state.sh restore
 
       - name: Build all packages
         # Stamp a unique, monotonic version suffix onto every package so each
@@ -315,4 +318,5 @@ jobs:
           echo "Cache purged for ${host}."
 
       - name: Persist aptly database
-        run: aws s3 sync --endpoint-url "$R2_ENDPOINT" "$HOME/.aptly" "$STATE_URI"
+        # Atomic: an S3 PUT is all-or-nothing, so no reader sees a mixture.
+        run: APTLY_ROOT="$HOME/.aptly" ./scripts/aptly-state.sh persist

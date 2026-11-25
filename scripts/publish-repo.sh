@@ -50,10 +50,14 @@ fi
 
 ls "$DIST"/*.deb >/dev/null 2>&1 || { echo "no .deb in $DIST — run build-all.sh first" >&2; exit 1; }
 
-# 1. Repo exists (idempotent), then (re)load the current .deb set.
+# 1. Repo exists (idempotent). Loading the .deb set happens inside the retry
+# unit below, NOT here: `repo add` reads the repo's existing packages to spot
+# conflicts, so a dangling reference aborts it before any publish is attempted.
+# Reproduced locally by deleting one package record out of the LevelDB and
+# leaving its repo reference, which is the shape CI hit:
+#   ERROR: unable to load packages: unable to load package with key ...
 aptly repo show "$SUITE" >/dev/null 2>&1 || \
     aptly repo create -distribution="$SUITE" -component=main "$SUITE"
-aptly repo add -force-replace "$SUITE" "$DIST"/*.deb
 
 # 2. (Re)publish.
 #
@@ -102,39 +106,84 @@ else
     REPUBLISH=no
 fi
 
-if [ "$SUITE" = "sysible-stable" ]; then
-    # Stable: immutable, timestamped snapshot.
-    #
-    # The name must be UNIQUE in the aptly DB, and a UTC second is not enough:
-    # a second publish in the same second dies with
-    #
-    #   ERROR: unable to add snapshot: snapshot with name ... already exists
-    #
-    # which is reachable here, not theoretical. Sysible Server and Sysible
-    # Workstation publish into ONE shared aptly database, so their two release
-    # jobs finishing together land in the same second; and the same one-second
-    # collision already bit the version suffix, where a push and a dispatch of
-    # the same commit 4s apart produced one suffix. So carry the run identity
-    # too: the timestamp keeps the name monotonic and readable, the run id and
-    # attempt make it unique across repos and re-runs, and the pid covers a
-    # local build where there is no run id at all.
-    SNAP="sysible-stable-$(date -u +%Y%m%d%H%M%S)-r${GITHUB_RUN_ID:-local}.a${GITHUB_RUN_ATTEMPT:-0}.p$$"
-    aptly snapshot create "$SNAP" from repo "$SUITE"
-    if [ "$REPUBLISH" = yes ]; then
-        aptly publish switch -batch -gpg-key="$GPGKEY" -component=main \
-            "$SUITE" "$PREFIX" "$SNAP"
+# A publish can fail on a package the DATABASE references but no longer holds:
+#
+#   ERROR: unable to switch: unable to load package with key
+#     Pall sysible-app-connect 0.1.0+ci20261125182740.r... : key not found
+#
+# That is a corrupt shared database, not a corrupt .deb. It happened because
+# the database used to travel as a non-atomic directory sync (see
+# scripts/aptly-state.sh, which replaced it with a single object). The archive
+# itself is fine -- the entry simply points at data that is not there.
+#
+# aptly names the exact key it could not load, so the repair does not have to
+# guess: drop that one package from the local repo and try again. Whichever
+# product owns it re-adds it on its next publish, so this self-heals rather
+# than wedging the pipeline for every product at once. It is deliberately
+# loud, because silently dropping packages from an archive would be worse
+# than failing.
+publish_attempt() {
+    # Everything that READS the existing package set lives in here, so any of
+    # it can trigger a repair and be retried.
+    aptly repo add -force-replace "$SUITE" "$DIST"/*.deb || return 1
+    if [ "$SUITE" = "sysible-stable" ]; then
+        aptly snapshot create "$SNAP" from repo "$SUITE" || return 1
+        if [ "$REPUBLISH" = yes ]; then
+            aptly publish switch -batch -gpg-key="$GPGKEY" -component=main \
+                "$SUITE" "$PREFIX" "$SNAP"
+        else
+            aptly publish snapshot -batch -gpg-key="$GPGKEY" -distribution="$SUITE" \
+                -component=main "$SNAP" "$PREFIX"
+        fi
     else
-        aptly publish snapshot -batch -gpg-key="$GPGKEY" -distribution="$SUITE" \
-            -component=main "$SNAP" "$PREFIX"
+        if [ "$REPUBLISH" = yes ]; then
+            aptly publish update -batch -gpg-key="$GPGKEY" "$SUITE" "$PREFIX"
+        else
+            aptly publish repo -batch -gpg-key="$GPGKEY" -distribution="$SUITE" \
+                -component=main "$SUITE" "$PREFIX"
+        fi
     fi
-else
-    # Dev: publish the mutable repo directly.
-    if [ "$REPUBLISH" = yes ]; then
-        aptly publish update -batch -gpg-key="$GPGKEY" "$SUITE" "$PREFIX"
-    else
-        aptly publish repo -batch -gpg-key="$GPGKEY" -distribution="$SUITE" \
-            -component=main "$SUITE" "$PREFIX"
+}
+
+attempt=0
+log=$(mktemp)
+while :; do
+    attempt=$((attempt + 1))
+    # The attempt number keeps the snapshot name unique across retries; the rest
+    # keeps it unique across runs and products sharing this database.
+    SNAP="sysible-stable-$(date -u +%Y%m%d%H%M%S)-r${GITHUB_RUN_ID:-local}.a${GITHUB_RUN_ATTEMPT:-0}.p$$.t$attempt"
+
+    if publish_attempt >"$log" 2>&1; then
+        cat "$log"; rm -f "$log"; break
     fi
-fi
+    cat "$log" >&2
+
+    # "Pall <name> <version> <hash>" -- name and version are all we need.
+    key=$(sed -n 's/.*unable to load package with key \(.*\): key not found.*/\1/p' "$log" | head -1)
+    if [ -z "$key" ]; then
+        rm -f "$log"
+        echo "ERROR: publish failed for a reason that is not a dangling package reference." >&2
+        exit 1
+    fi
+    # A rebuild fixes every dangling entry at once, so a second one means
+    # something deeper than a half-synced database.
+    if [ "$attempt" -ge 3 ]; then
+        rm -f "$log"
+        echo "ERROR: still failing after $((attempt - 1)) rebuild(s) — this database needs a human." >&2
+        exit 1
+    fi
+
+    dangling=$(printf '%s\n' "$key" | awk '{print $2 " " $3}')
+    echo "::warning::The aptly database references $dangling but cannot load it. Rebuilding $SUITE from the package pool."
+
+    # swallow-ok: the snapshot may not have been created yet; its absence
+    # is the desired state either way.
+    aptly snapshot drop "$SNAP" >/dev/null 2>&1 || true  # swallow-ok
+    if ! "$ROOT/scripts/repair-aptly-db.sh" "$SUITE"; then
+        rm -f "$log"
+        echo "ERROR: could not rebuild $SUITE from the pool." >&2
+        exit 1
+    fi
+done
 
 echo "Published $SUITE at prefix '$PREFIX'."

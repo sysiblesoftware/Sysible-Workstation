@@ -60,14 +60,24 @@ def code():
 def test_no_aptly_failure_is_swallowed():
     """The whole bug in one line. Any aptly call whose output AND exit status
     are both discarded can fail invisibly."""
-    for line in code().splitlines():
-        if "aptly" not in line:
+    # Read the RAW text, not code(): the opt-out marker is a comment, and
+    # comment-stripping would delete the very thing being checked for.
+    for line in TEXT.splitlines():
+        bare = line.split("#", 1)[0]
+        if "aptly" not in bare:
             continue
-        swallowed = (">/dev/null 2>&1" in line or ">/dev/null 2>&1" in line) and (
-            "|| true" in line or line.rstrip().endswith("|| :"))
-        assert not swallowed, (
+        swallowed = ">/dev/null 2>&1" in bare and (
+            "|| true" in bare or bare.rstrip().endswith("|| :"))
+        if not swallowed:
+            continue
+        # A cleanup whose failure genuinely carries no information may opt out
+        # by saying so on the line. The rule is not relaxed -- each exception
+        # has to be written down and is visible in review.
+        assert "# swallow-ok" in line, (
             f"this aptly call discards both its output and its exit status, "
-            f"which is how the publish failed silently for months:\n    {line}"
+            f"which is how the publish failed silently for months. If the "
+            f"failure truly carries no information, mark it '# swallow-ok' and "
+            f"say why:\n    {line}"
         )
 
 
