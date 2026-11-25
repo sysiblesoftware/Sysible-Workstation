@@ -1,0 +1,52 @@
+Source: sysible-platform-apps
+Section: admin
+Priority: optional
+Maintainer: Sysible <maintainers@sysible.com>
+Build-Depends: debhelper-compat (= 13)
+Standards-Version: 4.6.2
+Homepage: https://sysible.com
+Rules-Requires-Root: no
+
+Package: sysible-platform-installer
+Architecture: all
+Depends: ${misc:Depends}, sysible-cli
+Description: first-boot installer for the Sysible platform apps
+ Installs whichever Sysible platform apps were ticked on the installer's
+ Optional-apps page. Each choice ships a marker file; this package provides the
+ one-shot service that reads them on the first networked boot and runs
+ install-sysible.
+ .
+ The work cannot happen in a maintainer script: install-sysible clones git
+ repositories and builds containers, and a nested apt/dpkg call made from inside
+ a running dpkg transaction aborts the parent run. The service is the only safe
+ place for it, and it retries on each boot until it succeeds.
+
+Package: sysible-app-slop
+Architecture: all
+Depends: ${misc:Depends}, sysible-platform-installer
+Description: install the Sysible platform behind the SLOP gateway (first boot)
+ Selects the whole platform -- Controller, SLEP and Connect -- behind the SLOP
+ gateway, so everything is reached through one front door on one origin,
+ addressed by path. This is the recommended choice and supersedes the
+ single-app packages: picking it alongside them installs the gateway only.
+
+Package: sysible-app-controller
+Architecture: all
+Depends: ${misc:Depends}, sysible-platform-installer
+Description: install Sysible Controller on the first boot
+ Sysible Controller CE alone, on its own listener, without the SLOP gateway.
+ Choose sysible-app-slop instead to have it fronted by the gateway.
+
+Package: sysible-app-slep
+Architecture: all
+Depends: ${misc:Depends}, sysible-platform-installer
+Description: install Sysible SLEP on the first boot
+ The Sysible Linux Engineering Platform alone, on its own listener, without the
+ SLOP gateway. Choose sysible-app-slop instead to have it fronted by the gateway.
+
+Package: sysible-app-connect
+Architecture: all
+Depends: ${misc:Depends}, sysible-platform-installer
+Description: install Sysible Connect on the first boot
+ Sysible Connect alone, on its own listener, without the SLOP gateway. Choose
+ sysible-app-slop instead to have it fronted by the gateway.

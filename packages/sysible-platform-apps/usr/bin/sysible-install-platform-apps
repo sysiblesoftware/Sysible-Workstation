@@ -1,0 +1,51 @@
+#!/bin/sh
+# Install the Sysible platform apps that were ticked on the installer's
+# Optional-apps page.
+#
+# WHY A FIRST-BOOT SERVICE AND NOT A POSTINST. install-sysible clones git
+# repositories and builds containers. It cannot run from a maintainer script:
+# that runs mid-dpkg-transaction (during the live-build chroot AND during
+# Calamares' package step), and a nested apt/dpkg call corrupts the parent run
+# and aborts it. The same lesson the Obsidian installer records in its postinst.
+#
+# Each ticked app ships ONE marker file here; that is the whole mechanism, and
+# it is what lets the netinstall page -- which can only install packages --
+# record a choice at all.
+set -e
+WANTED_DIR=/usr/share/sysible/platform-apps.wanted.d
+STATE=/var/lib/sysible/platform-apps.installed
+UNIT=sysible-platform-installer.service   # must match debian/sysible-platform-installer.service
+
+log() { echo "sysible-platform-apps: $*"; }
+
+[ -d "$WANTED_DIR" ] || { log "nothing was selected at install time"; exit 0; }
+
+APPS=$(find "$WANTED_DIR" -maxdepth 1 -type f -printf '%f\n' 2>/dev/null | sort | tr '\n' ' ')
+APPS=$(echo "$APPS" | tr -s ' ' | sed 's/^ *//; s/ *$//')
+[ -n "$APPS" ] || { log "no apps selected"; exit 0; }
+
+# `slop` already means every app behind the SLOP gateway (one front door), so
+# naming the others alongside it would install each of them a second time,
+# standalone, next to the copies the gateway fronts.
+case " $APPS " in
+  *" slop "*) log "slop selected -- it covers every app behind the gateway"; APPS=slop ;;
+esac
+
+command -v install-sysible >/dev/null 2>&1 || {
+    log "install-sysible is not on PATH (sysible-cli missing?) -- nothing to do"; exit 0; }
+
+log "installing: $APPS"
+# -y because there is no terminal here. install-sysible's own _interactive()
+# checks [ -t 0 ] && [ -t 1 ] and falls back to non-interactive defaults, but
+# passing -y states the intent rather than relying on that.
+if install-sysible -y $APPS; then
+    log "done"
+    mkdir -p "$(dirname "$STATE")"
+    printf '%s\n' "$APPS" > "$STATE"
+    # Succeeded: stop retrying. ConditionPathExists on the unit also covers this,
+    # so the disable is belt rather than the only thing stopping a re-run.
+    systemctl disable "$UNIT" >/dev/null 2>&1 || true
+else
+    log "failed -- will try again on the next boot (needs a network and GitHub)"
+    exit 1
+fi

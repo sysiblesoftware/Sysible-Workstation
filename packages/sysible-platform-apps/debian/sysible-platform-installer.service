@@ -1,0 +1,23 @@
+[Unit]
+Description=Install the selected Sysible platform apps (first boot)
+Documentation=https://sysible.com
+# install-sysible clones from GitHub and builds containers, so it needs a real
+# network, not merely a configured interface.
+Wants=network-online.target
+After=network-online.target docker.service
+# Once it has succeeded it records what it installed; stop running thereafter.
+ConditionPathExists=!/var/lib/sysible/platform-apps.installed
+# Nothing was ticked -> nothing to do, and no unit to show as having run.
+ConditionDirectoryNotEmpty=/usr/share/sysible/platform-apps.wanted.d
+
+[Service]
+Type=oneshot
+RemainAfterExit=no
+# A boot with no network must not leave a failed unit or a degraded system; it
+# just means "try again next boot". The script exits non-zero on a real failure
+# so the journal records it, and `|| true` keeps the unit itself green.
+ExecStart=/bin/sh -c '/usr/bin/sysible-install-platform-apps || true'
+TimeoutStartSec=0
+
+[Install]
+WantedBy=multi-user.target

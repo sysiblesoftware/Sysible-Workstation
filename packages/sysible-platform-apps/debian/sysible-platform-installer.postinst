@@ -1,0 +1,14 @@
+#!/bin/sh
+set -e
+
+# Deliberately does NOT run install-sysible. This runs mid-dpkg-transaction --
+# in the live-build chroot and again during Calamares' package step -- and
+# install-sysible shells out to apt and docker. A nested, non-reentrant dpkg
+# call corrupts the parent run and aborts it. The debhelper-generated snippet
+# below enables the first-boot oneshot, which is the only safe place for it.
+#
+# NOTE: never write the debhelper token in prose -- debhelper substitutes EVERY
+# occurrence, so a mention in a comment injects a second copy of the snippet.
+#DEBHELPER#
+
+exit 0

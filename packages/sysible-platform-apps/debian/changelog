@@ -1,0 +1,10 @@
+sysible-platform-apps (0.1.0) sysible; urgency=medium
+
+  * Initial release: offer SLOP, Controller, SLEP and Connect as checkboxes on
+    the installer's Optional-apps page. Until now the Workstation install
+    offered no way to set the platform apps up at all -- they were a desktop
+    launcher nobody is told about -- while the Server install has asked since
+    its sysible/apps debconf question. Reported as "I got fairly far in the
+    install process and did not see a menu to install slop, slep or controller".
+
+ -- Sysible <maintainers@sysible.com>  Tue, 25 Nov 2026 00:00:00 +0000
