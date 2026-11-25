@@ -279,6 +279,16 @@ jobs:
             Kubernetes, infrastructure-as-code, cloud CLIs, VSCodium and the SysTerm
             terminal — plus the Sysible Controller CE installer.
 
+            ### New in 1.0.8
+            * **Workstation has its own mark.** It and Sysible Server had been using
+              one identical logo — the same tile, the same "S" — distinguishable only
+              by the wordmark printed beside it. Workstation now carries a terminal
+              window; Server carries stacked rack units. The change reaches the boot
+              menu, the installer, the app grid and the login screen.
+            * **Releases reach the apt repo again.** Every publish had been failing
+              on a step that could not replace an already-published repository, so
+              nothing from 1.0.6 or 1.0.7 arrived in `sysible-stable`.
+
             **Fixed in 1.0.6 — the login screen is branded again.** Since
             1 September the greeter had been stock GNOME grey on every image.
             The background was being painted from a rule compiled into
