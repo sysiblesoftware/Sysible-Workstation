@@ -1,5 +1,5 @@
 #!/bin/sh
-# sync-sha256: 508742d529dbac0da1ba00ed25e4b573e50f2a3870cce9dd09965c438b35e984
+# sync-sha256: 74791b0d0bcc3559c0705bc0a8fb4aee022b1f138b33c101bee5df4f214aa93e
 # install-sysible — install the Sysible CE stack on this machine, on demand.
 # Nothing about the platform is baked into the ISO except this helper, so a fresh
 # install runs no Sysible services and opens no ports until you choose to install
@@ -142,6 +142,60 @@ repo_for() { case "$1" in controller) echo "$CTL_REPO" ;; slep) echo "$SLEP_REPO
 dirname_for() { basename "$(repo_for "$1")"; }
 envvar_for() { case "$1" in controller) echo SYSIBLE_CONTROLLER_DIR ;; slep) echo SYSIBLE_SLEP_DIR ;; connect) echo SYSIBLE_CONNECT_DIR ;; slop) echo SYSIBLE_SLOP_DIR ;; esac; }
 
+# Where a product's compose file lives — the directory `docker compose` reads
+# its .env from. Same search order sysiblectl uses. Defined up here with the
+# rest of the path helpers because dir_for below needs it and the teardown
+# calls dir_for, and a function called before it is defined is exit 127 under
+# `set -eu`.
+_compose_dir_of() {
+  for _c in "$1" "$1/deploy" "$1/deploy/docker"; do
+    for _f in docker-compose.yml docker-compose.yaml compose.yml compose.yaml; do
+      [ -f "$_c/$_f" ] && { printf '%s' "$_c"; return 0; }
+    done
+  done
+  return 1
+}
+
+# Where a product's source ACTUALLY is, which is not always where it would be
+# cloned to.
+#
+# An edition that ships the platform carries the SLOP checkout, and SLOP VENDORS
+# all three apps under apps/<product>. So a host with no route out already holds
+# every product's source, and cloning a second copy of what it is carrying is
+# both pointless and the one step that cannot succeed there. Preferring the
+# standalone checkout keeps a host that DID clone on exactly the path it had.
+dir_for() {
+  _std="$SRC_DIR/$(dirname_for "$1")"
+  [ -d "$_std/.git" ] && { printf '%s\n' "$_std"; return 0; }
+  case "$1" in
+    controller|slep|connect)
+      _vnd="$SRC_DIR/$(dirname_for slop)/apps/$1"
+      if [ -d "$_vnd" ] && _compose_dir_of "$_vnd" >/dev/null 2>&1; then
+        printf '%s\n' "$_vnd"; return 0
+      fi
+      ;;
+  esac
+  printf '%s\n' "$_std"
+}
+
+# True when this machine already holds everything the install would otherwise
+# download: the platform's container images (as the archive the ISO ships, or
+# already loaded into docker) and the platform source.
+PREBUILT_IMAGES_DIR=/usr/share/sysible/app-images
+PLATFORM_IMAGES_MARKER=/var/lib/sysible/platform-images-loaded
+
+_have_local_source() { _compose_dir_of "$SRC_DIR/$(dirname_for slop)" >/dev/null 2>&1; }
+
+_have_local_images() {
+  [ -f "$PLATFORM_IMAGES_MARKER" ] && return 0
+  for _t in "$PREBUILT_IMAGES_DIR"/*.tar; do
+    [ -s "$_t" ] && return 0
+  done
+  return 1
+}
+
+_everything_is_local() { _have_local_source && _have_local_images; }
+
 # UI helpers. Defined up here because the teardown below uses them, and a
 # function called before it is defined is exit 127 under `set -eu`.
 _interactive() { command -v whiptail >/dev/null 2>&1 && [ -t 0 ] && [ -t 1 ]; }
@@ -208,7 +262,7 @@ _uninstall_everything() {
   # names by pattern instead would be guessing, and these sit next to volumes
   # that are not ours.
   for p in $PRODUCTS_ALL; do
-    _d="$SRC_DIR/$(dirname_for "$p")"
+    _d="$(dir_for "$p")"
     if command -v sysiblectl >/dev/null 2>&1; then
       say "== $p =="
       if [ "$KEEP_DATA" -eq 1 ]; then
@@ -327,11 +381,21 @@ _online() {
 command -v git >/dev/null 2>&1 || {
   _tell "Cannot install" "git is required and is missing from PATH.\n\nIt ships on every Sysible edition, so this usually means PATH is\nbroken.\nNothing has been installed."
   exit 1; }
+# ONLY when there is something to download. This gate used to be
+# unconditional, and it is how ticking "slop" in the installer turned into
+# "nothing has been installed" on an isolated network: the first-boot service
+# runs this script, this script refused before looking, and the container images
+# and the platform source were sitting on the disk the whole time, unread.
+if _everything_is_local; then
+  say "== the platform is already on this machine — nothing to download =="
+  say "  using the images and source shipped in the image."
+else
 say "== checking the internet connection =="
 _online || {
   _tell "$OFFLINE_TITLE" "This installer downloads the Sysible source from GitHub and the\ncontainer base images from Docker Hub, so it needs both.\n\n$OFFLINE_HOST could not be reached — $OFFLINE_WHY.\n\nIf the rest of the network works, this is usually DNS. Check it with:\n  getent hosts $OFFLINE_HOST\n\nIf Docker resolves differently from the host (common behind a NAT\ngateway), restart it once the network is up:\n  sudo systemctl restart docker\n\nThen run this again:  sudo install-sysible\n\nIf this host uses a registry mirror, or already has the base images,\nskip the registry check with:\n  sudo SYSIBLE_SKIP_REGISTRY_CHECK=1 install-sysible\n\nNothing has been installed."
   exit 1; }
 say "  online."
+fi
 
 # ---- the container runtime: INSTALL it, don't just complain about it ------
 # This used to be a bare `command -v docker || exit 1` — "Docker is required and
@@ -462,16 +526,6 @@ else
   WANT="controller slep connect"
 fi
 
-# Where a product's compose file lives — the directory `docker compose` reads
-# its .env from. Same search order sysiblectl uses.
-_compose_dir_of() {
-  for _c in "$1" "$1/deploy" "$1/deploy/docker"; do
-    for _f in docker-compose.yml docker-compose.yaml compose.yml compose.yaml; do
-      [ -f "$_c/$_f" ] && { printf '%s' "$_c"; return 0; }
-    done
-  done
-  return 1
-}
 
 # Set KEY=VALUE in a .env, replacing any line already there for that key.
 # '|' as the sed delimiter because every value written here is a URL path.
@@ -501,7 +555,17 @@ mkdir -p "$SRC_DIR"
 clone_one() {
   _r="$(repo_for "$1")"; _d="$SRC_DIR/$(dirname_for "$1")"
   if [ -d "$_d/.git" ]; then
-    say "== updating $(dirname_for "$1") =="; git -C "$_d" pull --ff-only || true
+    say "== updating $(dirname_for "$1") =="
+    if ! git -C "$_d" pull --ff-only >/dev/null 2>&1; then
+      # Not an error: an airgapped host, or any host whose remote is briefly
+      # unreachable, keeps the code it already has. Printed plainly instead of
+      # letting git's raw "fatal: unable to access" look like a failed install.
+      say "  could not reach the remote — using the version already on disk."
+    fi
+  elif [ "$(dir_for "$1")" != "$_d" ]; then
+    # Already on the disk, vendored in the platform checkout. Nothing to fetch,
+    # and on an airgapped host nothing that COULD be fetched.
+    say "== using the $1 source vendored in the platform checkout =="
   else
     say "== cloning $(dirname_for "$1") =="; git clone --depth 1 "$_r" "$_d"
   fi
@@ -509,19 +573,17 @@ clone_one() {
 
 # The Controller checkout ships the unified sysiblectl. Ensure it's present (clone
 # the Controller even if not selected — it's the source of the CLI) and installed.
-CTL_DIR="$SRC_DIR/$(dirname_for controller)"
+CTL_DIR="$(dir_for controller)"
 # The CLI lives in the Controller checkout, and CTL_DIR is used for nothing else.
 #
 # An image that ships the platform source carries the SLOP checkout, which
 # VENDORS the Controller at apps/controller -- deploy/sysiblectl included. So an
 # airgapped host already has the CLI, and cloning a second copy of something it
 # is carrying is both pointless and the one step that cannot succeed there.
-_vendored_ctl="$SRC_DIR/$(dirname_for slop)/apps/controller"
-if [ ! -d "$CTL_DIR/.git" ] && [ -d "$_vendored_ctl/deploy" ]; then
-  say "== using the Controller vendored in the platform checkout =="
-  CTL_DIR="$_vendored_ctl"
-else
+if [ "$CTL_DIR" = "$SRC_DIR/$(dirname_for controller)" ]; then
   clone_one controller || die "could not clone the Controller repo (check network/DNS) — nothing was installed."
+else
+  say "== using the Controller vendored in the platform checkout =="
 fi
 # `sysiblectl` is the name; `sysible_ctl` is linked beside it because it is in
 # every runbook and every shell history. A Controller checkout from before the
@@ -559,7 +621,7 @@ for p in $WANT; do
   if ! clone_one "$p"; then
     FAILED="$FAILED $p(clone)"; _warn "  could not clone $p — skipping it."; continue
   fi
-  _dir="$SRC_DIR/$(dirname_for "$p")"
+  _dir="$(dir_for "$p")"
   _var="$(envvar_for "$p")"
   # SYSIBLE_<P>_DIR lets sysiblectl find the checkout before any container exists.
   #
@@ -617,7 +679,7 @@ if [ "$SLOP" -eq 1 ]; then
   say "============================================================"
   say " SLOP gateway — the single front door in front of the apps"
   say "============================================================"
-  if clone_one slop && env SYSIBLE_SLOP_DIR="$SRC_DIR/$(dirname_for slop)" sysiblectl slop "$CTL_BUILD_VERB"; then
+  if clone_one slop && env SYSIBLE_SLOP_DIR="$(dir_for slop)" sysiblectl slop "$CTL_BUILD_VERB"; then
     say "  SLOP gateway is up."
   else
     FAILED="$FAILED slop-gateway"; _warn "  the SLOP gateway did not come up (scroll up for the error)."

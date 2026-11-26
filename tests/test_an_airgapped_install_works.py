@@ -156,3 +156,307 @@ def test_the_build_verifies_both_shipped():
     v = _code(VERIFY)
     assert "sysible-images.tar" in v and "sysible-src" in v
     assert "fail " in v, "the check cannot stop the build"
+
+
+# --------------------------------------------------------------------------
+# The installer itself.
+#
+# Everything above shipped, and ticking "slop" in the installer STILL left a
+# host with nothing running. The ISO side was all correct; `install-sysible`
+# refused before it looked at any of it:
+#
+#     say "== checking the internet connection =="
+#     _online || { ... "Nothing has been installed." ; exit 1; }
+#
+# An unconditional gate, so on a host with no route out the first-boot service
+# ran the script, the script exited 1 with "Nothing has been installed", the
+# service retried three times and wrote /etc/sysible/apps-failed -- while the
+# images and the source sat on the disk, unread. And past that gate, the
+# per-product loop would still `git clone` all three apps that the shipped SLOP
+# checkout already vendors.
+#
+# These run the real script against a simulated host, because a grep for the
+# fix would have passed on the broken version too: the gate it has to NOT run
+# is still in the file, for the host that does need it.
+INSTALLER = ROOT / "packages/sysible-cli/install-sysible"
+
+_STUB_OFFLINE = {
+    "curl": '#!/bin/sh\necho "curl: (6) Could not resolve host" >&2\nexit 6\n',
+    "git": (
+        "#!/bin/sh\n"
+        'for a in "$@"; do case "$a" in clone|ls-remote)\n'
+        '  echo "fatal: unable to access" >&2; exit 128 ;; esac; done\n'
+        'case " $* " in *" pull "*) echo "fatal: unable to access" >&2; exit 1 ;; esac\n'
+        "exit 0\n"
+    ),
+}
+_STUB_ONLINE = {
+    "curl": "#!/bin/sh\nexit 0\n",
+    "git": (
+        "#!/bin/sh\n"
+        'for a in "$@"; do\n'
+        '  if [ "$a" = clone ]; then\n'
+        '    d=$(eval echo "\\${$#}"); mkdir -p "$d/.git" "$d/deploy"\n'
+        "    printf 'services: {}\\n' > \"$d/deploy/docker-compose.yml\"\n"
+        "    printf '#!/bin/sh\\nexit 0\\n' > \"$d/deploy/sysiblectl\"\n"
+        '    chmod +x "$d/deploy/sysiblectl"; echo "CLONED $d"; exit 0\n'
+        "  fi\n"
+        "done\n"
+        "exit 0\n"
+    ),
+}
+_STUB_COMMON = {
+    "sysiblectl": (
+        "#!/bin/sh\n"
+        'echo "SYSIBLECTL product=$1 verb=${2:-}'
+        ' dir=${SYSIBLE_CONTROLLER_DIR:-}${SYSIBLE_SLEP_DIR:-}'
+        '${SYSIBLE_CONNECT_DIR:-}${SYSIBLE_SLOP_DIR:-}"\nexit 0\n'
+    ),
+    "docker": "#!/bin/sh\nexit 0\n",
+    "whiptail": "#!/bin/sh\nexit 0\n",
+}
+
+
+def _host(tmp_path, *, network, ships_platform, also_cloned=(), ships_images=None):
+    """A fake machine: stub binaries on PATH and the on-disk state under tmp."""
+    import os
+    import stat
+
+    bins = tmp_path / "bin"
+    bins.mkdir()
+    for name, body in {
+        **(_STUB_ONLINE if network else _STUB_OFFLINE),
+        **_STUB_COMMON,
+    }.items():
+        f = bins / name
+        f.write_text(body)
+        f.chmod(f.stat().st_mode | stat.S_IEXEC)
+
+    src = tmp_path / "src"
+    imgs = tmp_path / "app-images"
+    marker = tmp_path / "images-loaded"
+    src.mkdir()
+
+    if ships_platform:
+        slop = src / "sysible-linux-operations-platform"
+        (slop / ".git").mkdir(parents=True)
+        (slop / "docker-compose.yml").write_text("services: {}\n")
+        for app in ("controller", "slep", "connect"):
+            d = slop / "apps" / app / "deploy"
+            d.mkdir(parents=True)
+            (d / "docker-compose.yml").write_text("services: {}\n")
+        ctl = slop / "apps/controller/deploy/sysiblectl"
+        ctl.write_text("#!/bin/sh\nexit 0\n")
+        ctl.chmod(ctl.stat().st_mode | stat.S_IEXEC)
+        # Independently settable: "source but no images" is a real state (a host
+        # that cloned, or an ISO that shipped one half) and it must NOT be
+        # mistaken for a complete airgapped install.
+        if ships_images if ships_images is not None else True:
+            imgs.mkdir()
+            (imgs / "sysible-images.tar").write_bytes(b"\0" * 4096)
+
+    for repo in also_cloned:
+        d = src / repo
+        (d / ".git").mkdir(parents=True)
+        (d / "docker-compose.yml").write_text("services: {}\n")
+
+    # The three absolute paths are rewritten, nothing else: the logic under test
+    # is byte-for-byte the shipped logic. Each substitution is ASSERTED, so a
+    # rename upstream fails this loudly instead of quietly testing nothing.
+    script = INSTALLER.read_text()
+    for const, value in (
+        ("SRC_DIR=/opt/sysible-src", f"SRC_DIR={src}"),
+        ("PREBUILT_IMAGES_DIR=/usr/share/sysible/app-images", f"PREBUILT_IMAGES_DIR={imgs}"),
+        (
+            "PLATFORM_IMAGES_MARKER=/var/lib/sysible/platform-images-loaded",
+            f"PLATFORM_IMAGES_MARKER={marker}",
+        ),
+    ):
+        assert script.count(const) == 1, (
+            f"install-sysible no longer defines {const!r} exactly once, so this "
+            f"test would run against the real /opt and /usr/share. Fix the test."
+        )
+        script = script.replace(const, value, 1)
+
+    run = tmp_path / "install-sysible"
+    run.write_text(script)
+
+    env = dict(os.environ, PATH=f"{bins}:/usr/bin:/bin")
+    return run, env, src
+
+
+def _install(tmp_path, *args, network, ships_platform, also_cloned=(), ships_images=None):
+    import subprocess
+
+    run, env, src = _host(
+        tmp_path,
+        network=network,
+        ships_platform=ships_platform,
+        also_cloned=also_cloned,
+        ships_images=ships_images,
+    )
+    p = subprocess.run(
+        ["sh", str(run), "-y", *args],
+        env=env,
+        capture_output=True,
+        text=True,
+        timeout=120,
+    )
+    return p.stdout + p.stderr, src
+
+
+# -- the bug: an airgapped host that ships everything must install -----------
+
+
+def test_an_airgapped_host_that_ships_the_platform_does_not_check_the_network(tmp_path):
+    out, _ = _install(tmp_path, "slop", network=False, ships_platform=True)
+    assert "Nothing has been installed" not in out, (
+        "install-sysible aborted on a host that already holds the images and the "
+        "source. This is the whole airgap requirement, and the path the installer "
+        "menu takes on first boot.\n\n" + out
+    )
+    assert "nothing to download" in out
+
+
+@pytest.mark.parametrize("product", ["controller", "slep", "connect", "slop"])
+def test_every_app_is_started_on_an_airgapped_host(tmp_path, product):
+    out, _ = _install(tmp_path, "slop", network=False, ships_platform=True)
+    assert f"SYSIBLECTL product={product}" in out, (
+        f"{product} never got started on an airgapped host.\n\n" + out
+    )
+
+
+def test_nothing_is_cloned_when_the_source_is_already_vendored(tmp_path):
+    out, _ = _install(tmp_path, "slop", network=False, ships_platform=True)
+    assert "(clone)" not in out, "a product was skipped because a clone failed\n\n" + out
+    for app in ("controller", "slep", "connect"):
+        assert f"using the {app} source vendored in the platform checkout" in out
+
+
+def test_the_apps_resolve_to_the_vendored_source_not_an_empty_directory(tmp_path):
+    out, src = _install(tmp_path, "slop", network=False, ships_platform=True)
+    vendored = src / "sysible-linux-operations-platform/apps"
+    for app in ("controller", "slep", "connect"):
+        assert f"dir={vendored / app}" in out, (
+            f"{app} was handed a path that is not the vendored checkout.\n\n" + out
+        )
+
+
+def test_a_failed_refresh_does_not_look_like_a_broken_install(tmp_path):
+    """An unreachable remote is not an error when the code is already here."""
+    out, _ = _install(tmp_path, "slop", network=False, ships_platform=True)
+    assert "could not reach the remote" in out
+    assert not re.search(r"^fatal:", out, re.M), (
+        "git's raw 'fatal: unable to access' reached the operator, which reads as "
+        "a failed install on a host that is working exactly as designed.\n\n" + out
+    )
+
+
+# -- and the gate must STILL fire for the host that really is just offline ---
+
+
+def test_a_host_with_nothing_local_still_gets_the_offline_message(tmp_path):
+    out, _ = _install(tmp_path, "slop", network=False, ships_platform=False)
+    assert "checking the internet connection" in out
+    assert "Nothing has been installed" in out, (
+        "the connectivity gate was removed rather than made conditional: a host "
+        "that genuinely needs the network now fails later and less clearly.\n\n" + out
+    )
+
+
+def test_an_online_host_still_clones(tmp_path):
+    out, src = _install(tmp_path, "controller", network=True, ships_platform=False)
+    assert "  online." in out
+    assert f"CLONED {src / 'sysible-controller'}" in out, (
+        "the normal online install stopped cloning.\n\n" + out
+    )
+
+
+def test_a_real_checkout_is_preferred_over_the_vendored_copy(tmp_path):
+    """A host that cloned SLEP keeps using that clone, not SLOP's vendored one."""
+    out, src = _install(
+        tmp_path,
+        "slep",
+        network=True,
+        ships_platform=True,
+        also_cloned=("sysible-linux-engineering-platform",),
+    )
+    assert f"dir={src / 'sysible-linux-engineering-platform'}" in out, (
+        "a standalone checkout was ignored in favour of the vendored copy, so "
+        "`sysiblectl slep update` would stop tracking the repo the operator "
+        "cloned.\n\n" + out
+    )
+
+
+def test_source_without_the_images_is_not_treated_as_airgap_ready(tmp_path):
+    """Half a shipment is not a shipment.
+
+    The source alone gets compose as far as reading its file and then straight
+    to a registry for images this host does not have. Skipping the gate there
+    trades one clear "no internet connection" for a wall of pull failures from
+    inside a build, which is strictly worse than what it replaced.
+    """
+    out, _ = _install(
+        tmp_path, "slop", network=False, ships_platform=True, ships_images=False
+    )
+    assert "checking the internet connection" in out, (
+        "the network check was skipped on a host that has the source but NOT the "
+        "images, so the install will fail later, inside compose, pulling images "
+        "it cannot reach.\n\n" + out
+    )
+    assert "Nothing has been installed" in out
+
+
+# --------------------------------------------------------------------------
+# The first-boot unit that runs the installer.
+#
+# Sysible Server's unit has ordered after the image loader since the loader was
+# added. Sysible Workstation uses a different mechanism entirely -- marker files
+# and sysible-platform-installer.service -- and never got the same ordering, so
+# the two editions raced differently on the first boot: Workstation could run
+# the install before the images were in Docker's store, and compose would then
+# go to a registry for images the machine was already carrying.
+#
+# Parameterised over whichever unit this repo ships so neither edition can be
+# fixed alone again.
+_APPS_UNITS = [
+    p
+    for p in (
+        ROOT / "live-build/config/includes.chroot/usr/lib/systemd/system/sysible-apps-firstboot.service",
+        ROOT / "packages/sysible-platform-apps/debian/sysible-platform-installer.service",
+    )
+    if p.exists()
+]
+
+
+def test_this_repo_ships_a_first_boot_apps_unit():
+    assert _APPS_UNITS, (
+        "no first-boot unit runs the apps the operator ticked in the installer, "
+        "so ticking one does nothing at all"
+    )
+
+
+@pytest.mark.parametrize("unit", _APPS_UNITS, ids=lambda p: p.name)
+def test_the_apps_unit_waits_for_the_images_to_be_loaded(unit):
+    text = _code(unit)
+    assert "After=sysible-platform-images.service" in text, (
+        f"{unit.name} does not order after the image loader, so on first boot "
+        f"compose can run before the shipped images are in Docker's store and "
+        f"will try to pull them from a registry this host may not be able to "
+        f"reach at all"
+    )
+
+
+@pytest.mark.parametrize("unit", _APPS_UNITS, ids=lambda p: p.name)
+def test_the_apps_unit_does_not_require_the_network(unit):
+    """Wants= is an optimisation; Requires= would block the airgapped install."""
+    text = _code(unit)
+    assert "Requires=network-online.target" not in text, (
+        f"{unit.name} REQUIRES the network, so a host that ships the platform "
+        f"images and source -- and needs no network to install them -- would "
+        f"never run the install at all"
+    )
+    assert "Wants=network-online.target" in text, (
+        f"{unit.name} should still WANT the network, so a host that does need to "
+        f"clone and build waits for it rather than failing and retrying"
+    )

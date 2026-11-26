@@ -1,10 +1,20 @@
 [Unit]
 Description=Install the selected Sysible platform apps (first boot)
 Documentation=https://sysible.com
-# install-sysible clones from GitHub and builds containers, so it needs a real
-# network, not merely a configured interface.
+# Wanted, NOT required. A host whose image ships the platform's container
+# images and source installs with no route out at all, and this must still run
+# there -- that is the whole airgap requirement. It is only a host that has to
+# clone from GitHub and build from Docker Hub that needs the network, so waiting
+# for it is an optimisation and never a precondition.
 Wants=network-online.target
 After=network-online.target docker.service
+# The platform images must be in Docker's store BEFORE compose runs, or compose
+# goes to a registry for images this machine already carries -- which on an
+# airgapped host means the install fails at the very last step. Sysible Server
+# has ordered after this loader since the loader was added; this unit did not,
+# so the two editions raced differently on first boot.
+After=sysible-platform-images.service
+Wants=sysible-platform-images.service
 # Once it has succeeded it records what it installed; stop running thereafter.
 ConditionPathExists=!/var/lib/sysible/platform-apps.installed
 # Nothing was ticked -> nothing to do, and no unit to show as having run.

@@ -2,8 +2,9 @@
 # Install the Sysible platform apps that were ticked on the installer's
 # Optional-apps page.
 #
-# WHY A FIRST-BOOT SERVICE AND NOT A POSTINST. install-sysible clones git
-# repositories and builds containers. It cannot run from a maintainer script:
+# WHY A FIRST-BOOT SERVICE AND NOT A POSTINST. install-sysible brings up
+# containers, and on a host that has to fetch them it clones git repositories
+# and builds them. It cannot run from a maintainer script:
 # that runs mid-dpkg-transaction (during the live-build chroot AND during
 # Calamares' package step), and a nested apt/dpkg call corrupts the parent run
 # and aborts it. The same lesson the Obsidian installer records in its postinst.
@@ -46,6 +47,6 @@ if install-sysible -y $APPS; then
     # so the disable is belt rather than the only thing stopping a re-run.
     systemctl disable "$UNIT" >/dev/null 2>&1 || true
 else
-    log "failed -- will try again on the next boot (needs a network and GitHub)"
+    log "failed -- will try again on the next boot"
     exit 1
 fi
