@@ -1,5 +1,5 @@
 #!/bin/sh
-# sync-sha256: 25f679f0d544c97eb38274fd20c1f2fd3ad9ac8e98246fd9905e6ba189e39074
+# sync-sha256: 6163f9696bfa8d8684244a1107741e0c6905f2946569fade7a4e0b77a26421c1
 # sysible-hint — one line, at login, about the Sysible software on this machine.
 #
 # Two things an operator otherwise has to already know:
@@ -59,6 +59,35 @@ if [ -s "$ETC/apps-failed" ] && ! _installed; then
   printf '  Why:          %s/var/log/sysible-apps-firstboot.log%s\n' "$B" "$R"
   printf '  Try again:    %ssudo install-sysible%s\n\n' "$B" "$R"
   exit 0
+fi
+
+# Set up, and nothing has said how to reach it.
+#
+# The installer offers the Sysible apps during the install; the work then happens
+# unattended on the first networked boot. SLOP's IdP prints its bootstrap account
+# into a CONTAINER log, which an operator sitting at this console never sees. So a
+# machine comes up serving a web front door and nothing anywhere on it says what
+# the account is.
+#
+# Reported as "sysible/sysible isn't the default password for slop". The password
+# is right; the username is `admin`. That is a documented, public credential, so
+# printing it on the machine's own console costs nothing and answers the question
+# the operator actually has.
+#
+# No network: `ip route get` reads the kernel routing table, it does not send
+# anything.
+if [ -s "$ETC/apps-installed" ] && _installed; then
+  case " $(tr -d '\n' < "$ETC/apps-installed") " in
+    *slop*)
+      _ip="$(ip route get 1.1.1.1 2>/dev/null | sed -n 's/.* src \([0-9.]*\).*/\1/p' | head -n1)"
+      printf '\n%s%sSysible SLOP is set up on this machine.%s\n' "$B" "$G" "$R"
+      printf '  Open:       %shttps://%s/%s\n' "$B" "${_ip:-<this-host>}" "$R"
+      printf '  Sign in:    %sadmin%s / %ssysible%s  — the shipped default, and it is public.\n' \
+             "$B" "$R" "$B" "$R"
+      printf '  Change it:  at %s/account%s the first time you sign in.\n' "$B" "$R"
+      printf '  Hide this:  %ssudo rm /etc/sysible/apps-installed%s\n\n' "$B" "$R"
+      ;;
+  esac
 fi
 
 if ! _installed; then
