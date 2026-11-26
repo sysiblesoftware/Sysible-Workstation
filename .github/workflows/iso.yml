@@ -420,6 +420,26 @@ jobs:
             terminal — plus the Sysible Controller CE installer.
 
             ### New in ${{ github.ref_type == 'tag' && github.ref_name || inputs.tag }}
+            * **Ticking an app on the Optional-apps page now installs it.** The choice
+              was recorded and then, on a machine that could not reach GitHub and Docker
+              Hub, nothing came of it: the first-boot installer checked for a network
+              before it looked at the disk, gave up after three tries and left a note at
+              login. The container images and the platform's source were already on the
+              machine. That check now runs only when something genuinely needs
+              downloading, so what you tick during setup is running when you first log
+              in — no command to type, and no network required.
+            * **Nothing is fetched that the image already ships.** The apps come from
+              the platform checkout in the image, which carries all three, rather than
+              being cloned from GitHub a second time. A machine that did clone them
+              keeps using its own checkout.
+            * **The first boot no longer races itself.** The unit that installs your
+              selection did not wait for the one that loads the shipped container images
+              into Docker, so it could start a bring-up before the images were there and
+              send compose to a registry for images this machine was already carrying.
+              Sysible Server has ordered these correctly since the loader was added;
+              Workstation uses a different mechanism and never got the same ordering.
+
+            **Earlier, in 1.0.10 — the airgapped install.**
             * **The platform installs on an airgapped network.** The ISO now
               carries every Sysible container image, built beforehand, plus the
               platform's source. A first boot loads them and brings the whole

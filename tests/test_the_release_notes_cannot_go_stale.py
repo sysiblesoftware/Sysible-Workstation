@@ -58,8 +58,51 @@ def test_the_heading_is_not_a_hard_coded_version():
 # Checked per PARAGRAPH, not per line: the marker sits on a paragraph's first
 # line and the version often lands on a wrapped continuation, so a line-wise
 # check flags the continuation and misses the relationship entirely.
-HISTORICAL = re.compile(r"\b(?:earlier,? in|fixed in|new in|from|since|before|arrived"
-    r"|if you are on|if you installed|upgrading from)\b", re.I)
+# A version named as HISTORY cannot go stale -- "fixed in 1.0.6" stays true
+# forever. A version presented as the CURRENT release is the thing that rots,
+# and that is what this guards.
+#
+# Three things this got wrong before, each of which let a stale claim through or
+# blocked a true one:
+#
+#   * The marker was looked for anywhere in the same PARAGRAPH. The marker list
+#     contains "from", "since" and "before" -- ordinary English words -- so one
+#     "cloned from GitHub" exempted every version number in the paragraph, and a
+#     hand-written "New in 1.0.99" sailed through. The marker now has to sit
+#     immediately before the version.
+#   * "new in" was listed as historical. It is the opposite: it introduces the
+#     release being published, so it is rejected outright.
+#   * A second version in a conjunction -- "nothing from 1.0.6 or 1.0.7" -- has
+#     no marker of its own, and was flagged. A chain of versions inherits the
+#     marker in front of the first one.
+# A paragraph that OPENS with a historical marker is historical throughout, so a
+# past release can be the subject of a later sentence in it:
+#
+#     **Fixed in 1.0.6 -- wallpapers back to the rendering people liked.**
+#     1.0.5 widened the contour strokes to stop them going sub-pixel ...
+#
+# This is not the old paragraph-wide scan that let everything through: the marker
+# has to be the paragraph's OPENING, not merely somewhere inside it, and "new in"
+# is not a historical opener.
+HISTORICAL_OPENER = re.compile(
+    r"^[\s*_#]*(?:earlier,?\s+in|fixed\s+in|from|since|before)\b", re.I)
+
+
+def _paragraph_of(body, pos):
+    start = body.rfind("\n\n", 0, pos)
+    start = 0 if start < 0 else start + 2
+    end = body.find("\n\n", pos)
+    return body[start : len(body) if end < 0 else end]
+
+
+CURRENT_CLAIM = re.compile(r"\bnew\s+in\s+v?$", re.I)
+HISTORICAL_BEFORE = re.compile(
+    r"(?:earlier,?\s+in|fixed\s+in|arrived\s+in|upgrading\s+from"
+    r"|if\s+you\s+are\s+on|if\s+you\s+installed"
+    r"|from|since|before|in)\s+v?$", re.I)
+LICENCE_BEFORE = re.compile(r"(BUSL|GPL|LGPL|AGPL|MPL|Apache)[- ]?$")
+# "1.0.6 or", "1.0.2, " -- strip these so a chain inherits the first marker.
+LINK = re.compile(r"\d+\.\d+\.\d+\s*(?:,|or|and|to|through|[-\u2013\u2014])\s*$", re.I)
 VERSION = re.compile(r"(?<![\w.-])\d+\.\d+\.\d+(?![\w.-])")
 
 
@@ -67,16 +110,31 @@ def test_no_version_number_is_written_into_the_notes_by_hand():
     """A literal x.y.z presented as the CURRENT release goes stale silently."""
     body = _body()
     bad = []
-    for para in re.split(r"\n\s*\n", body):
-        if "${{" in para or HISTORICAL.search(para):
+    for m in VERSION.finditer(body):
+        head = body[: m.start()]
+        line = head[head.rfind("\n") + 1 :] + m.group(0)
+        if "${{" in line:                      # the interpolated heading
             continue
-        for m in VERSION.finditer(para):
-            line = para[:m.start()].count("\n")
-            if re.search(r"(BUSL|GPL|LGPL|AGPL|MPL|Apache)[- ]?$", para[:m.start()]):
-                continue
-            bad.append("  " + para.splitlines()[line].strip()[:100])
+        if LICENCE_BEFORE.search(head):        # BUSL-1.1 is a licence version
+            continue
+        if CURRENT_CLAIM.search(head):         # "New in 1.0.99" -- the stale claim
+            bad.append(f"  {line.strip()[:100]}")
+            continue
+        chain = head                           # "from 1.0.6 or <here>"
+        while True:
+            mm = LINK.search(chain)
+            if not mm:
+                break
+            chain = chain[: mm.start()]
+        if HISTORICAL_BEFORE.search(chain):    # "fixed in 1.0.6" -- cannot rot
+            continue
+        if HISTORICAL_OPENER.search(_paragraph_of(body, m.start()).lstrip()):
+            continue
+        bad.append(f"  {line.strip()[:100]}")
     assert not bad, (
-        "these present a version as the current release:\n" + "\n".join(bad))
+        "these present a version as the current release, so the next build "
+        "publishes notes describing the wrong one:\n" + "\n".join(bad)
+    )
 
 
 @pytest.mark.parametrize("needed", [
