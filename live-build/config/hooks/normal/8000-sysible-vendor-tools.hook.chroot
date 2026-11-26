@@ -145,23 +145,33 @@ tar xz -C /usr/local/bin -f /tmp/tofu.tgz tofu
 chmod 0755 /usr/local/bin/tofu
 tofu version || true
 
-# GitHub-release binaries (no apt repo): k9s, eza, sops. Best-effort — a hiccup
-# fetching one must not fail the whole ISO.
+# GitHub-release binaries (no apt repo): k9s is REQUIRED (see below); eza and
+# sops stay best-effort — a hiccup fetching those must not fail the whole ISO.
 echo "== GitHub-release binaries =="
-# k9s (best-effort): download, verify against the release checksums, then extract.
-# On a checksum mismatch we do NOT install the unverified binary, but we also
-# don't fail the ISO (k9s is optional) — we just skip it with a loud note.
-if $CURL "https://github.com/derailed/k9s/releases/latest/download/k9s_Linux_${ARCH}.tar.gz" -o /tmp/k9s.tgz 2>/dev/null; then
-    k9s_sum=$($CURL "https://github.com/derailed/k9s/releases/latest/download/checksums.sha256" 2>/dev/null \
-        | grep -E "[[:space:]]\*?k9s_Linux_${ARCH}\.tar\.gz\$" | grep -oE '^[0-9a-fA-F]{64}' | head -1)
-    if [ -z "$k9s_sum" ] || [ "$(sha256sum /tmp/k9s.tgz | awk '{print $1}')" = "$k9s_sum" ]; then
-        tar xz -C /usr/local/bin -f /tmp/k9s.tgz k9s 2>/dev/null && echo "k9s ok" || echo "k9s skipped (extract)"
-    else
-        echo "k9s SKIPPED — checksum mismatch, not installing unverified binary"
-    fi
-else
-    echo "k9s skipped (download)"
-fi
+# k9s: REQUIRED, and never installed unverified.
+#
+# It was best-effort, and the two images failed differently. Both are gone.
+# The product pages list k9s among the tools the image guarantees, so an image
+# without it does not match what was advertised -- that is a build failure, not
+# a note in a log nobody reads.
+#
+# On Workstation this ALSO installed an unverified binary whenever the checksum
+# file could not be fetched: the guard read `[ -z "$k9s_sum" ] || [ sums match ]`,
+# so a missing checksum short-circuited straight to the install branch, while
+# the comment above it claimed "we do NOT install the unverified binary". A
+# network that serves the tarball but not checksums.sha256 is precisely the case
+# the check exists for.
+$CURL "https://github.com/derailed/k9s/releases/latest/download/k9s_Linux_${ARCH}.tar.gz" -o /tmp/k9s.tgz \
+    || { echo "ERROR: could not download k9s for ${ARCH}." >&2; exit 1; }
+k9s_sum=$($CURL "https://github.com/derailed/k9s/releases/latest/download/checksums.sha256" 2>/dev/null \
+    | grep -E "[[:space:]]\*?k9s_Linux_${ARCH}\.tar\.gz$" | grep -oE '^[0-9a-fA-F]{64}' | head -1)
+[ -n "$k9s_sum" ] \
+    || { echo "ERROR: no published sha256 for k9s_Linux_${ARCH}.tar.gz — refusing to install it unverified." >&2; exit 1; }
+[ "$(sha256sum /tmp/k9s.tgz | awk '{print $1}')" = "$k9s_sum" ] \
+    || { echo "ERROR: k9s checksum mismatch — refusing to install it." >&2; exit 1; }
+tar xz -C /usr/local/bin -f /tmp/k9s.tgz k9s \
+    || { echo "ERROR: could not extract k9s from its tarball." >&2; exit 1; }
+echo "k9s ok (sha256 verified)"
 ( $CURL "https://github.com/eza-community/eza/releases/latest/download/eza_${GNU_ARCH}-unknown-linux-gnu.tar.gz" \
     | tar xz -C /usr/local/bin ) 2>/dev/null && echo "eza ok" || echo "eza skipped"
 sops_url=$($CURL https://api.github.com/repos/getsops/sops/releases/latest \

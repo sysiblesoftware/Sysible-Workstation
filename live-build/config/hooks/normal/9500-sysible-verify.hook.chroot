@@ -552,3 +552,48 @@ done
 echo "sysible-verify: OK — nothing unexpected runs on a kernel upgrade."
 
 echo "sysible-verify: OK — SysTerm $V, Run Command menu, and new icon all present."
+
+# ---------------------------------------------------------------------------
+# The tools the product pages promise are actually IN the image.
+#
+# WHY THIS EXISTS, and why it is not a metapackage Depends. Three of these are
+# not apt packages at all: helm and opentofu are installed from their vendors'
+# official binaries (their apt repos misbehave in a fresh chroot -- baltocdn.com
+# serves an incomplete TLS chain, packages.opentofu.org needs a second signing
+# key) and k9s comes from a GitHub release. `Depends: helm` would fail the build
+# with "no installation candidate", and the Recommends they sat in was satisfied
+# by nothing at all -- apt skips an unsatisfiable Recommends in silence. So the
+# image advertised four tools whose presence rested entirely on a hook that was
+# allowed to skip them.
+#
+# This is a STRONGER guarantee than a Depends, not a weaker substitute. A
+# Depends is satisfied when dpkg marks a package installed. This asserts the
+# program is actually on PATH in the finished image, and the build dies if it
+# is not.
+echo "== sysible-verify: tools the product pages promise =="
+for _t in docker kubectl helm k9s tofu ansible ansible-playbook podman \
+          git curl openssl nft jq; do
+    command -v "$_t" >/dev/null 2>&1 \
+        || fail "$_t is NOT in the image, but the product pages list it as included"
+done
+
+# Compose is checked by package and by plugin path rather than by running it:
+# the daemon is not up inside a build chroot, so `docker compose version` is not
+# a safe probe here.
+dpkg-query -W -f='${Status}' docker-compose-plugin 2>/dev/null \
+    | grep -q 'install ok installed' \
+    || fail "docker-compose-plugin is not installed — every Sysible app is brought up with 'docker compose'"
+_dc=""
+for _p in /usr/libexec/docker/cli-plugins/docker-compose \
+          /usr/lib/docker/cli-plugins/docker-compose \
+          /usr/local/lib/docker/cli-plugins/docker-compose; do
+    [ -x "$_p" ] && _dc="$_p" && break
+done
+[ -n "$_dc" ] || fail "the docker compose plugin binary is not where the CLI looks for it"
+
+# SLOP's installer needs these on the HOST before it can bring the gateway up:
+# git to clone the products, docker + compose to run them, openssl to mint the
+# SSO/updater/Baseline/Flashback secrets. `install-sysible slop` is one of the
+# two questions the installer asks, so a host that cannot run it is a broken
+# promise made during the install itself.
+echo "sysible-verify: OK — kubectl, helm, k9s, tofu, compose and the SLOP prerequisites are all present."
