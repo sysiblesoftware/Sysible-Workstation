@@ -39,6 +39,22 @@ def _code(p):
     return "\n".join(l for l in p.read_text().splitlines() if not l.lstrip().startswith("#"))
 
 
+def _run_code(job):
+    """The shell actually run by a job's steps, comments stripped.
+
+    NOT yaml.dump of the steps: that re-serialises and re-wraps, so a comment
+    inside a `run:` block comes back as an ordinary line and a line-based scan
+    cannot tell it from a command. That is exactly how a comment mentioning
+    `docker save` made the single-archive check count two.
+    """
+    out = []
+    for st in JOBS[job]["steps"]:
+        for line in (st.get("run") or "").splitlines():
+            if line.strip() and not line.lstrip().startswith("#"):
+                out.append(line)
+    return out
+
+
 def _steps_text(job):
     return yaml.dump(JOBS[job]["steps"])
 
@@ -65,9 +81,12 @@ def test_the_iso_waits_for_them():
 def test_every_image_is_saved_into_one_archive():
     """One archive, not one per image: a single `docker save` stores shared
     layers once, and every Python service shares the whole python base."""
-    t = _steps_text("app-images")
-    assert "docker save -o" in t
-    assert t.count("docker save") == 1, "saved piecemeal — the base ships many times"
+    # Count INVOCATIONS, not mentions: a comment naming `docker save` made this
+    # count two the first time.
+    calls = [l for l in _run_code("app-images") if "docker save" in l]
+    assert calls, "nothing saves the images"
+    assert len(calls) == 1, f"saved piecemeal — the base ships many times: {calls}"
+    assert "-o" in calls[0], "the archive has no output path"
 
 
 @pytest.mark.parametrize("image", [
@@ -80,6 +99,18 @@ def test_the_archive_contains_every_service(image):
     assert image in _steps_text("app-images"), (
         f"{image} is not saved — the platform would come up missing a service, "
         f"and on an airgapped host there is no way to fetch it")
+
+
+def test_the_profiled_apps_are_actually_built():
+    """The Controller, SLEP and Connect sit under the `integrated` profile, and
+    compose SKIPS a profiled service unless asked for it. Listing them in the
+    save command is not enough -- that is what failed: five images built, three
+    did not, and `docker save` was the first thing to notice."""
+    build = [l for l in _run_code("app-images") if "compose" in l and " build" in l]
+    assert build, "nothing builds the images"
+    assert all("--profile integrated" in l for l in build), (
+        "the build does not ask for the integrated profile, so the Controller, "
+        "SLEP and Connect are silently skipped")
 
 
 def test_the_gateway_image_is_pulled_not_built():

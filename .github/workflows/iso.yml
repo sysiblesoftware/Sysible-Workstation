@@ -81,7 +81,12 @@ jobs:
           # would be baked into an image layer and shipped as if it were a real
           # secret. Read the RENDERED config and inspect build args ONLY -- grepping
           # the file cannot tell a build arg from an environment value.
-          docker compose -f docker-compose.yml config --format json > /tmp/rendered.json
+          # --profile integrated: the Controller, SLEP and Connect are declared under
+          # that profile, and compose SKIPS a profiled service unless it is asked for.
+          # Without it the five SLOP-native images build, the three apps do not, and
+          # `docker save` is the first thing to notice -- which is how the second run
+          # of this job failed: "No such image: sysible-controller:latest".
+          docker compose -f docker-compose.yml --profile integrated config --format json > /tmp/rendered.json
           python3 - <<'PYGUARD'
           import json, sys
           d = json.load(open("/tmp/rendered.json"))
@@ -97,7 +102,7 @@ jobs:
                        "It would be baked into the image and shipped as a secret." % bad)
           print("build args carry no placeholder: the secret stays a runtime value")
           PYGUARD
-          docker compose -f docker-compose.yml build --pull
+          docker compose -f docker-compose.yml --profile integrated build --pull
           docker image ls
 
       - name: Pull the images that are run rather than built
