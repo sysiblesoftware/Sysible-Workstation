@@ -32,7 +32,11 @@ ENABLE = ROOT / "live-build/config/hooks/normal/9600-sysible-firstboot.hook.chro
 VERIFY = ROOT / "live-build/config/hooks/normal/9500-sysible-verify.hook.chroot"
 
 # Every FROM across the suite, as of writing.
-BASE_IMAGES = ["python:3.12-slim", "node:20-slim", "node:22-slim", "docker:27-cli"]
+# Dockerfile FROMs, PLUS images a compose file pulls directly. caddy is the
+# second kind and was missed by a FROM-only scan -- it is SLOP's gateway, so
+# missing it means no front door on an airgapped host.
+BASE_IMAGES = ["python:3.12-slim", "node:20-slim", "node:22-slim",
+               "docker:27-cli", "caddy:2-alpine"]
 
 
 def _code(p):

@@ -27,7 +27,10 @@ set -e
 
 ARCH=$(dpkg --print-architecture)           # amd64 | arm64
 OUT=/usr/share/sysible/base-images
-IMAGES="python:3.12-slim node:20-slim node:22-slim docker:27-cli"
+# caddy is pulled by SLOP's compose as a plain `image:` rather than being built
+# FROM a Dockerfile, so a scan of FROM lines does not find it. It is the
+# gateway itself: without it there is no front door at all.
+IMAGES="python:3.12-slim node:20-slim node:22-slim docker:27-cli caddy:2-alpine"
 
 command -v skopeo >/dev/null 2>&1 || {
     echo "ERROR: skopeo is missing — it is a hard dependency and is what fetches" >&2
