@@ -1,5 +1,5 @@
 #!/bin/sh
-# sync-sha256: 74791b0d0bcc3559c0705bc0a8fb4aee022b1f138b33c101bee5df4f214aa93e
+# sync-sha256: 20017238b0fe62291961ed3697d0c85073c1ef2cc1b6075a8a578f1362a73967
 # install-sysible — install the Sysible CE stack on this machine, on demand.
 # Nothing about the platform is baked into the ISO except this helper, so a fresh
 # install runs no Sysible services and opens no ports until you choose to install
@@ -702,7 +702,22 @@ if [ "$SLOP" -eq 1 ]; then
   # mentioned. Going through the catalog installs the package, whose first-boot
   # service does the vendor download (it cannot be done from a postinst — that is a
   # nested dpkg run) and retries on the next boot if the network is down.
-  if command -v sysible-tools >/dev/null 2>&1; then
+  # An airgapped host can NEVER have these. They are downloaded from the
+  # vendors' own repositories (HashiCorp, AWS, Obsidian) at install time, which
+  # is the whole reason the ISO cannot carry them -- licensing, in HashiCorp's
+  # case. Counting that as a failure ended a perfect offline install on
+  #
+  #     Finished WITH PROBLEMS -- these did not come up: optional-software
+  #
+  # which is how a machine that did exactly the right thing gets read as a
+  # broken one. Checked BEFORE attempting, so an isolated host is not held up
+  # by apt timing out against hosts it cannot reach either.
+  if ! _online; then
+    say "  The optional software (HashiCorp tools, AWS CLI, and Obsidian where this"
+    say "  edition offers it) is downloaded from the vendors, so it needs a network."
+    say "  This host has none, so it was SKIPPED. Nothing is wrong."
+    say "  Install it later, once this host is online, with:  sudo sysible-tools"
+  elif command -v sysible-tools >/dev/null 2>&1; then
     # ASK the catalog what this edition offers instead of naming the tools here.
     # Server deliberately carries no Obsidian — a note-taking GUI on a headless box
     # — so a hard-coded list would make a correct Server install report a failure

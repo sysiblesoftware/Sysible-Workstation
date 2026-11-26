@@ -460,3 +460,30 @@ def test_the_apps_unit_does_not_require_the_network(unit):
         f"{unit.name} should still WANT the network, so a host that does need to "
         f"clone and build waits for it rather than failing and retrying"
     )
+
+
+def test_an_offline_install_does_not_report_problems_it_cannot_avoid(tmp_path):
+    """A machine that did exactly the right thing must not say it failed.
+
+    The optional software -- HashiCorp's tools, the AWS CLI, Obsidian where the
+    edition offers it -- is downloaded from the vendors at install time. That is
+    the whole reason the ISO cannot carry it, licensing included. So an airgapped
+    host can never have it, and counting that as a failure ended a flawless
+    offline install on
+
+        Finished WITH PROBLEMS -- these did not come up: optional-software
+
+    which is how a working machine gets read as a broken one, and is the
+    complaint this whole path exists to answer.
+    """
+    out, _ = _install(tmp_path, "slop", network=False, ships_platform=True)
+    assert "WITH PROBLEMS" not in out, (
+        "an offline install still finished WITH PROBLEMS:\n\n" + out
+    )
+    assert "optional-software" not in out, (
+        "the optional software was still counted as a failed component\n\n" + out
+    )
+    assert "it was SKIPPED. Nothing is wrong." in out, (
+        "nothing told the operator why the optional software is absent, so its "
+        "absence looks like a fault\n\n" + out
+    )
