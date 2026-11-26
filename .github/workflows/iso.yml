@@ -420,21 +420,28 @@ jobs:
             terminal — plus the Sysible Controller CE installer.
 
             ### New in ${{ github.ref_type == 'tag' && github.ref_name || inputs.tag }}
-            * **kubectl, Helm, k9s and OpenTofu are guaranteed, not best-effort.**
-              Three of them are vendor binaries with no apt package, so they cannot
-              be dependencies — the build now asserts each is on `PATH` in the
-              finished image and fails if one is missing. k9s in particular was
-              optional: a failed download or an unfetchable checksum shipped an
-              image without it and said so only in a build log.
-            * **An unverified k9s binary can no longer be installed.** The guard
-              read `[ -z "$k9s_sum" ] || [ sums match ]`, so a *missing* checksum
-              short-circuited into the install branch — a network that served the
-              tarball but not `checksums.sha256` got an unverified binary written
-              into `/usr/local/bin`. A missing checksum now fails the build.
-            * **`openssl` is a hard dependency.** The Sysible platform installer
-              mints its sign-in, updater and agent secrets with
-              `openssl rand -hex 32`. It was a Recommends, which
-              `--no-install-recommends` drops.
+            * **The platform installs on an airgapped network.** The ISO now
+              carries every Sysible container image, built beforehand, plus the
+              platform's source. A first boot loads them and brings the whole
+              stack up without reaching a registry, a package index or GitHub.
+              It used to build each app from source on your machine, and every
+              one of those builds fetched from PyPI, npm, Debian and Alpine — so
+              a machine that could not reach them could not finish setting up
+              software this image had offered to set up.
+            * **Nothing rebuilds what the image already carries.** Installing the
+              Sysible software starts from the shipped images and builds only
+              what is genuinely missing, so it is minutes rather than tens of
+              minutes.
+            * **A build that cannot reach its registry says so immediately**,
+              instead of spending the time first and then printing a buildkit
+              trace whose one useful line was that DNS had failed.
+            * **The sign-in is written down.** The platform's first sign-in is
+              `admin` / `sysible` — the shipped default, public, and changed at
+              `/account`. It is in the manuals and on the product pages now.
+            * **An unverified k9s binary can no longer be installed.** The
+              checksum guard read `[ -z "$k9s_sum" ] || [ sums match ]`, so a
+              *missing* checksum short-circuited into the install branch. A
+              missing checksum now fails the build.
 
             **Earlier, in 1.0.8 — Workstation has its own mark.** It and Sysible
             Server had been using one identical logo — the same tile, the same
