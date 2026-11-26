@@ -45,3 +45,7 @@ dpkg-buildpackage -us -uc -b
 ```
 
 See `roadmap.md` for the phased plan and the known package traps we design around.
+
+## License
+
+Sysible Workstation is released under the **MIT License** — see [LICENSE](LICENSE).
