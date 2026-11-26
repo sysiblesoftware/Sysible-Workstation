@@ -596,19 +596,15 @@ done
 # SSO/updater/Baseline/Flashback secrets. `install-sysible slop` is one of the
 # two questions the installer asks, so a host that cannot run it is a broken
 # promise made during the install itself.
-# The baked base images are actually in the image, and complete.
+# The platform ships complete: its images AND its source.
 #
-# An image that ships three of the four is worse than one that ships none: the
-# build gets further before it reaches for Docker Hub, so the failure lands
-# later and reads as something else entirely.
-BIMG=/usr/share/sysible/base-images
-[ -d "$BIMG" ] || fail "$BIMG is missing — the platform cannot be built on a host without Docker Hub"
-[ -s "$BIMG/MANIFEST" ] || fail "$BIMG/MANIFEST is missing — nothing records which base images should be here"
-while read -r _img; do
-    [ -n "$_img" ] || continue
-    _f="$BIMG/$(printf '%s' "$_img" | tr ':/' '__').tar"
-    [ -s "$_f" ] || fail "base image $_img was not baked in (expected $_f)"
-done < "$BIMG/MANIFEST"
-echo "sysible-verify: OK — $(wc -l < "$BIMG/MANIFEST") base images baked in ($(du -sh "$BIMG" 2>/dev/null | cut -f1))."
+# An ISO missing either still builds, boots and installs, and fails at the very
+# last step -- compose reaching for a registry that an airgapped host cannot
+# answer. That is the worst place to discover it, so discover it here.
+PIMG=/usr/share/sysible/app-images/sysible-images.tar
+PSRC=/opt/sysible-src/sysible-linux-operations-platform
+[ -s "$PIMG" ] || fail "the prebuilt platform images are missing ($PIMG) — an airgapped host could not bring the platform up"
+[ -f "$PSRC/docker-compose.yml" ] || fail "the platform source did not ship ($PSRC) — compose has no file to read and install-sysible would try to clone it"
+echo "sysible-verify: OK — platform images ($(du -h "$PIMG" | cut -f1)) and source shipped."
 
 echo "sysible-verify: OK — kubectl, helm, k9s, tofu, compose and the SLOP prerequisites are all present."

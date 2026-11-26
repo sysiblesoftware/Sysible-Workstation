@@ -1,5 +1,5 @@
 #!/bin/sh
-# sync-sha256: b86f3ee0086379102b72f3f392063f10af41618107508c6e72e8cb09dd86658f
+# sync-sha256: 508742d529dbac0da1ba00ed25e4b573e50f2a3870cce9dd09965c438b35e984
 # install-sysible — install the Sysible CE stack on this machine, on demand.
 # Nothing about the platform is baked into the ISO except this helper, so a fresh
 # install runs no Sysible services and opens no ports until you choose to install
@@ -510,7 +510,19 @@ clone_one() {
 # The Controller checkout ships the unified sysiblectl. Ensure it's present (clone
 # the Controller even if not selected — it's the source of the CLI) and installed.
 CTL_DIR="$SRC_DIR/$(dirname_for controller)"
-clone_one controller || die "could not clone the Controller repo (check network/DNS) — nothing was installed."
+# The CLI lives in the Controller checkout, and CTL_DIR is used for nothing else.
+#
+# An image that ships the platform source carries the SLOP checkout, which
+# VENDORS the Controller at apps/controller -- deploy/sysiblectl included. So an
+# airgapped host already has the CLI, and cloning a second copy of something it
+# is carrying is both pointless and the one step that cannot succeed there.
+_vendored_ctl="$SRC_DIR/$(dirname_for slop)/apps/controller"
+if [ ! -d "$CTL_DIR/.git" ] && [ -d "$_vendored_ctl/deploy" ]; then
+  say "== using the Controller vendored in the platform checkout =="
+  CTL_DIR="$_vendored_ctl"
+else
+  clone_one controller || die "could not clone the Controller repo (check network/DNS) — nothing was installed."
+fi
 # `sysiblectl` is the name; `sysible_ctl` is linked beside it because it is in
 # every runbook and every shell history. A Controller checkout from before the
 # rename ships only the underscore name, so take whichever is there.

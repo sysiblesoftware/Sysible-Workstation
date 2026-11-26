@@ -1,19 +1,19 @@
 [Unit]
-Description=Load the Sysible container base images into Docker
+Description=Load the Sysible platform container images into Docker
 Documentation=https://sysible.com/server-manual.html
 # The whole point is to be usable on a host with no registry access, so this must
 # not want the network. It needs the daemon and nothing else.
 After=docker.service
 Requires=docker.service
-ConditionPathExists=/usr/share/sysible/base-images
-ConditionPathExists=!/var/lib/sysible/base-images-loaded
+ConditionPathExists=/usr/share/sysible/app-images
+ConditionPathExists=!/var/lib/sysible/platform-images-loaded
 
 [Service]
 Type=oneshot
 RemainAfterExit=yes
 # Loading several hundred megabytes of layers is not quick on slow storage.
 TimeoutStartSec=0
-ExecStart=/usr/lib/sysible/load-base-images
+ExecStart=/usr/lib/sysible/load-platform-images
 
 [Install]
 WantedBy=multi-user.target

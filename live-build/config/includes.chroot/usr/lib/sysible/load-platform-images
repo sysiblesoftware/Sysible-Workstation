@@ -1,17 +1,22 @@
 #!/bin/sh
-# Load the baked container base images into the local Docker image store.
+# Load the platform's prebuilt container images into the local Docker store.
 #
-# The ISO carries python/node/docker base images (see the 8500 build hook) so the
-# platform can be built on a host that cannot reach Docker Hub. They are useless
-# sitting in /usr/share as tarballs -- a build looks in the image store -- so this
-# loads them once, as early as the daemon allows.
+# The ISO carries every finished service image, built in CI where there is a
+# network and a builder (see the app-images job in iso.yml). They are useless
+# sitting in /usr/share as a tarball -- compose looks in the image store -- so
+# this loads them once, as early as the daemon allows.
+#
+# This is what makes an airgapped install work. Building on the host could never
+# be made to: every service's Dockerfile fetches from PyPI, npm, Debian or
+# Alpine, so a host that cannot reach those cannot build the platform no matter
+# how many base images ship with it.
 #
 # Idempotent twice over: `docker load` of an image already present is a cheap
 # no-op, and the marker stops this repeating on every boot.
 set -e
-DIR=/usr/share/sysible/base-images
-MARK=/var/lib/sysible/base-images-loaded
-LOG=/var/log/sysible-base-images.log
+DIR=/usr/share/sysible/app-images
+MARK=/var/lib/sysible/platform-images-loaded
+LOG=/var/log/sysible-platform-images.log
 
 [ -d "$DIR" ] || exit 0
 [ -f "$MARK" ] && exit 0
@@ -22,7 +27,7 @@ docker info >/dev/null 2>&1 || exit 0
 
 mkdir -p "$(dirname "$MARK")" 2>/dev/null || true
 exec >>"$LOG" 2>&1
-echo "=== sysible base images: $(date -u 2>/dev/null) ==="
+echo "=== sysible platform images: $(date -u 2>/dev/null) ==="
 
 loaded=0 failed=0
 for tar in "$DIR"/*.tar; do

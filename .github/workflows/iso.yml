@@ -27,9 +27,77 @@ permissions:
   contents: write             # needed to create the Release on a tag
 
 jobs:
+  # ---------------------------------------------------------------------------
+  # Build the platform's container images HERE, where there is a network and a
+  # Docker daemon, so the installed machine needs neither.
+  #
+  # WHY THIS EXISTS. The platform used to be BUILT FROM SOURCE on the operator's
+  # host on first boot. Every one of those builds fetched from PyPI, npm, Debian
+  # and Alpine, so a host that could not reach them could not finish an install
+  # the installer itself had offered. Reported from a machine whose resolver
+  # could not answer for auth.docker.io:
+  #
+  #   target baseline: failed to solve: failed to fetch anonymous token:
+  #     ... lookup auth.docker.io on 172.16.100.2:53: no such host
+  #
+  # Baking the base images got that machine as far as the first `pip install`
+  # and no further. Shipping the FINISHED images is what makes an airgapped
+  # install work, and it is only possible where there is a builder — here.
+  #
+  # WHY A SEPARATE JOB: the iso job runs inside a debian:bookworm container with
+  # no Docker daemon, so it cannot build images. This one runs on the bare
+  # runner, where Docker is already up.
+  app-images:
+    runs-on: ${{ (github.event.inputs.arch == 'arm64') && 'ubuntu-24.04-arm' || 'ubuntu-latest' }}
+    timeout-minutes: 120
+    steps:
+      # SLOP is the source of truth for every app: it VENDORS the Controller,
+      # SLEP and Connect under apps/ (see apps/VENDORED.json), so one checkout
+      # builds all eight service images rather than four clones that can drift.
+      - name: Check out the platform
+        uses: actions/checkout@v4
+        with:
+          repository: sysiblesoftware/sysible-linux-operations-platform
+          path: slop
+
+      - name: Build every service image
+        run: |
+          set -euo pipefail
+          cd slop
+          docker compose -f docker-compose.yml build --pull
+          docker image ls
+
+      - name: Pull the images that are run rather than built
+        # caddy is the gateway itself — a plain `image:` in the compose file with
+        # no build of its own. Missing it means every app builds and there is
+        # still no front door.
+        run: docker pull caddy:2-alpine
+
+      - name: Save them all into ONE archive
+        # One `docker save` of every image, not one per image. A single archive
+        # stores shared layers once, and every Python service shares the whole
+        # python:3.12-slim base — saved separately it would ship eight times.
+        run: |
+          set -euo pipefail
+          mkdir -p out
+          docker save -o out/sysible-images.tar \
+            sysible-slop-idp sysible-flashback sysible-baseline \
+            sysible-visualizer sysible-slop-updater \
+            sysible-controller:latest sysible-slep:latest sysible-connect:latest \
+            caddy:2-alpine
+          ls -lh out/sysible-images.tar
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: app-images-${{ github.event.inputs.arch || 'amd64' }}
+          path: out/sysible-images.tar
+          retention-days: 1
+          compression-level: 0   # already-compressed layers; recompressing costs minutes and saves nothing
+
   iso:
     # arm64 builds run on a native ARM runner (free for public repos); amd64 and
     # tag pushes use the standard x86 runner.
+    needs: app-images
     runs-on: ${{ (github.event.inputs.arch == 'arm64') && 'ubuntu-24.04-arm' || 'ubuntu-latest' }}
     timeout-minutes: 120
     container:
@@ -49,6 +117,40 @@ jobs:
       # canonical mark — e.g. the mark was changed but the boot/GRUB/Plymouth PNGs
       # weren't regenerated. Pure sha256 check, no rendering, so it needs no extra
       # deps and can't false-positive on toolchain differences.
+      # The finished images, built by the job above. They go into the chroot so
+      # an installed machine can bring the whole platform up with no registry.
+      - name: Collect the prebuilt platform images
+        uses: actions/download-artifact@v4
+        with:
+          name: app-images-${{ github.event.inputs.arch || 'amd64' }}
+          path: live-build/config/includes.chroot/usr/share/sysible/app-images
+
+      # The SOURCE as well, not only the images. compose needs its own file and
+      # the .env beside it, sysiblectl discovers products by their checkout, and
+      # `install-sysible` git-cloned all of this from GitHub -- which is the
+      # other thing an airgapped host cannot do.
+      - name: Ship the platform source
+        uses: actions/checkout@v4
+        with:
+          repository: sysiblesoftware/sysible-linux-operations-platform
+          path: live-build/config/includes.chroot/opt/sysible-src/sysible-linux-operations-platform
+
+      - name: Confirm both actually arrived
+        # An ISO that ships neither still builds, boots, and fails at the end of
+        # the install -- the worst place to find out. Fail here instead.
+        run: |
+          set -eu
+          img=live-build/config/includes.chroot/usr/share/sysible/app-images/sysible-images.tar
+          src=live-build/config/includes.chroot/opt/sysible-src/sysible-linux-operations-platform
+          [ -s "$img" ] || { echo "ERROR: the prebuilt image archive is missing or empty." >&2; exit 1; }
+          [ -f "$src/docker-compose.yml" ] || { echo "ERROR: the platform source did not ship." >&2; exit 1; }
+          echo "images: $(du -h "$img" | cut -f1)   source: $(du -sh "$src" | cut -f1)"
+          # KEEP .git. install-sysible recognises an existing checkout by it and
+          # then runs `git pull --ff-only || true` -- which refreshes a networked
+          # host and is a harmless no-op on an isolated one. Without it the
+          # checkout looks like a stray directory and the clone fails on a
+          # non-empty target.
+
       - name: Verify branding is in sync
         run: sh scripts/verify-branding.sh
 

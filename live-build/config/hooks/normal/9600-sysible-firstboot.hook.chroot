@@ -16,10 +16,10 @@ chmod 0755 /usr/lib/sysible/regenerate-ssh-host-keys 2>/dev/null || true
 # wants symlink by hand, then verify the effect below rather than the exit status.
 systemctl enable sysible-regenerate-ssh-host-keys.service 2>/dev/null || {
 
-# Loads the baked container base images into Docker's store. Without it the
-# tarballs in /usr/share/sysible/base-images are inert and a build on a host
-# with no registry access fails on images the machine already has.
-systemctl enable sysible-base-images.service 2>/dev/null || true
+# Loads the platform's prebuilt images into Docker's store. Without it the
+# archive in /usr/share/sysible/app-images is inert and compose goes looking
+# for a registry to pull images this machine is already carrying.
+systemctl enable sysible-platform-images.service 2>/dev/null || true
     mkdir -p /etc/systemd/system/multi-user.target.wants
     ln -sf /usr/lib/systemd/system/sysible-regenerate-ssh-host-keys.service \
         /etc/systemd/system/multi-user.target.wants/sysible-regenerate-ssh-host-keys.service
