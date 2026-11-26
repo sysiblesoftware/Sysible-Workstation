@@ -1,0 +1,53 @@
+#!/bin/sh
+# Bake the container base images the Sysible platform builds FROM into the image.
+#
+# WHY. The installer offers to set the platform up on first boot. That set-up
+# builds each product's containers from source on the host, and those builds pull
+# four base images from Docker Hub. A host that cannot reach Docker Hub therefore
+# cannot complete an install the installer itself offered -- reported from a
+# machine whose resolver could not answer for auth.docker.io:
+#
+#   target baseline: failed to solve: failed to fetch anonymous token:
+#     ... dial tcp: lookup auth.docker.io on 172.16.100.2:53: no such host
+#   ERROR: Sysible SLOP gateway: compose failed to build or start it
+#
+# Every apt dependency was present on that machine. These are not apt packages;
+# they are a network fetch at build time, which is why "install all the deps"
+# never reached them. Shipping them is what closes it.
+#
+# SKOPEO, NOT DOCKER. There is no Docker daemon in a live-build chroot, so
+# `docker pull` is not available here. skopeo copies straight from the registry
+# to a docker-archive on disk with no daemon at all, and it is already a hard
+# dependency of the image.
+#
+# REQUIRED: a missing base image means a first boot that cannot build, so a
+# failure here stops the ISO rather than shipping an image that only works on a
+# network we cannot see from the build.
+set -e
+
+ARCH=$(dpkg --print-architecture)           # amd64 | arm64
+OUT=/usr/share/sysible/base-images
+IMAGES="python:3.12-slim node:20-slim node:22-slim docker:27-cli"
+
+command -v skopeo >/dev/null 2>&1 || {
+    echo "ERROR: skopeo is missing — it is a hard dependency and is what fetches" >&2
+    echo "       the base images without a Docker daemon." >&2
+    exit 1; }
+
+mkdir -p "$OUT"
+echo "== Sysible: baking container base images ($ARCH) =="
+for img in $IMAGES; do
+    name=$(printf '%s' "$img" | tr ':/' '__')
+    echo "   $img"
+    skopeo copy --quiet --override-arch "$ARCH" --override-os linux \
+        "docker://docker.io/library/$img" \
+        "docker-archive:$OUT/$name.tar:$img" \
+        || { echo "ERROR: could not fetch $img for $ARCH." >&2
+             echo "       The platform cannot be built on a host without Docker Hub" >&2
+             echo "       unless these ship in the image, so this is fatal." >&2
+             exit 1; }
+done
+
+printf '%s\n' $IMAGES > "$OUT/MANIFEST"
+echo "== Sysible: base images baked =="
+du -sh "$OUT" 2>/dev/null || true

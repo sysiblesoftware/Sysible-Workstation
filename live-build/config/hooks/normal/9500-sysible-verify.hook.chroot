@@ -596,4 +596,19 @@ done
 # SSO/updater/Baseline/Flashback secrets. `install-sysible slop` is one of the
 # two questions the installer asks, so a host that cannot run it is a broken
 # promise made during the install itself.
+# The baked base images are actually in the image, and complete.
+#
+# An image that ships three of the four is worse than one that ships none: the
+# build gets further before it reaches for Docker Hub, so the failure lands
+# later and reads as something else entirely.
+BIMG=/usr/share/sysible/base-images
+[ -d "$BIMG" ] || fail "$BIMG is missing — the platform cannot be built on a host without Docker Hub"
+[ -s "$BIMG/MANIFEST" ] || fail "$BIMG/MANIFEST is missing — nothing records which base images should be here"
+while read -r _img; do
+    [ -n "$_img" ] || continue
+    _f="$BIMG/$(printf '%s' "$_img" | tr ':/' '__').tar"
+    [ -s "$_f" ] || fail "base image $_img was not baked in (expected $_f)"
+done < "$BIMG/MANIFEST"
+echo "sysible-verify: OK — $(wc -l < "$BIMG/MANIFEST") base images baked in ($(du -sh "$BIMG" 2>/dev/null | cut -f1))."
+
 echo "sysible-verify: OK — kubectl, helm, k9s, tofu, compose and the SLOP prerequisites are all present."

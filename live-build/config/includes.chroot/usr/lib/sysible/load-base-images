@@ -1,0 +1,47 @@
+#!/bin/sh
+# Load the baked container base images into the local Docker image store.
+#
+# The ISO carries python/node/docker base images (see the 8500 build hook) so the
+# platform can be built on a host that cannot reach Docker Hub. They are useless
+# sitting in /usr/share as tarballs -- a build looks in the image store -- so this
+# loads them once, as early as the daemon allows.
+#
+# Idempotent twice over: `docker load` of an image already present is a cheap
+# no-op, and the marker stops this repeating on every boot.
+set -e
+DIR=/usr/share/sysible/base-images
+MARK=/var/lib/sysible/base-images-loaded
+LOG=/var/log/sysible-base-images.log
+
+[ -d "$DIR" ] || exit 0
+[ -f "$MARK" ] && exit 0
+command -v docker >/dev/null 2>&1 || exit 0
+# No daemon yet is not a failure: the unit is ordered after docker.service, and a
+# manual run before it is up should simply do nothing rather than report a fault.
+docker info >/dev/null 2>&1 || exit 0
+
+mkdir -p "$(dirname "$MARK")" 2>/dev/null || true
+exec >>"$LOG" 2>&1
+echo "=== sysible base images: $(date -u 2>/dev/null) ==="
+
+loaded=0 failed=0
+for tar in "$DIR"/*.tar; do
+    [ -f "$tar" ] || continue
+    if docker load -i "$tar"; then
+        loaded=$((loaded + 1))
+    else
+        failed=$((failed + 1))
+        echo "WARNING: could not load $tar"
+    fi
+done
+
+echo "loaded=$loaded failed=$failed"
+# Only claim it is done if nothing failed; a partial load should be retried on
+# the next boot rather than remembered as complete.
+if [ "$failed" -eq 0 ] && [ "$loaded" -gt 0 ]; then
+    date -u > "$MARK" 2>/dev/null || true
+    echo "=== done ==="
+else
+    echo "=== incomplete — will retry on the next boot ==="
+fi
+exit 0
