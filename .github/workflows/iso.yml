@@ -61,9 +61,42 @@ jobs:
           path: slop
 
       - name: Build every service image
+        # compose interpolates the WHOLE file before building, so a variable
+        # marked required (${VAR:?...}) stops a build that never uses it. The
+        # first run of this job died on
+        #   required variable SYSIBLE_SSO_SHARED_SECRET is missing a value
+        # having built nothing.
+        #
+        # A placeholder is safe HERE and only here: that variable appears solely
+        # under `environment:`, never under `args:`, so it is a runtime value and
+        # never enters an image layer. The real secret is minted per host by
+        # install.sh, which is what makes SSO between the apps trustworthy. The
+        # guard below is what keeps that true.
+        env:
+          SYSIBLE_SSO_SHARED_SECRET: build-time-placeholder-not-a-secret
         run: |
           set -euo pipefail
           cd slop
+          # If a required variable ever becomes a BUILD ARG, the placeholder below
+          # would be baked into an image layer and shipped as if it were a real
+          # secret. Read the RENDERED config and inspect build args ONLY -- grepping
+          # the file cannot tell a build arg from an environment value.
+          docker compose -f docker-compose.yml config --format json > /tmp/rendered.json
+          python3 - <<'PYGUARD'
+          import json, sys
+          d = json.load(open("/tmp/rendered.json"))
+          bad = []
+          for name, svc in (d.get("services") or {}).items():
+              b = svc.get("build")
+              args = (b.get("args") or {}) if isinstance(b, dict) else {}
+              vals = args.values() if isinstance(args, dict) else args
+              if any("placeholder-not-a-secret" in str(v) for v in vals):
+                  bad.append(name)
+          if bad:
+              sys.exit("ERROR: the build-time placeholder reached a BUILD ARG in %s. "
+                       "It would be baked into the image and shipped as a secret." % bad)
+          print("build args carry no placeholder: the secret stays a runtime value")
+          PYGUARD
           docker compose -f docker-compose.yml build --pull
           docker image ls
 
