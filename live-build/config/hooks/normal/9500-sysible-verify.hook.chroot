@@ -572,7 +572,8 @@ echo "sysible-verify: OK — SysTerm $V, Run Command menu, and new icon all pres
 # is not.
 echo "== sysible-verify: tools the product pages promise =="
 for _t in docker kubectl helm k9s tofu ansible ansible-playbook podman \
-          git curl openssl nft jq; do
+          git curl openssl nft jq \
+          sops eza pwsh codium; do
     command -v "$_t" >/dev/null 2>&1 \
         || fail "$_t is NOT in the image, but the product pages list it as included"
 done

@@ -45,8 +45,16 @@ def _code(path):
                      if not l.lstrip().startswith("#"))
 
 
+# sops/eza/pwsh (+codium on Workstation) were BEST-EFFORT and advertised anyway:
+# server.html called sops "preinstalled", linux.html said VSCodium and PowerShell
+# are "baked into the image - nothing to install before you start", and eza and
+# sops are named on the same line. Each one's install ended in `echo "... skipped"`,
+# so a vendor hiccup produced a WARNING in a 35-minute log and an ISO that did not
+# match its own product page. Decision: "I don't want anything advertised that
+# isn't installed" -- so they are required, and the build asserts them.
 PROMISED = ["docker", "kubectl", "helm", "k9s", "tofu", "ansible", "podman",
-            "git", "curl", "openssl", "nft"]
+            "git", "curl", "openssl", "nft",
+            "sops", "eza", "pwsh", "codium"]
 
 
 def _stanza():
@@ -139,3 +147,53 @@ def test_compose_is_checked_without_needing_a_daemon():
     assert "docker compose version" not in s, (
         "running `docker compose version` in a build chroot is not a safe probe — "
         "there is no daemon there")
+
+
+# ---- the four that used to be best-effort ---------------------------------
+
+@pytest.mark.parametrize("name", ['sops', 'eza', 'powershell', 'vscodium'])
+def test_the_vendor_hook_cannot_skip_it(name):
+    """Each of these ended in `echo "<name> skipped"` or a WARNING, under a
+    comment saying it was optional. The product pages said otherwise. A tool the
+    pages promise must stop the build, not leave a line in a log nobody reads."""
+    code = _code(VENDOR)
+    assert not re.search(r'echo\s+"[^"]*%s[^"]*skipp' % name, code, re.I), (
+        f"{name} still has a skip path in the vendor hook; the ISO can ship "
+        f"without something the product pages say is installed")
+
+
+# Every command that fetches or installs one of these touches one of these
+# strings. A `||` fallback on such a line must end the build, not continue.
+TOUCHES = {
+    "sops":       ["/usr/local/bin/sops", "$sops_url", "sops_url"],
+    "eza":        ["/tmp/eza.tgz", "eza_${GNU_ARCH}"],
+    "powershell": ["/tmp/powershell.deb", "$pwsh_url"],
+    "vscodium":   ["vscodium-archive-keyring.gpg", "install -y --no-install-recommends codium",
+                   "vscodium.list"],
+}
+
+
+@pytest.mark.parametrize("name", ['sops', 'eza', 'powershell', 'vscodium'])
+def test_no_failure_path_is_swallowed(name):
+    """Not just "no skip message" -- EVERY failure path has to end the build.
+
+    The first version of this test looked for `exit 1` anywhere within 1400
+    characters of the tool's name. That passed against a hook whose EXTRACT step
+    had been put back to `|| true`, because the DOWNLOAD step a few lines above
+    still carried an exit. A test that accepts one guarded line as proof for an
+    unguarded one is not a test, so this walks every line that touches the tool
+    and checks that line's own fallback."""
+    bad = []
+    for line in _code(VENDOR).splitlines():
+        if not any(t in line for t in TOUCHES[name]):
+            continue
+        if "||" not in line:
+            continue
+        tail = line.split("||", 1)[1]
+        if "exit 1" in tail or "exit 1" in line:
+            continue
+        bad.append(line.strip())
+    assert not bad, (
+        f"{name} has fallback(s) that let the build carry on after a failure, "
+        f"so the ISO can ship without something the product pages promise:\n  "
+        + "\n  ".join(bad))
