@@ -1,4 +1,4 @@
-"""8.8.8.8 must be the first nameserver, and it must survive a lease renewal.
+"""8.8.8.8 must be the LAST nameserver, and it must survive a lease renewal.
 
 Reported as "I changed resolv.conf to 8.8.8.8 but it changed back. Why?" --
 which is the expected behaviour, not a fault: dhclient regenerates
@@ -64,13 +64,25 @@ def test_it_is_valid_posix_sh():
     assert r.returncode == 0, r.stderr
 
 
-def test_google_dns_comes_first():
-    assert _run("192.168.1.1 192.168.1.2").split() [0] == "8.8.8.8"
+def test_the_networks_own_resolver_is_asked_first():
+    """It used to be 8.8.8.8 first, and that broke every internal name on the
+    network. A public resolver answers NXDOMAIN for a LAN hostname, and NXDOMAIN
+    is FINAL -- glibc tries the next nameserver on a timeout or a SERVFAIL, never
+    on NXDOMAIN -- so the resolver that knew the answer was never asked.
+
+    Reported as "SLEP hostname resolution isn't working, only IP". SLEP is a
+    container; docker forwards to the host's resolvers in order, so every lookup
+    died at 8.8.8.8. An IP worked because an IP never asks DNS."""
+    assert _run("192.168.1.1 192.168.1.2").split()[0] == "192.168.1.1"
 
 
-def test_the_dhcp_servers_are_kept_behind_it():
+def test_google_dns_comes_last():
+    assert _run("192.168.1.1 192.168.1.2").split()[-1] == "8.8.8.8"
+
+
+def test_the_dhcp_servers_keep_their_order_in_front():
     """Prepend, not supersede: the network's own resolver is not taken away."""
-    assert _run("192.168.1.1 192.168.1.2").split() == ["8.8.8.8", "192.168.1.1", "192.168.1.2"]
+    assert _run("192.168.1.1 192.168.1.2").split() == ["192.168.1.1", "192.168.1.2", "8.8.8.8"]
 
 
 def test_a_lease_with_no_servers_yields_exactly_one():
