@@ -173,6 +173,38 @@ jobs:
           repository: sysiblesoftware/sysible-linux-operations-platform
           path: live-build/config/includes.chroot/opt/sysible-src/sysible-linux-operations-platform
 
+      - name: Strip CI credentials from the shipped checkout
+        # actions/checkout authenticates by writing
+        #     [http "https://github.com/"]  extraheader = AUTHORIZATION: basic <token>
+        # into .git/config. Its own post-job step removes that again -- but the post
+        # step runs AFTER this job's build, and live-build has already copied this
+        # tree into the chroot and squashed it by then. v1.0.10 shipped a live
+        # 60-minute GitHub Actions token inside every ISO because of exactly that
+        # ordering (checkout 13:08:35, squashfs 13:08:35-13:31:51, cleanup 13:35:02).
+        #
+        # The operator-visible symptom was not a security warning, it was
+        #     Username for 'https://github.com':
+        # on every `sysiblectl update` -- on a PUBLIC repo. git does not fall back to
+        # anonymous access once an Authorization header is configured: it sends the
+        # dead header, GitHub answers 401, and git stops to ask. Reported as "why am
+        # I being asked for a github password" and "this code is public".
+        #
+        # So: strip it HERE, before anything is built, and fail the build if any
+        # credential survives. A released ISO is public and permanent.
+        run: |
+          set -eu
+          d=live-build/config/includes.chroot/opt/sysible-src/sysible-linux-operations-platform
+          cfg="$d/.git/config"
+          [ -f "$cfg" ] || { echo "::error::$cfg is missing" >&2; exit 1; }
+          git config --file "$cfg" --remove-section 'http.https://github.com/' 2>/dev/null || true
+          git config --file "$cfg" --unset-all 'http.https://github.com/.extraheader' 2>/dev/null || true
+          if grep -rniE 'extraheader|AUTHORIZATION:|ghs_|ghp_|github_pat_|x-access-token' "$d/.git/"; then
+            echo "::error::a credential is STILL in the shipped checkout - refusing to build" >&2
+            exit 1
+          fi
+          echo "shipped checkout carries no credentials. remote is:"
+          git config --file "$cfg" --get remote.origin.url
+
       - name: Confirm both actually arrived
         # An ISO that ships neither still builds, boots, and fails at the end of
         # the install -- the worst place to find out. Fail here instead.
