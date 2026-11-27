@@ -21,8 +21,16 @@ ConditionPathExists=!/var/lib/sysible/platform-apps.installed
 ConditionDirectoryNotEmpty=/usr/share/sysible/platform-apps.wanted.d
 
 [Service]
-Type=oneshot
-RemainAfterExit=no
+# NOT oneshot. multi-user.target waits for a oneshot unit to finish, and this
+# one builds and starts containers -- minutes. Until the target is reached
+# systemd keeps painting unit status on the console, so an operator who has
+# already logged in watches "Started docker-<hash>.scope" scroll over their
+# shell and reasonably asks what is going wrong. Type=simple marks the unit
+# active as soon as the process starts: boot completes, the console goes quiet,
+# and the install carries on in the background, still reporting to the journal.
+Type=simple
+StandardOutput=journal
+StandardError=journal
 # A boot with no network must not leave a failed unit or a degraded system; it
 # just means "try again next boot". The script exits non-zero on a real failure
 # so the journal records it, and `|| true` keeps the unit itself green.

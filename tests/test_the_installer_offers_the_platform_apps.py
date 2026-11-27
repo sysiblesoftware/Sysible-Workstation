@@ -177,7 +177,18 @@ def test_the_service_waits_for_a_real_network():
     # the comment naming grub-efi-ia32-bin instead of the entry.)
     directives = "\n".join(l for l in u.splitlines() if not l.lstrip().startswith("#"))
     assert "network-online.target" in directives, directives
-    assert re.search(r'^Type=oneshot', directives, re.M), directives
+    # Type=simple, deliberately, and NOT oneshot -- which this used to pin.
+    # multi-user.target waits for a oneshot unit, and this one builds and starts
+    # containers, so boot stayed "in progress" for minutes and systemd kept
+    # painting unit status onto the console. An operator who had already logged
+    # in watched "Started docker-<hash>.scope" scroll over their shell prompt and
+    # asked, reasonably, what was going wrong. Type=simple marks the unit active
+    # as soon as the process starts, so the console goes quiet and the install
+    # continues in the background.
+    assert re.search(r'^Type=simple', directives, re.M), directives
+    assert not re.search(r'^Type=oneshot', directives, re.M), (
+        "back to oneshot: boot will block on the container build again\n" + directives
+    )
     # A no-network boot must not leave a failed unit / degraded system.
     execs = re.findall(r'^ExecStart=(.*)$', directives, re.M)
     assert execs, directives
