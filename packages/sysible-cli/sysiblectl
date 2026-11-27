@@ -1,4 +1,5 @@
 #!/bin/sh
+# sync-sha256: 0ef35a6d636cba0205f21ced3185c6a3525e86f0956078948df5433008d2d8c4
 # sysiblectl — the name a Sysible host answers to BEFORE the platform exists.
 #
 # WHY THIS FILE EXISTS. The unified `sysiblectl` lives in the Controller
@@ -51,6 +52,25 @@ _real() {
     return 1
 }
 
+# The real CLI VENDORED INSIDE the shipped platform checkout.
+#
+# _real() walks PATH, and on a freshly installed host nothing has put the real
+# CLI there yet -- install-sysible does that, on the first boot, and it takes
+# minutes. In that window every verb fell through to "the platform is not
+# installed on this host yet", on a machine whose ISO ships the platform's
+# source AND its container images, where `slop start` is a perfectly reasonable
+# thing to ask for and should simply work.
+#
+# SLOP vendors the Controller at apps/controller, and that is a complete CLI.
+# Use it rather than claiming there is nothing to act on.
+_vendored_real() {
+    _s=$(_slop_checkout) || return 1
+    for _v in "$_s/apps/controller/deploy/sysiblectl" "$_s/apps/controller/deploy/sysible_ctl"; do
+        [ -x "$_v" ] && { printf '%s\n' "$_v"; return 0; }
+    done
+    return 1
+}
+
 _slop_checkout() {
     for _d in "${SYSIBLE_SLOP_DIR:-}" /opt/sysible-linux-operations-platform \
               /opt/sysible-src/sysible-linux-operations-platform \
@@ -77,7 +97,9 @@ case "${1:-first-run}" in
     exec install-sysible -y slop "$@"
     ;;
   -h|--help|help|"")
-    if _r=$(_real); then SYSIBLE_CTL_HANDOFF=1 exec "$_r" "${@:-help}"; fi
+    if _r=$(_real) || _r=$(_vendored_real); then
+        SYSIBLE_CTL_HANDOFF=1 exec "$_r" "${@:-help}"
+    fi
     cat <<USAGE
 $ME — Sysible platform control.
 
@@ -94,7 +116,9 @@ USAGE
     exit 0
     ;;
   *)
-    if _r=$(_real); then SYSIBLE_CTL_HANDOFF=1 exec "$_r" "$@"; fi
+    if _r=$(_real) || _r=$(_vendored_real); then
+        SYSIBLE_CTL_HANDOFF=1 exec "$_r" "$@"
+    fi
     echo "$ME: the platform is not installed on this host yet, so '$1' has nothing to act on." >&2
     echo "Install it first:" >&2
     echo "    sudo $ME first-run" >&2

@@ -177,18 +177,25 @@ def test_the_service_waits_for_a_real_network():
     # the comment naming grub-efi-ia32-bin instead of the entry.)
     directives = "\n".join(l for l in u.splitlines() if not l.lstrip().startswith("#"))
     assert "network-online.target" in directives, directives
-    # Type=simple, deliberately, and NOT oneshot -- which this used to pin.
-    # multi-user.target waits for a oneshot unit, and this one builds and starts
-    # containers, so boot stayed "in progress" for minutes and systemd kept
-    # painting unit status onto the console. An operator who had already logged
-    # in watched "Started docker-<hash>.scope" scroll over their shell prompt and
-    # asked, reasonably, what was going wrong. Type=simple marks the unit active
-    # as soon as the process starts, so the console goes quiet and the install
-    # continues in the background.
-    assert re.search(r'^Type=simple', directives, re.M), directives
-    assert not re.search(r'^Type=oneshot', directives, re.M), (
-        "back to oneshot: boot will block on the container build again\n" + directives
+    # oneshot, and the greeter WAITS for it. This pinned Type=simple for one
+    # round, which was the wrong lesson: simple stopped systemd painting unit
+    # status over a session someone was already in, so it treated the noise as
+    # the problem. The problem was that the platform was being set up AFTER
+    # login at all -- you signed in, containers appeared around you, and
+    # `sysiblectl slop start` said the platform was not installed because it was
+    # still installing. Ordering before the greeter is what fixes that, and a
+    # oneshot unit is what the greeter can wait on.
+    assert re.search(r'^Type=oneshot', directives, re.M), directives
+    assert re.search(r'^Before=display-manager\.service', directives, re.M), (
+        "the greeter does not wait for the platform, so the apps come up around "
+        "a session that is already signed in\n" + directives
     )
+    # And bounded: gating the login screen on an unbounded job leaves a wedged
+    # machine with no way to sign in at all.
+    t = re.search(r'^TimeoutStartSec=(\d+)$', directives, re.M)
+    assert t and 0 < int(t.group(1)) <= 300, (
+        f"expected a bounded timeout <=300s on a unit that gates the greeter, "
+        f"got {t.group(1) if t else 'none'}")
     # A no-network boot must not leave a failed unit / degraded system.
     execs = re.findall(r'^ExecStart=(.*)$', directives, re.M)
     assert execs, directives

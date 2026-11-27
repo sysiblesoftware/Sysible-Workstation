@@ -16,26 +16,39 @@ After=network-online.target docker.service
 After=sysible-platform-images.service
 Wants=sysible-platform-images.service
 # Once it has succeeded it records what it installed; stop running thereafter.
+# BEFORE ANYONE CAN LOG IN.
+#
+# This ran after login: you reached the greeter, signed in, and the platform
+# started up around you -- containers appearing in the session, and
+# `sysiblectl slop start` answering "not installed" because setup was still
+# running. display-manager.service is the greeter (an alias for gdm3) and
+# systemd-user-sessions.service lifts the console login block, so ordering
+# before both means the machine is final whichever way you sign in.
+Before=display-manager.service
+Before=systemd-user-sessions.service
 ConditionPathExists=!/var/lib/sysible/platform-apps.installed
 # Nothing was ticked -> nothing to do, and no unit to show as having run.
 ConditionDirectoryNotEmpty=/usr/share/sysible/platform-apps.wanted.d
 
 [Service]
-# NOT oneshot. multi-user.target waits for a oneshot unit to finish, and this
-# one builds and starts containers -- minutes. Until the target is reached
-# systemd keeps painting unit status on the console, so an operator who has
-# already logged in watches "Started docker-<hash>.scope" scroll over their
-# shell and reasonably asks what is going wrong. Type=simple marks the unit
-# active as soon as the process starts: boot completes, the console goes quiet,
-# and the install carries on in the background, still reporting to the journal.
-Type=simple
-StandardOutput=journal
-StandardError=journal
+# oneshot, because the greeter must WAIT for this rather than race it. Type was
+# briefly simple: that stopped systemd painting unit status over a session
+# someone was already in, which treated the noise as the problem when the
+# problem was that this ran at all after login.
+Type=oneshot
+RemainAfterExit=yes
+# The boot console, so a wait of a minute or two explains itself rather than
+# looking like a hang. Nobody is logged in yet for it to scroll over.
+StandardOutput=journal+console
+StandardError=journal+console
 # A boot with no network must not leave a failed unit or a degraded system; it
 # just means "try again next boot". The script exits non-zero on a real failure
 # so the journal records it, and `|| true` keeps the unit itself green.
 ExecStart=/bin/sh -c '/usr/bin/sysible-install-platform-apps || true'
-TimeoutStartSec=0
+# BOUNDED. Gating the greeter on an unbounded job leaves a wedged machine
+# with no way to sign in at all. Past this systemd gives up, the greeter
+# appears, and the script's retry on the next boot takes over.
+TimeoutStartSec=150
 
 [Install]
 WantedBy=multi-user.target

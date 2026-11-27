@@ -12,7 +12,10 @@ ConditionPathExists=!/var/lib/sysible/platform-images-loaded
 Type=oneshot
 RemainAfterExit=yes
 # Loading several hundred megabytes of layers is not quick on slow storage.
-TimeoutStartSec=0
+# BOUNDED: the platform installer is ordered After= this unit and now gates
+# the greeter, so an unbounded load here would hold the login screen open for
+# ever -- a cap on that unit is worth nothing if what runs first has none.
+TimeoutStartSec=150
 ExecStart=/usr/lib/sysible/load-platform-images
 
 [Install]

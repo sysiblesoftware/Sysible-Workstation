@@ -22,6 +22,11 @@ HEADER = "# sync-sha256: "
 # Files that must stay identical across the edition repos.
 SHARED = [
     "packages/sysible-cli/install-sysible",
+    # The shim the OS ships so `sysiblectl` is a command before the platform
+    # exists. It was NOT guarded, and it drifted: a fallback added to one
+    # edition left the other still answering "the platform is not installed
+    # on this host" for a verb it could have served. Guarded now.
+    "packages/sysible-cli/sysiblectl",
     # The two alias names, shipped from the package for the same reason as the
     # installer itself. `sysible-install` is how Sysible Server is installed, so
     # it is the name an operator is most likely to type.
