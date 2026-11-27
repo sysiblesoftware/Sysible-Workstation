@@ -1,5 +1,5 @@
 #!/bin/sh
-# sync-sha256: 6163f9696bfa8d8684244a1107741e0c6905f2946569fade7a4e0b77a26421c1
+# sync-sha256: 7b2d40b9cf8a75da963526e7f3d4b1f29fda9c0c6d80884805bbb837655642e4
 # sysible-hint — one line, at login, about the Sysible software on this machine.
 #
 # Two things an operator otherwise has to already know:
@@ -30,7 +30,18 @@ ETC="${SYSIBLE_ETC_DIR:-/etc/sysible}"
 
 # Colour only on a terminal that wants it.
 if [ -t 1 ] && [ "${TERM:-dumb}" != dumb ] && [ -z "${NO_COLOR:-}" ]; then
-  G='[32m'; B='[1m'; R='[0m'
+  # BUILT WITH printf, not stored as raw ESC bytes. These were literal
+  # '[32m' / '[1m' / '[0m' -- the ESC (0x1B) that makes them escape
+  # sequences was missing from the file, so every line of the banner
+  # printed its own control codes as text:
+  #
+  #     [1m[32mSysible SLOP is set up on this machine.[0m
+  #
+  # A raw control byte in source is exactly the thing an editor, a copy
+  # or a sanitiser silently eats, which is how it was lost. Generating it
+  # at run time cannot be lost that way, and a test now checks the
+  # rendered output rather than the source text.
+  G=$(printf '\033[32m'); B=$(printf '\033[1m'); R=$(printf '\033[0m')
 else
   G=''; B=''; R=''
 fi

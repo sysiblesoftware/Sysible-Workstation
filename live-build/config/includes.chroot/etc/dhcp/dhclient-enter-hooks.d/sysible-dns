@@ -1,0 +1,37 @@
+#!/bin/sh
+# Put 8.8.8.8 in front of whatever DHCP hands out.
+#
+# WHY NOT /etc/resolv.conf. Editing that file by hand does not survive: dhclient
+# rewrites it from the lease on every renewal, which is why "I changed
+# resolv.conf to 8.8.8.8 but it changed back" is the expected behaviour and not
+# a fault. The fix has to go where the file is generated.
+#
+# WHY A HOOK AND NOT dhclient.conf. `prepend domain-name-servers 8.8.8.8;` is
+# dhclient's own directive and would do the same job, but dhclient.conf has no
+# conf.d: shipping one means replacing a packaged conffile, and every later
+# `apt upgrade` of isc-dhcp-client then stops to ask which copy to keep. This
+# directory exists precisely for additive changes and nothing else owns it.
+#
+# WHY IT WORKS. /sbin/dhclient-script sources this directory before it runs
+# make_resolv_conf, and make_resolv_conf writes one `nameserver` line per entry
+# in $new_domain_name_servers, in order. Setting the variable here therefore
+# decides what the file says, on every lease and every renewal.
+#
+# PREPEND, not supersede: the servers DHCP offered stay listed behind it, so a
+# network whose own resolver is the only thing that knows its internal names has
+# not had them taken away. Note that a public NXDOMAIN usually ends a lookup
+# rather than falling through, so an internal-only name can still fail -- if
+# that matters on a given network, drop this file.
+case " ${new_domain_name_servers:-} " in
+    *" 8.8.8.8 "*) ;;                       # already there: leave the order alone
+    *) new_domain_name_servers="8.8.8.8 ${new_domain_name_servers:-}" ;;
+esac
+# A trailing space with no DHCP servers would become an empty nameserver line.
+new_domain_name_servers="${new_domain_name_servers% }"
+
+# The same for DHCPv6 leases, which carry their servers under a different name.
+case " ${new_dhcp6_name_servers:-} " in
+    *" 8.8.8.8 "*) ;;
+    *) [ -n "${new_dhcp6_name_servers:-}" ] \
+         && new_dhcp6_name_servers="8.8.8.8 $new_dhcp6_name_servers" ;;
+esac

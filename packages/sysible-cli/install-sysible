@@ -1,5 +1,5 @@
 #!/bin/sh
-# sync-sha256: 20017238b0fe62291961ed3697d0c85073c1ef2cc1b6075a8a578f1362a73967
+# sync-sha256: 2a1b448da5e0b35b1ab7dba4e37382cb764154b8da72ff1377ffedc529a34a08
 # install-sysible — install the Sysible CE stack on this machine, on demand.
 # Nothing about the platform is baked into the ISO except this helper, so a fresh
 # install runs no Sysible services and opens no ports until you choose to install
@@ -613,6 +613,52 @@ fi
 # Best-effort: one app failing to clone or build NEVER stops the others; failures
 # are collected and reported at the end instead of aborting (and closing) the run.
 FAILED=""
+
+# ---- SLOP on a host that carries the platform: ONE compose project --------
+# Bringing the three apps up from their own compose files makes three SEPARATE
+# compose projects, and SLOP's Administration page cannot see them. It reports
+#
+#     Controller — No container (docker compose ps does not list the controller
+#     service) ... not installed on this host
+#
+# while the apps are running perfectly well and serving requests, because its
+# updater looks for either a standalone checkout of each product or the
+# one-checkout layout, and a host using the VENDORED source without saying so is
+# neither. apps.is_vendored() wants three things together: apps/<key> present,
+# no standalone checkout, and SYSIBLE_INTEGRATED recorded in the compose .env.
+# Using the vendored source and not writing that flag satisfies two of the three
+# and leaves the platform describing itself as not installed.
+#
+# install.sh --integrated is SLOP's own answer and what `sysiblectl first-run`
+# already does: it writes SYSIBLE_INTEGRATED and SYSIBLE_SLOP_DIR to the .env so
+# they survive every later recreate, and builds all nine services from apps/ as
+# one project. Hand off to it rather than keeping a second layout alive here.
+#
+# Only when the apps really are vendored. A host that cloned the three products
+# separately keeps the split layout and its own update buttons -- that is what
+# makes a migration survivable, and it is the same rule is_vendored() applies.
+_slop_dir="$(dir_for slop)"
+if [ "$SLOP" -eq 1 ] && [ -f "$_slop_dir/install.sh" ] \
+   && [ -d "$_slop_dir/apps/controller" ] && [ -d "$_slop_dir/apps/slep" ] \
+   && [ -d "$_slop_dir/apps/connect" ] \
+   && [ ! -d "$SRC_DIR/$(dirname_for controller)/.git" ]; then
+  say
+  say "============================================================"
+  say " SLOP — one platform, one compose project"
+  say "============================================================"
+  say "  the Controller, SLEP and Connect are built from this checkout's apps/,"
+  say "  so they run alongside the gateway instead of as three separate stacks."
+  if ( cd "$_slop_dir" && sh ./install.sh all --integrated ); then
+    say "  SLOP is up."
+  else
+    FAILED="$FAILED slop"
+    _warn "  SLOP did not come up (scroll up for the error)."
+  fi
+  WANT=""
+  SLOP_DONE=1
+fi
+SLOP_DONE="${SLOP_DONE:-0}"
+
 for p in $WANT; do
   say
   say "============================================================"
@@ -679,7 +725,11 @@ if [ "$SLOP" -eq 1 ]; then
   say "============================================================"
   say " SLOP gateway — the single front door in front of the apps"
   say "============================================================"
-  if clone_one slop && env SYSIBLE_SLOP_DIR="$(dir_for slop)" sysiblectl slop "$CTL_BUILD_VERB"; then
+  if [ "$SLOP_DONE" -eq 1 ]; then
+    # install.sh --integrated above brought the gateway up as part of the one
+    # project. Starting it again here would be a second, conflicting stack.
+    say "  the gateway came up with the platform."
+  elif clone_one slop && env SYSIBLE_SLOP_DIR="$(dir_for slop)" sysiblectl slop "$CTL_BUILD_VERB"; then
     say "  SLOP gateway is up."
   else
     FAILED="$FAILED slop-gateway"; _warn "  the SLOP gateway did not come up (scroll up for the error)."
