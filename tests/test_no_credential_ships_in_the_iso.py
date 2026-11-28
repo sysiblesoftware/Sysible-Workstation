@@ -21,7 +21,22 @@ git never falls back to anonymous once an Authorization header is configured.
 Two separate rules, because either alone still leaves a broken machine:
   1. nothing with a credential in it goes into the image, and
   2. no git call can block waiting for one.
+
+Rule 1 was first met by STRIPPING the header out of the checkout before the
+build. That worked, but it defended a thing that did not need to exist: the ISO
+no longer ships a source checkout at all. install-sysible clones the source, as
+it always did on any other machine, so there is no .git in the image to carry a
+credential and nothing to strip. A guarantee you get by not having the thing is
+better than one you get by remembering to clean it.
+
+The checkout was also stale from the moment it was built, so every host
+installed from an ISO started life behind — and `sysiblectl update` existed to
+fix that, which is precisely the command the token broke.
+
+So the assertion is now the absence: no step may put anything under
+includes.chroot/opt/sysible-src, and the build fails if one appears.
 """
+import pathlib
 import re
 import subprocess
 from pathlib import Path
@@ -31,7 +46,8 @@ import yaml
 
 ROOT = Path(__file__).resolve().parents[1]
 ISO_YML = ROOT / ".github/workflows/iso.yml"
-STRIP = "Strip CI credentials from the shipped checkout"
+CONFIRM = "Confirm the images arrived, and that no checkout did"
+SRC_PATH = "includes.chroot/opt/sysible-src"
 
 
 def _steps():
@@ -43,49 +59,61 @@ def _names():
     return [s.get("name", "") for s in _steps()]
 
 
-def test_the_shipped_checkout_is_stripped_of_credentials():
-    assert STRIP in _names(), (
-        "iso.yml no longer strips actions/checkout's Authorization header from the "
-        "checkout it ships. That header is written into .git/config by every "
-        "checkout and is only removed by a post-job step that runs AFTER the "
-        "squashfs is built -- so without this the token goes into the image.")
+def test_no_step_puts_a_source_checkout_into_the_image():
+    """The structural fix. A checkout that is never created cannot carry a
+    token, go stale, or need a cleanup step that runs on time."""
+    offenders = []
+    for s in _steps():
+        blob = " ".join(str(v) for v in s.values())
+        if SRC_PATH in blob and s.get("name") != CONFIRM:
+            offenders.append(s.get("name", "(unnamed)"))
+    assert not offenders, (
+        "these steps write into %s again: %s.\n"
+        "A checkout baked into the ISO is how v1.0.10 shipped a live GitHub "
+        "token, and how every installed host started out stale. install-sysible "
+        "clones the source." % (SRC_PATH, offenders))
 
 
-def test_it_runs_after_the_checkout_and_before_the_build():
-    names = _names()
-    i_strip = names.index(STRIP)
-    i_ship = names.index("Ship the platform source")
-    i_build = names.index("Build the ISO")
-    assert i_ship < i_strip < i_build, (
-        f"order is ship={i_ship} strip={i_strip} build={i_build}. Stripping before "
-        f"the checkout strips nothing; stripping after the build is exactly the "
-        f"3.5-minutes-too-late ordering that shipped the token in v1.0.10.")
+def test_the_build_refuses_to_ship_one_if_a_step_ever_adds_it_back():
+    """Belt to the braces above: the guard must be FATAL, not a warning in a
+    35-minute log, and it must trigger on a directory that actually exists."""
+    body = next(s for s in _steps() if s.get("name") == CONFIRM)["run"]
+    img = tmp_img = None
+    import subprocess as _sp
+    import tempfile
+
+    with tempfile.TemporaryDirectory() as td:
+        root = pathlib.Path(td)
+        img = root / "live-build/config/includes.chroot/usr/share/sysible/app-images"
+        img.mkdir(parents=True)
+        (img / "sysible-images.tar").write_text("not empty")
+        script = root / "step.sh"
+        script.write_text(body)
+
+        # Images present, no checkout: the step passes.
+        r = _sp.run(["sh", str(script)], cwd=root, capture_output=True, text=True,
+                    timeout=60)
+        assert r.returncode == 0, (
+            "the step failed on a correct tree:\n%s%s" % (r.stdout, r.stderr))
+
+        # A checkout reappears: the step must FAIL.
+        d = root / "live-build/config/includes.chroot/opt/sysible-src/x"
+        d.mkdir(parents=True)
+        r = _sp.run(["sh", str(script)], cwd=root, capture_output=True, text=True,
+                    timeout=60)
+        assert r.returncode != 0, (
+            "a source checkout was present and the step still exited 0 — the "
+            "build would ship it")
 
 
-def test_it_fails_the_build_rather_than_shipping_one(tmp_path):
-    """The check has to be fatal. A warning in a 35-minute log is not a gate."""
-    body = next(s for s in _steps() if s.get("name") == STRIP)["run"]
-    d = tmp_path / "live-build/config/includes.chroot/opt/sysible-src/sysible-linux-operations-platform"
-    (d / ".git").mkdir(parents=True)
-    (d / ".git/config").write_text(
-        '[remote "origin"]\n\turl = https://github.com/sysiblesoftware/x\n'
-        '[http "https://github.com/"]\n\textraheader = AUTHORIZATION: basic Zm9v\n')
-    script = tmp_path / "step.sh"
-    script.write_text(body)
-    # clean run: the step strips it and succeeds
-    r = subprocess.run(["sh", str(script)], cwd=tmp_path, capture_output=True, text=True, timeout=60)
-    assert r.returncode == 0, f"the step failed on a config it should have fixed:\n{r.stdout}{r.stderr}"
-    assert "extraheader" not in (d / ".git/config").read_text(), "the credential survived the strip"
-
-    # and if the removal cannot do its job, the step must EXIT NON-ZERO
-    (d / ".git/config").write_text(
-        '[http "https://github.com/"]\n\textraheader = AUTHORIZATION: basic Zm9v\n')
-    neutered = re.sub(r"^\s*git config --file .*$", "          :", body, flags=re.M)
-    assert "remove-section" not in neutered, "mutation did not apply"
-    script.write_text(neutered)
-    r = subprocess.run(["sh", str(script)], cwd=tmp_path, capture_output=True, text=True, timeout=60)
-    assert r.returncode != 0, (
-        "with a credential still present the step exited 0 -- the build would ship it")
+def test_the_images_are_still_shipped_and_still_required():
+    """The counterweight. Dropping the SOURCE must not quietly drop the images
+    too: they are what stops a first install pulling and building everything."""
+    body = next(s for s in _steps() if s.get("name") == CONFIRM)["run"]
+    assert "sysible-images.tar" in body
+    assert "exit 1" in body, "a missing image archive does not stop the build"
+    assert any("download-artifact" in str(s.get("uses", "")) for s in _steps()), (
+        "nothing collects the prebuilt images any more")
 
 
 def test_no_network_git_call_can_stop_for_a_credential():

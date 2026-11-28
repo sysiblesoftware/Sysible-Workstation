@@ -597,15 +597,26 @@ done
 # SSO/updater/Baseline/Flashback secrets. `install-sysible slop` is one of the
 # two questions the installer asks, so a host that cannot run it is a broken
 # promise made during the install itself.
-# The platform ships complete: its images AND its source.
+# The platform's IMAGES ship. Its source deliberately does not.
 #
-# An ISO missing either still builds, boots and installs, and fails at the very
-# last step -- compose reaching for a registry that an airgapped host cannot
-# answer. That is the worst place to discover it, so discover it here.
+# An ISO without the images still builds, boots and installs, then spends the
+# last step pulling every base image from Docker Hub and rebuilding — slow, and
+# a hard failure on a host with no route out. That is the worst place to
+# discover it, so discover it here.
+#
+# The SOURCE is the other half of what used to ship, and it is now asserted
+# ABSENT. A git checkout baked into an ISO carried actions/checkout's
+# Authorization header (its cleanup runs after the build, by which time
+# live-build has squashed the tree), so v1.0.10 shipped a live GitHub token in
+# every ISO — and the symptom operators met was not a warning but
+#     Username for 'https://github.com':
+# on every `sysiblectl update`, against a PUBLIC repository. It was also stale
+# the moment it was built. install-sysible clones the source itself, as it
+# always did on any other machine.
 PIMG=/usr/share/sysible/app-images/sysible-images.tar
-PSRC=/opt/sysible-src/sysible-linux-operations-platform
-[ -s "$PIMG" ] || fail "the prebuilt platform images are missing ($PIMG) — an airgapped host could not bring the platform up"
-[ -f "$PSRC/docker-compose.yml" ] || fail "the platform source did not ship ($PSRC) — compose has no file to read and install-sysible would try to clone it"
-echo "sysible-verify: OK — platform images ($(du -h "$PIMG" | cut -f1)) and source shipped."
+PSRC=/opt/sysible-src
+[ -s "$PIMG" ] || fail "the prebuilt platform images are missing ($PIMG) — a first install would have to pull and build everything"
+[ ! -e "$PSRC" ] || fail "$PSRC exists — a source checkout is being baked into the image again, which is how a live GitHub token shipped in v1.0.10"
+echo "sysible-verify: OK — platform images ($(du -h "$PIMG" | cut -f1)) shipped; source is cloned by install-sysible."
 
 echo "sysible-verify: OK — kubectl, helm, k9s, tofu, compose and the SLOP prerequisites are all present."

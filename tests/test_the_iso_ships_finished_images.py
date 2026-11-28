@@ -1,22 +1,43 @@
-"""The platform must install on a network with no way out.
+"""A first install must not pull and build the whole platform.
 
 Reported twice from a fresh Server whose resolver could not answer for
-auth.docker.io, then stated as a requirement: SLOP should install on an
-airgapped network and work out of the box.
+auth.docker.io. Building on the host is hopeless: every service's Dockerfile
+fetches from PyPI, npm, Debian or Alpine, so no amount of BASE images gets past
+the first `pip install`. The only thing that works is shipping the FINISHED
+images, built in CI where there is a builder and a network, and loading them at
+boot.
 
-Building on the host could never satisfy that. Every service's Dockerfile
-fetches from PyPI, npm, Debian or Alpine, so no amount of base images shipped
-in the ISO gets past the first `pip install`. The only thing that works is
-shipping the FINISHED images, built where there is a builder and a network --
-in CI -- and loading them at boot.
-
-Three things have to be true together, and each is worthless alone:
+Two things have to be true together, and each is worthless alone:
 
   * the images are built and put in the ISO;
-  * the SOURCE is too, because compose needs its file and `install-sysible`
-    otherwise git-clones it from GitHub;
   * nothing rebuilds them afterwards, or compose goes back to PyPI with the
     images sitting right there.
+
+WHAT CHANGED, and what it costs. There used to be a third: the ISO also shipped
+a git checkout of the platform source, which made a fully AIRGAPPED install
+possible — nothing to fetch at all. That is gone, deliberately, and this file no
+longer claims otherwise:
+
+  * the checkout carried actions/checkout's Authorization header, because that
+    action's cleanup runs AFTER the build and live-build has already squashed
+    the tree. v1.0.10 shipped a live 60-minute GitHub token in every ISO. What
+    operators actually met was not a security warning but
+        Username for 'https://github.com':
+    on every `sysiblectl update` — against a PUBLIC repository, because git
+    never falls back to anonymous once an Authorization header is configured.
+  * it was stale the moment it was built, so every installed host started
+    behind, and the command that would have fixed that is the one the token
+    broke.
+
+So a first install now needs to reach github.com for the source. It does NOT
+need to reach Docker Hub, and it does not build anything — which is what the
+images were for and what the reports above were about. A host with no route out
+at all can no longer install; that is the price, and it is written here rather
+than discovered.
+
+The tests further down about a host that ALREADY holds the source still apply:
+install-sysible keeps that path for an operator who put a checkout there. The
+ISO simply no longer creates one.
 """
 import pathlib
 import re
@@ -119,20 +140,38 @@ def test_the_gateway_image_is_pulled_not_built():
     assert "docker pull caddy" in _steps_text("app-images")
 
 
-# ---- the ISO carries them, and the source ----------------------------------
+# ---- the ISO carries the images, and NOT a checkout -------------------------
 def test_the_iso_collects_the_images():
     assert "download-artifact" in _steps_text("iso")
 
 
-def test_the_iso_ships_the_source_too():
-    """compose needs its own file, and install-sysible git-clones otherwise."""
-    t = _steps_text("iso")
-    assert "opt/sysible-src" in t, "the platform source does not ship"
+def test_the_iso_does_not_ship_a_source_checkout():
+    """Asserted on the STEPS, not on a substring of the file.
+
+    The first version of this check was `"opt/sysible-src" in t`, and when the
+    checkout was removed it kept passing — because the step that now REFUSES a
+    checkout mentions that path too. A substring match could not tell "ships it"
+    from "forbids it". So: no step may use actions/checkout to put anything
+    under includes.chroot, and no step but the guard may name that path.
+    """
+    steps = JOBS["iso"]["steps"]
+    SRC = "includes.chroot/opt/sysible-src"
+    GUARD = "Confirm the images arrived, and that no checkout did"
+    writers = [s.get("name", "(unnamed)") for s in steps
+               if SRC in " ".join(str(v) for v in s.values())
+               and s.get("name") != GUARD]
+    assert not writers, (
+        "these steps put a source checkout into the image again: %s" % writers)
+    checkouts = [s.get("name", "(unnamed)") for s in steps
+                 if "actions/checkout" in str(s.get("uses", ""))
+                 and "includes.chroot" in str(s.get("with", {}).get("path", ""))]
+    assert not checkouts, (
+        "these steps check a repository out INTO the image: %s" % checkouts)
 
 
-def test_the_build_fails_if_either_is_missing():
-    """An ISO missing one still builds, boots and installs, then fails at the
-    last step -- the worst place to find out."""
+def test_the_build_fails_if_the_images_are_missing():
+    """An ISO without them still builds, boots and installs, then spends the
+    last step pulling and rebuilding everything -- the worst place to find out."""
     t = _steps_text("iso")
     assert "exit 1" in t and "sysible-images.tar" in t
 
@@ -152,10 +191,15 @@ def test_the_unit_is_enabled():
     assert "systemctl enable sysible-platform-images.service" in ENABLE.read_text()
 
 
-def test_the_build_verifies_both_shipped():
+def test_the_chroot_verify_requires_the_images_and_forbids_a_checkout():
+    """The in-chroot hook is the last gate before the squashfs. It has to assert
+    both halves: the images present, and no /opt/sysible-src."""
     v = _code(VERIFY)
-    assert "sysible-images.tar" in v and "sysible-src" in v
+    assert "sysible-images.tar" in v, "the hook no longer checks for the images"
     assert "fail " in v, "the check cannot stop the build"
+    assert "/opt/sysible-src" in v and "! -e" in v, (
+        "the hook does not refuse a baked-in source checkout — the thing that "
+        "shipped a live GitHub token in v1.0.10")
 
 
 # --------------------------------------------------------------------------

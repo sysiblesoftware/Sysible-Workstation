@@ -163,63 +163,44 @@ jobs:
           name: app-images-${{ github.event.inputs.arch || 'amd64' }}
           path: live-build/config/includes.chroot/usr/share/sysible/app-images
 
-      # The SOURCE as well, not only the images. compose needs its own file and
-      # the .env beside it, sysiblectl discovers products by their checkout, and
-      # `install-sysible` git-cloned all of this from GitHub -- which is the
-      # other thing an airgapped host cannot do.
-      - name: Ship the platform source
-        uses: actions/checkout@v4
-        with:
-          repository: sysiblesoftware/sysible-linux-operations-platform
-          path: live-build/config/includes.chroot/opt/sysible-src/sysible-linux-operations-platform
 
-      - name: Strip CI credentials from the shipped checkout
-        # actions/checkout authenticates by writing
-        #     [http "https://github.com/"]  extraheader = AUTHORIZATION: basic <token>
-        # into .git/config. Its own post-job step removes that again -- but the post
-        # step runs AFTER this job's build, and live-build has already copied this
-        # tree into the chroot and squashed it by then. v1.0.10 shipped a live
-        # 60-minute GitHub Actions token inside every ISO because of exactly that
-        # ordering (checkout 13:08:35, squashfs 13:08:35-13:31:51, cleanup 13:35:02).
+      - name: Confirm the images arrived, and that no checkout did
+        # The images are what make a first install fast: compose loads them from
+        # disk instead of pulling every base image from Docker Hub and building.
+        # An ISO without them still builds, boots and installs, then fails at the
+        # very last step. Fail here instead.
         #
-        # The operator-visible symptom was not a security warning, it was
-        #     Username for 'https://github.com':
-        # on every `sysiblectl update` -- on a PUBLIC repo. git does not fall back to
-        # anonymous access once an Authorization header is configured: it sends the
-        # dead header, GitHub answers 401, and git stops to ask. Reported as "why am
-        # I being asked for a github password" and "this code is public".
+        # The SOURCE is deliberately NOT shipped any more, and that is asserted
+        # rather than assumed. A git checkout baked into an ISO was a steady
+        # source of trouble:
         #
-        # So: strip it HERE, before anything is built, and fail the build if any
-        # credential survives. A released ISO is public and permanent.
-        run: |
-          set -eu
-          d=live-build/config/includes.chroot/opt/sysible-src/sysible-linux-operations-platform
-          cfg="$d/.git/config"
-          [ -f "$cfg" ] || { echo "::error::$cfg is missing" >&2; exit 1; }
-          git config --file "$cfg" --remove-section 'http.https://github.com/' 2>/dev/null || true
-          git config --file "$cfg" --unset-all 'http.https://github.com/.extraheader' 2>/dev/null || true
-          if grep -rniE 'extraheader|AUTHORIZATION:|ghs_|ghp_|github_pat_|x-access-token' "$d/.git/"; then
-            echo "::error::a credential is STILL in the shipped checkout - refusing to build" >&2
-            exit 1
-          fi
-          echo "shipped checkout carries no credentials. remote is:"
-          git config --file "$cfg" --get remote.origin.url
-
-      - name: Confirm both actually arrived
-        # An ISO that ships neither still builds, boots, and fails at the end of
-        # the install -- the worst place to find out. Fail here instead.
+        #   * it carried actions/checkout's Authorization header, because that
+        #     action's cleanup runs AFTER this job's build and live-build has
+        #     already squashed the tree by then. v1.0.10 shipped a live 60-minute
+        #     GitHub token inside every ISO for exactly that reason. The symptom
+        #     operators saw was not a security warning but
+        #         Username for 'https://github.com':
+        #     on every `sysiblectl update` -- against a PUBLIC repository, because
+        #     git never falls back to anonymous once an Authorization header is
+        #     configured.
+        #   * it was stale the moment it was built, and every host installed from
+        #     that ISO started life behind.
+        #
+        # install-sysible clones the source itself, which is what it did before
+        # and what it still does for an operator who runs it on any other machine.
+        # A fresh install therefore needs to reach github.com -- it no longer
+        # needs to reach Docker Hub, because the images are here.
         run: |
           set -eu
           img=live-build/config/includes.chroot/usr/share/sysible/app-images/sysible-images.tar
-          src=live-build/config/includes.chroot/opt/sysible-src/sysible-linux-operations-platform
+          src=live-build/config/includes.chroot/opt/sysible-src
           [ -s "$img" ] || { echo "ERROR: the prebuilt image archive is missing or empty." >&2; exit 1; }
-          [ -f "$src/docker-compose.yml" ] || { echo "ERROR: the platform source did not ship." >&2; exit 1; }
-          echo "images: $(du -h "$img" | cut -f1)   source: $(du -sh "$src" | cut -f1)"
-          # KEEP .git. install-sysible recognises an existing checkout by it and
-          # then runs `git pull --ff-only || true` -- which refreshes a networked
-          # host and is a harmless no-op on an isolated one. Without it the
-          # checkout looks like a stray directory and the clone fails on a
-          # non-empty target.
+          if [ -e "$src" ]; then
+            echo "ERROR: $src exists — a source checkout is being baked into the ISO again." >&2
+            echo "       That is what shipped a live GitHub token in v1.0.10. Remove the step." >&2
+            exit 1
+          fi
+          echo "images: $(du -h "$img" | cut -f1)   source: not shipped (install-sysible clones it)"
 
       - name: Verify branding is in sync
         run: sh scripts/verify-branding.sh
