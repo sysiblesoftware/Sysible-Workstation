@@ -432,6 +432,47 @@ def test_a_real_checkout_is_preferred_over_the_vendored_copy(tmp_path):
     )
 
 
+# -- the state EVERY ISO install is now in: images, no source ---------------
+#
+# This pair is here because the ISO stopped shipping a source checkout. Before
+# that, images-and-source was the normal case and images-without-source was
+# unusual; now it is what every single host built from an ISO looks like on
+# first boot, and it had no test at all. The unusual case is the one that was
+# covered.
+
+
+def test_an_online_host_with_the_images_but_no_source_installs(tmp_path):
+    """The ordinary first boot. It has to CLONE (the source is not here any
+    more) and it must not pull or build images (they are)."""
+    out, src = _install(tmp_path, "slop", network=True,
+                        ships_platform=False, ships_images=True)
+    assert "Nothing has been installed" not in out, (
+        "the ordinary first boot of an ISO-installed host did not install.\n\n" + out)
+    assert "nothing to download" not in out, (
+        "it decided it already had the platform, but the ISO no longer ships "
+        "the source — it has to clone.\n\n" + out)
+    assert (src / "sysible-linux-operations-platform").exists(), (
+        "nothing was cloned into %s\n\n%s" % (src, out))
+
+
+def test_an_offline_host_with_only_the_images_says_so_rather_than_half_installing(tmp_path):
+    """The other half, and the cost of dropping the checkout, asserted rather
+    than left to be discovered.
+
+    An ISO-installed host that cannot reach github.com can no longer install:
+    the images are here, the source is not, and the source is not optional.
+    The failure has to be the clear "no internet connection" BEFORE anything is
+    touched — not a clone that fails halfway and leaves a half-built stack.
+    """
+    out, _ = _install(tmp_path, "slop", network=False,
+                      ships_platform=False, ships_images=True)
+    assert "checking the internet connection" in out, (
+        "the network check was skipped on a host that has the images but NOT "
+        "the source — the clone will fail later, after the menu is gone.\n\n" + out)
+    assert "Nothing has been installed" in out, (
+        "it got past the gate and started installing anyway.\n\n" + out)
+
+
 def test_source_without_the_images_is_not_treated_as_airgap_ready(tmp_path):
     """Half a shipment is not a shipment.
 
